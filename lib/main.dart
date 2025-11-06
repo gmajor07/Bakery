@@ -25,9 +25,7 @@ class MyApp extends ConsumerWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Pastry Pros',
-      routes: {
-        '/home': (_) => HomeScreen(),
-      },
+      routes: {'/home': (_) => HomeScreen(), '/login': (_) => LoginScreen()},
       home: authState.isAuthenticated ? HomeScreen() : const LoginScreen(),
     );
   }

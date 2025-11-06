@@ -20,10 +20,12 @@ class ProductsApiService {
     try {
       final response = await _dio.get(
         '/products',
-        options: Options(headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        }),
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+        ),
       );
       final data = response.data as List;
       return data.map((json) => Product.fromJson(json)).toList();
@@ -33,5 +35,4 @@ class ProductsApiService {
       throw Exception(error);
     }
   }
-
 }

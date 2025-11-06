@@ -47,8 +47,7 @@ class ProductsScreen extends ConsumerWidget {
                 );
               },
             ),
-            loading: () =>
-            const Center(child: CircularProgressIndicator()),
+            loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, _) {
               final msg = error.toString().toLowerCase();
 
@@ -61,7 +60,6 @@ class ProductsScreen extends ConsumerWidget {
 
               return Center(child: Text('Login Again'));
             },
-
           ),
         );
       },

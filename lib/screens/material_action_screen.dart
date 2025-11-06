@@ -1,30 +1,30 @@
 import 'package:flutter/material.dart';
-import 'material_action_screen.dart';
-import 'product_screen.dart';
+import 'adjustment_screen.dart';
+import 'material_screen.dart';
 
-class InventoryActionsScreen extends StatelessWidget {
+class MaterialActionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Inventory')),
+      appBar: AppBar(title: Text('Materials')),
       body: GridView.count(
         crossAxisCount: 2,
         padding: EdgeInsets.all(16),
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
         children: [
-          _buildCard(context, 'Product', Icons.tune, () {
-            // Navigate to AdjustmentsScreen or another screen
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => ProductsScreen()),
-            );
-          }),
-          _buildCard(context, 'Materials', Icons.info_outline, () {
+          _buildCard(context, 'List', Icons.info_outline, () {
             // Navigate to AdjustmentsScreen
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => MaterialActionScreen()),
+              MaterialPageRoute(builder: (_) => MaterialsScreen()),
+            );
+          }),
+          _buildCard(context, 'Adjustments', Icons.tune, () {
+            // Navigate to AdjustmentsScreen
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => AdjustmentsScreen()),
             );
           }),
         ],

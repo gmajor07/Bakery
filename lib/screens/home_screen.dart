@@ -11,14 +11,18 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(authProvider, (previous, next) {
+      if (!next.isAuthenticated) {
+        Navigator.of(context).pushReplacementNamed('/login');
+      }
+    });
+
     final authState = ref.watch(authProvider);
 
-    // Show loading if token is still loading
     if (authState.isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // Not authenticated → redirect to login
     if (!authState.isAuthenticated) {
       return const Scaffold(body: Center(child: Text('Please log in')));
     }
