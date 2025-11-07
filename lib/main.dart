@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'auth/auth_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
+import 'theme.dart';
 
 void main() {
   runApp(const ProviderScope(child: MyApp()));
@@ -25,7 +26,11 @@ class MyApp extends ConsumerWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Pastry Pros',
-      routes: {'/home': (_) => HomeScreen(), '/login': (_) => LoginScreen()},
+      theme: AppTheme.lightTheme,
+      routes: {
+        '/home': (_) => HomeScreen(),
+        '/login': (_) => const LoginScreen(),
+      },
       home: authState.isAuthenticated ? HomeScreen() : const LoginScreen(),
     );
   }

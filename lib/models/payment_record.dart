@@ -22,7 +22,8 @@ class PaymentRecord {
     return PaymentRecord(
       id: json['id'],
       saleId: json['saleId'] ?? 0,
-      receiptNumber: json['receiptNumber'] ?? json['receipt'] ?? 0,
+      receiptNumber: json['receiptNumber'] ?? json['id'] ?? 0,
+
       customerName: customer != null
           ? customer['name'] ?? 'Unknown'
           : 'Unknown',

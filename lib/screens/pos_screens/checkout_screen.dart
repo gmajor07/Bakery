@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/auth_provider.dart';
+import '../../models/customer.dart';
 import '../../provider/pos_provider.dart';
 import '../../provider/customer_provider.dart';
 import '../../provider/sales_provider.dart';
@@ -29,10 +30,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('New Sale'),
+        title: const Text('Checkout'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
+          onPressed: _isProcessing ? null : () => Navigator.pop(context),
         ),
       ),
       body: SingleChildScrollView(
@@ -40,100 +41,298 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 🔹 Customer Selection
-            Text('Customer', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            customersAsync.when(
-              data: (customers) {
-                final selectedCustomer = ref.watch(selectedCustomerProvider);
-                return DropdownButtonFormField(
-                  value: selectedCustomer,
-                  hint: const Text('Select Customer'),
-                  items: customers
-                      .map(
-                        (c) => DropdownMenuItem(value: c, child: Text(c.name)),
-                  )
-                      .toList(),
-                  onChanged: (value) {
-                    ref.read(selectedCustomerProvider.notifier).state = value;
-                  },
-                );
-              },
-              loading: () => const Center(
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              error: (err, _) => Text('Error loading customers: $err'),
-            ),
+            // 🔹 Order Summary
+            _buildOrderSummary(cart, subtotal),
+            const SizedBox(height: 24),
 
+            // 🔹 Customer Selection
+            _buildCustomerSection(customersAsync),
             const SizedBox(height: 24),
 
             // 🔹 Payment Method
-            Text(
-              'Payment Method',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
+            _buildPaymentMethodSection(),
+            const SizedBox(height: 24),
+
+            // 🔹 Totals Section
+            _buildTotalsSection(subtotal, vat, total),
+            const SizedBox(height: 32),
+
+            // 🔹 Complete Sale Button
+            _buildCompleteSaleButton(cart, total),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOrderSummary(Map<int, CartItem> cart, double subtotal) {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Order Summary',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                Chip(
+                  label: Text(
+                    '${cart.length} ${cart.length == 1 ? 'item' : 'items'}',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  backgroundColor: Theme.of(context).primaryColor,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...cart.values
+                .take(3)
+                .map(
+                  (item) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item.product.name,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          '${item.quantity} × TSh ${item.product.price.toStringAsFixed(0)}',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            if (cart.length > 3) ...[
+              const SizedBox(height: 8),
+              Text(
+                '+ ${cart.length - 3} more items...',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCustomerSection(AsyncValue<List<Customer>> customersAsync) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Customer',
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        customersAsync.when(
+          data: (customers) {
+            final selectedCustomer = ref.watch(selectedCustomerProvider);
+            return Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey[300]!),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<Customer>(
+                  isExpanded: true,
+                  value: selectedCustomer,
+                  hint: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text('Select Customer (Optional for Cash)'),
+                  ),
+                  items: [
+                    const DropdownMenuItem<Customer>(
+                      value: null,
+                      child: Text('No Customer (Walk-in)'),
+                    ),
+                    ...customers.map(
+                      (c) => DropdownMenuItem(
+                        value: c,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(c.name),
+                        ),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    ref.read(selectedCustomerProvider.notifier).state = value;
+                  },
+                ),
+              ),
+            );
+          },
+          loading: () => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+          error: (err, _) => Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.red),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.red),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Error loading customers',
+                    style: TextStyle(color: Colors.grey[700]),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => ref.invalidate(customerListProvider),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPaymentMethodSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Payment Method',
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Row(
               children: [
                 Expanded(
-                  child: RadioListTile<String>(
-                    title: const Text('Cash'),
+                  child: _buildPaymentMethodRadio(
                     value: 'Cash',
-                    groupValue: paymentMethod,
-                    onChanged: (value) =>
-                        setState(() => paymentMethod = value!),
+                    icon: Icons.attach_money,
+                    title: 'Cash',
+                    subtitle: 'Pay with cash',
                   ),
                 ),
                 Expanded(
-                  child: RadioListTile<String>(
-                    title: const Text('Credit'),
+                  child: _buildPaymentMethodRadio(
                     value: 'Credit',
-                    groupValue: paymentMethod,
-                    onChanged: (value) =>
-                        setState(() => paymentMethod = value!),
+                    icon: Icons.credit_card,
+                    title: 'Credit',
+                    subtitle: 'Customer credit',
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+          ),
+        ),
+        if (paymentMethod == 'Credit') ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orange[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.orange[700]),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Customer selection is required for credit sales',
+                    style: TextStyle(color: Colors.orange[700], fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 
-            // 🔹 Totals Section
-            Text('Totals', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
+  Widget _buildPaymentMethodRadio({
+    required String value,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Card(
+      elevation: 0,
+      color: paymentMethod == value
+          ? Theme.of(context).primaryColor.withOpacity(0.1)
+          : Colors.transparent,
+      child: RadioListTile<String>(
+        dense: true,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 20),
+                const SizedBox(width: 4),
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+            Text(
+              subtitle,
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+        value: value,
+        groupValue: paymentMethod,
+        onChanged: (value) => setState(() => paymentMethod = value!),
+      ),
+    );
+  }
+
+  Widget _buildTotalsSection(double subtotal, double vat, double total) {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Payment Summary',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 12),
             _buildTotalRow('Subtotal:', subtotal),
             _buildTotalRow('VAT:', vat),
             const Divider(),
-            _buildTotalRow('Total:', total, isBold: true),
-            const SizedBox(height: 32),
-
-            // 🔹 Complete Sale Button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: (cart.isEmpty || _isProcessing)
-                    ? null
-                    : () async {
-                  _showConfirmDialog(total);
-                },
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: Colors.pink,
-                ),
-                child: _isProcessing
-                    ? const SizedBox(
-                  height: 24,
-                  width: 24,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2,
-                  ),
-                )
-                    : const Text(
-                  'Complete Sale',
-                  style: TextStyle(fontSize: 18, color: Colors.white),
-                ),
-              ),
-            ),
+            _buildTotalRow('Total Amount:', total, isBold: true),
           ],
         ),
       ),
@@ -142,7 +341,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   Widget _buildTotalRow(String label, double value, {bool isBold = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -150,13 +349,90 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             label,
             style: TextStyle(
               fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              color: isBold ? Theme.of(context).primaryColor : null,
             ),
           ),
           Text(
-            'TSh ${value.toStringAsFixed(2)}',
+            'TSh ${value.toStringAsFixed(0)}',
             style: TextStyle(
               fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              fontSize: isBold ? 16 : 14,
+              color: isBold ? Theme.of(context).primaryColor : null,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompleteSaleButton(Map<int, CartItem> cart, double total) {
+    final selectedCustomer = ref.watch(selectedCustomerProvider);
+    final isCredit = paymentMethod == 'Credit';
+
+    // Validate form
+    bool isValid = cart.isNotEmpty;
+    if (isCredit && selectedCustomer == null) {
+      isValid = false;
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton(
+        onPressed: (isValid && !_isProcessing)
+            ? () => _showConfirmDialog(total)
+            : null,
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          backgroundColor: Theme.of(context).primaryColor,
+        ),
+        child: _isProcessing
+            ? const SizedBox(
+                height: 24,
+                width: 24,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : Text(
+                'Complete Sale - TSh ${total.toStringAsFixed(0)}',
+                style: const TextStyle(fontSize: 16, color: Colors.white),
+              ),
+      ),
+    );
+  }
+
+  void _showConfirmDialog(double total) {
+    final selectedCustomer = ref.watch(selectedCustomerProvider);
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Confirm Sale'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Are you sure you want to complete this sale?'),
+            const SizedBox(height: 16),
+            _buildTotalRow('Total Amount:', total, isBold: true),
+            const SizedBox(height: 8),
+            _buildTextRow('Payment Method:', paymentMethod),
+            if (selectedCustomer != null)
+              _buildTextRow('Customer:', selectedCustomer.name),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _completeSale(ref, total);
+            },
+            child: const Text('Confirm Sale'),
           ),
         ],
       ),
@@ -165,7 +441,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   Widget _buildTextRow(String label, String value, {bool isBold = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -186,51 +462,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     );
   }
 
-  _showConfirmDialog(double total) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Confirm Sale'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Are you sure you want to complete this sale?'),
-            const SizedBox(height: 12),
-            _buildTotalRow('Total Amount:', total, isBold: true),
-            _buildTextRow('Payment Method:', paymentMethod),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _completeSale(ref, total);
-            },
-            child: const Text('Confirm Sale'),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _completeSale(WidgetRef ref, double total) async {
     setState(() => _isProcessing = true);
 
     final cart = ref.read(cartProvider);
     final customer = ref.read(selectedCustomerProvider);
     final isCredit = paymentMethod == 'Credit';
-
-    if (isCredit && customer == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select a customer for credit sales')),
-      );
-      setState(() => _isProcessing = false);
-      return;
-    }
 
     final items = cart.entries.map((e) {
       return {
@@ -245,11 +482,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       final sale = await ref
           .read(salesProvider.notifier)
           .createSale(
-        customerId: customer?.id,
-        isCredit: isCredit,
-        total: total,
-        items: items,
-      );
+            customerId: customer?.id,
+            isCredit: isCredit,
+            total: total,
+            items: items,
+          );
 
       print("🟢 Sale Response: $sale");
 
@@ -259,12 +496,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         await ref
             .read(salesProvider.notifier)
             .recordPayment(
-          token: token!,
-          saleId: sale['id'],
-          amount: total,
-          paymentMethod: 'credit',
-          customerId: customer?.id,
-        );
+              token: token!,
+              saleId: sale['id'],
+              amount: total,
+              paymentMethod: 'credit',
+              customerId: customer?.id,
+            );
       }
 
       ref.read(cartProvider.notifier).clearCart();
@@ -274,9 +511,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       print(err);
       print(stack);
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Sale failed: $err')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sale failed: ${err.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
       setState(() => _isProcessing = false);
     }
@@ -287,10 +527,24 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        title: const Text('✅ Sale Completed'),
-        content: Text(
-          'Sale ID: ${sale['id']}\n'
-              'Total: TSh ${sale['total']}',
+        title: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green),
+            const SizedBox(width: 8),
+            const Text('Sale Completed'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Total: TSh ${sale['total']?.toStringAsFixed(0) ?? '0'}'),
+            const SizedBox(height: 8),
+            Text(
+              'Payment Method: $paymentMethod',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
         ),
         actions: [
           TextButton(

@@ -10,14 +10,100 @@ import '../../widgets/token_error_widget.dart';
 import '../pos_screens/generate_pdf.dart';
 import 'sale_detail_screen.dart';
 
-class SalesHistoryScreen extends ConsumerWidget {
+// Pagination provider
+final salesPaginationProvider =
+    StateNotifierProvider<SalesPaginationNotifier, SalesPaginationState>((ref) {
+      return SalesPaginationNotifier();
+    });
+
+class SalesPaginationState {
+  final int currentPage;
+  final int itemsPerPage;
+  final bool hasMore;
+
+  SalesPaginationState({
+    this.currentPage = 1,
+    this.itemsPerPage = 10,
+    this.hasMore = true,
+  });
+
+  SalesPaginationState copyWith({
+    int? currentPage,
+    int? itemsPerPage,
+    bool? hasMore,
+  }) {
+    return SalesPaginationState(
+      currentPage: currentPage ?? this.currentPage,
+      itemsPerPage: itemsPerPage ?? this.itemsPerPage,
+      hasMore: hasMore ?? this.hasMore,
+    );
+  }
+}
+
+class SalesPaginationNotifier extends StateNotifier<SalesPaginationState> {
+  SalesPaginationNotifier() : super(SalesPaginationState());
+
+  void nextPage() {
+    state = state.copyWith(currentPage: state.currentPage + 1);
+  }
+
+  void previousPage() {
+    if (state.currentPage > 1) {
+      state = state.copyWith(currentPage: state.currentPage - 1);
+    }
+  }
+
+  void goToPage(int page) {
+    state = state.copyWith(currentPage: page);
+  }
+
+  void setHasMore(bool hasMore) {
+    state = state.copyWith(hasMore: hasMore);
+  }
+
+  void reset() {
+    state = SalesPaginationState();
+  }
+}
+
+class SalesHistoryScreen extends ConsumerStatefulWidget {
   const SalesHistoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SalesHistoryScreen> createState() => _SalesHistoryScreenState();
+}
+
+class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_scrollListener);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollListener() {
+    if (_scrollController.position.pixels ==
+        _scrollController.position.maxScrollExtent) {
+      final paginationState = ref.read(salesPaginationProvider);
+      if (paginationState.hasMore) {
+        ref.read(salesPaginationProvider.notifier).nextPage();
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final salesAsync = ref.watch(salesHistoryProvider);
     final selectedCustomer = ref.watch(selectedCustomerProvider);
     final selectedDateRange = ref.watch(selectedDateRangeProvider);
+    final paginationState = ref.watch(salesPaginationProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Sales History')),
@@ -28,59 +114,70 @@ class SalesHistoryScreen extends ConsumerWidget {
           children: [
             Text('Recent Sales', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(child: _buildCustomerFilter(ref)),
-                const SizedBox(width: 16),
-                _buildDatePicker(context, ref, selectedDateRange),
-              ],
+
+            // Filters Row - Made responsive
+            LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth > 600) {
+                  // Desktop layout
+                  return Row(
+                    children: [
+                      Expanded(child: _buildCustomerFilter(ref)),
+                      const SizedBox(width: 16),
+                      _buildDatePicker(context, ref, selectedDateRange),
+                    ],
+                  );
+                } else {
+                  // Mobile layout
+                  return Column(
+                    children: [
+                      _buildCustomerFilter(ref),
+                      const SizedBox(height: 12),
+                      _buildDatePicker(context, ref, selectedDateRange),
+                    ],
+                  );
+                }
+              },
             ),
             const SizedBox(height: 16),
 
-            // ------- DATA LOADING -------
+            // Pagination Info
+            _buildPaginationInfo(paginationState, salesAsync),
+            const SizedBox(height: 16),
+
+            // Sales Data
             Expanded(
               child: salesAsync.when(
-                data: (sales) {
-                  // ✅ Filter by customer
-                  List<SaleItem> filtered = sales;
-                  if (selectedCustomer != null) {
-                    filtered = filtered
-                        .where(
-                          (s) =>
-                              s.customer.toLowerCase() ==
-                              selectedCustomer.name.toLowerCase(),
-                        )
-                        .toList();
-                  }
+                data: (allSales) {
+                  // Apply filters
+                  List<SaleItem> filtered = _applyFilters(
+                    allSales,
+                    selectedCustomer,
+                    selectedDateRange,
+                  );
 
-                  // ✅ Filter by date range
-                  if (selectedDateRange != null) {
-                    filtered = filtered.where((s) {
-                      final saleDate = DateTime.parse(s.date);
-                      return saleDate.isAfter(
-                            selectedDateRange.start.subtract(
-                              const Duration(days: 1),
-                            ),
-                          ) &&
-                          saleDate.isBefore(
-                            selectedDateRange.end.add(const Duration(days: 1)),
-                          );
-                    }).toList();
-                  }
+                  // Apply pagination
+                  final paginatedSales = _applyPagination(
+                    filtered,
+                    paginationState,
+                  );
 
-                  return _buildSalesTable(context, filtered);
+                  return _buildSalesList(
+                    context,
+                    paginatedSales,
+                    filtered.length,
+                    paginationState,
+                  );
                 },
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, _) {
                   final msg = error.toString().toLowerCase();
-
                   if (msg.contains('401') ||
                       msg.contains('unauthorized') ||
                       msg.contains('token') ||
                       msg.contains('expired')) {
                     return TokenErrorWidget(ref: ref);
                   }
-
                   return Center(child: Text('Error: $error'));
                 },
               ),
@@ -91,31 +188,187 @@ class SalesHistoryScreen extends ConsumerWidget {
     );
   }
 
-  // ✅ Customer Filter Dropdown
+  List<SaleItem> _applyFilters(
+    List<SaleItem> sales,
+    Customer? selectedCustomer,
+    DateTimeRange? selectedDateRange,
+  ) {
+    List<SaleItem> filtered = sales;
+
+    // Filter by customer
+    if (selectedCustomer != null) {
+      filtered = filtered
+          .where(
+            (s) =>
+                s.customer.toLowerCase() == selectedCustomer.name.toLowerCase(),
+          )
+          .toList();
+    }
+
+    // Filter by date range
+    if (selectedDateRange != null) {
+      filtered = filtered.where((s) {
+        final saleDate = DateTime.parse(s.date);
+        return saleDate.isAfter(
+              selectedDateRange.start.subtract(const Duration(days: 1)),
+            ) &&
+            saleDate.isBefore(
+              selectedDateRange.end.add(const Duration(days: 1)),
+            );
+      }).toList();
+    }
+
+    return filtered;
+  }
+
+  List<SaleItem> _applyPagination(
+    List<SaleItem> sales,
+    SalesPaginationState pagination,
+  ) {
+    final startIndex = (pagination.currentPage - 1) * pagination.itemsPerPage;
+    final endIndex = startIndex + pagination.itemsPerPage;
+
+    // Update hasMore state
+    final hasMore = endIndex < sales.length;
+    if (hasMore != pagination.hasMore) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(salesPaginationProvider.notifier).setHasMore(hasMore);
+      });
+    }
+
+    return sales.sublist(
+      startIndex,
+      endIndex < sales.length ? endIndex : sales.length,
+    );
+  }
+
+  Widget _buildPaginationInfo(
+    SalesPaginationState pagination,
+    AsyncValue<List<SaleItem>> salesAsync,
+  ) {
+    return salesAsync.when(
+      data: (allSales) {
+        final totalItems = allSales.length;
+        final startItem =
+            (pagination.currentPage - 1) * pagination.itemsPerPage + 1;
+        final endItem = pagination.currentPage * pagination.itemsPerPage;
+        final displayedEnd = endItem > totalItems ? totalItems : endItem;
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Showing $startItem-$displayedEnd of $totalItems sales',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+            if (totalItems > pagination.itemsPerPage)
+              _buildPaginationControls(pagination, totalItems),
+          ],
+        );
+      },
+      loading: () => const SizedBox(),
+      error: (_, __) => const SizedBox(),
+    );
+  }
+
+  Widget _buildPaginationControls(
+    SalesPaginationState pagination,
+    int totalItems,
+  ) {
+    final totalPages = (totalItems / pagination.itemsPerPage).ceil();
+
+    return Row(
+      children: [
+        IconButton(
+          icon: const Icon(Icons.chevron_left),
+          onPressed: pagination.currentPage > 1
+              ? () => ref.read(salesPaginationProvider.notifier).previousPage()
+              : null,
+        ),
+        Text('Page ${pagination.currentPage} of $totalPages'),
+        IconButton(
+          icon: const Icon(Icons.chevron_right),
+          onPressed: pagination.hasMore
+              ? () => ref.read(salesPaginationProvider.notifier).nextPage()
+              : null,
+        ),
+      ],
+    );
+  }
+
+  // ✅ FIXED: Customer Filter without overflow
   Widget _buildCustomerFilter(WidgetRef ref) {
     final selected = ref.watch(selectedCustomerProvider);
     final customersAsync = ref.watch(customerListProvider);
 
     return customersAsync.when(
       data: (customers) {
-        final allOptions = [null, ...customers]; // null = All
+        final allOptions = [null, ...customers];
         return DropdownButtonFormField<Customer?>(
           value: selected,
-          decoration: const InputDecoration(labelText: 'Filter by Customer'),
+          isExpanded: true, // This is key to prevent overflow
+          decoration: const InputDecoration(
+            labelText: 'Filter by Customer',
+            border: OutlineInputBorder(),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+          ),
           items: allOptions.map((c) {
-            return DropdownMenuItem(value: c, child: Text(c?.name ?? 'All'));
+            return DropdownMenuItem(
+              value: c,
+              child: Text(
+                c?.name ?? 'All Customers',
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                style: const TextStyle(fontSize: 14),
+              ),
+            );
           }).toList(),
           onChanged: (value) {
             ref.read(selectedCustomerProvider.notifier).state = value;
+            // Reset pagination when filter changes
+            ref.read(salesPaginationProvider.notifier).reset();
           },
         );
       },
-      loading: () => const CircularProgressIndicator(),
-      error: (_, __) => const Text('Failed to load customers'),
+      loading: () => const InputDecorator(
+        decoration: InputDecoration(
+          labelText: 'Filter by Customer',
+          border: OutlineInputBorder(),
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+          suffixIcon: SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+        child: SizedBox.shrink(),
+      ),
+      error: (error, _) => DropdownButtonFormField<Customer?>(
+        value: selected,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          labelText: 'Filter by Customer',
+          border: OutlineInputBorder(),
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+          errorText: 'Failed to load',
+        ),
+        items: [
+          DropdownMenuItem(
+            value: null,
+            child: Text(
+              'All Customers',
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              style: const TextStyle(color: Colors.grey),
+            ),
+          ),
+        ],
+        onChanged: null,
+      ),
     );
   }
 
-  // ✅ Date Range Picker
+  // ✅ Date Range Picker with better layout
   Widget _buildDatePicker(
     BuildContext context,
     WidgetRef ref,
@@ -125,80 +378,131 @@ class SalesHistoryScreen extends ConsumerWidget {
         ? 'Select date range'
         : '${DateFormat('MMM dd').format(range.start)} - ${DateFormat('MMM dd, yyyy').format(range.end)}';
 
-    return TextButton.icon(
-      icon: const Icon(Icons.date_range),
-      label: Text(label),
-      onPressed: () async {
-        final picked = await showDateRangePicker(
-          context: context,
-          firstDate: DateTime(2023),
-          lastDate: DateTime.now(),
-          initialDateRange: range,
-        );
-        if (picked != null) {
-          ref.read(selectedDateRangeProvider.notifier).state = picked;
-        }
-      },
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        icon: const Icon(Icons.date_range),
+        label: Text(label, overflow: TextOverflow.ellipsis, maxLines: 1),
+        onPressed: () async {
+          final picked = await showDateRangePicker(
+            context: context,
+            firstDate: DateTime(2023),
+            lastDate: DateTime.now(),
+            initialDateRange: range,
+          );
+          if (picked != null) {
+            ref.read(selectedDateRangeProvider.notifier).state = picked;
+            // Reset pagination when filter changes
+            ref.read(salesPaginationProvider.notifier).reset();
+          }
+        },
+      ),
     );
   }
 
-  // ✅ Sales Table
-  Widget _buildSalesTable(BuildContext context, List<SaleItem> sales) {
+  // ✅ Sales List with improved design
+  Widget _buildSalesList(
+    BuildContext context,
+    List<SaleItem> sales,
+    int totalFiltered,
+    SalesPaginationState pagination,
+  ) {
     if (sales.isEmpty) {
-      return const Center(child: Text('No sales found.'));
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.receipt_long, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text('No sales found', style: TextStyle(fontSize: 16)),
+          ],
+        ),
+      );
     }
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        columns: const [
-          DataColumn(label: Text('Receipt #')),
-          DataColumn(label: Text('Customer')),
-          DataColumn(label: Text('Date')),
-          DataColumn(label: Text('Amount')),
-          DataColumn(label: Text('Status')),
-          DataColumn(label: Text('Actions')),
-        ],
-        rows: sales.map((sale) {
-          final formattedDate = DateFormat.yMMMd().format(
-            DateTime.parse(sale.date),
-          );
-          final formattedAmount = 'TSh ${sale.amount.toStringAsFixed(2)}';
+    return Column(
+      children: [
+        Expanded(
+          child: ListView.builder(
+            controller: _scrollController,
+            itemCount: sales.length + (pagination.hasMore ? 1 : 0),
+            itemBuilder: (context, index) {
+              if (index == sales.length) {
+                return const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
 
-          return DataRow(
-            cells: [
-              DataCell(Text(sale.receiptNumber.toString())),
-              DataCell(Text(sale.customer)),
-              DataCell(Text(formattedDate)),
-              DataCell(Text(formattedAmount)),
-              DataCell(Text(sale.status)),
-              DataCell(
-                Row(
-                  children: [
-                    TextButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                SaleDetailScreen(saleId: sale.receiptNumber),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.visibility),
-                      label: const Text('View'),
-                    ),
-                    TextButton.icon(
-                      onPressed: () => generateSaleReceiptPdf(sale),
-                      icon: const Icon(Icons.print),
-                      label: const Text('Print'),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
-        }).toList(),
+              final sale = sales[index];
+              return _buildSaleCard(context, sale);
+            },
+          ),
+        ),
+
+        // Bottom pagination for larger screens
+        if (totalFiltered > pagination.itemsPerPage)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: Colors.grey[300]!)),
+            ),
+            child: _buildPaginationControls(pagination, totalFiltered),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSaleCard(BuildContext context, SaleItem sale) {
+    final formattedDate = DateFormat.yMMMd().format(DateTime.parse(sale.date));
+    final formattedAmount = 'TSh ${sale.amount.toStringAsFixed(0)}';
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).primaryColor.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(Icons.receipt, color: Theme.of(context).primaryColor),
+        ),
+        title: Text('Receipt #${sale.receiptNumber}'),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(sale.customer, overflow: TextOverflow.ellipsis, maxLines: 1),
+            Text(formattedDate),
+            Text(
+              formattedAmount,
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.visibility),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        SaleDetailScreen(saleId: sale.receiptNumber),
+                  ),
+                );
+              },
+              tooltip: 'View Details',
+            ),
+            IconButton(
+              icon: const Icon(Icons.print),
+              onPressed: () => generateSaleReceiptPdf(sale),
+              tooltip: 'Print Receipt',
+            ),
+          ],
+        ),
       ),
     );
   }

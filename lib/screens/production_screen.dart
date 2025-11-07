@@ -1,9 +1,6 @@
-import 'package:bak/models/production_items.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../auth/auth_provider.dart';
 import '../provider/production_provider.dart';
-import '../services/api_service.dart';
 import '../widgets/token_error_widget.dart';
 import 'production_detail_screen.dart';
 
@@ -101,89 +98,6 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                 ),
 
                                 const SizedBox(width: 8),
-
-                                // 🔹 Delete button
-                                // 🔹 Delete button
-                                TextButton.icon(
-                                  icon: const Icon(
-                                    Icons.delete,
-                                    color: Colors.red,
-                                  ),
-                                  label: const Text(
-                                    'Delete',
-                                    style: TextStyle(color: Colors.red),
-                                  ),
-                                  onPressed: () async {
-                                    // Ask for confirmation first
-                                    final confirm = await showDialog<bool>(
-                                      context: context,
-                                      builder: (ctx) => AlertDialog(
-                                        title: const Text('Confirm Delete'),
-                                        content: const Text(
-                                          'Are you sure you want to delete this record?',
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () =>
-                                                Navigator.pop(ctx, false),
-                                            child: const Text('Cancel'),
-                                          ),
-                                          TextButton(
-                                            onPressed: () =>
-                                                Navigator.pop(ctx, true),
-                                            child: const Text('Delete'),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-
-                                    if (confirm == true) {
-                                      try {
-                                        // ✅ Here we read the ApiService provider
-                                        final apiService = ref.read(
-                                          apiServiceProvider,
-                                        );
-
-                                        // 🔹 Call the delete API
-                                        final token = await ref
-                                            .read(authProvider.notifier)
-                                            .getAccessToken();
-                                        if (token == null)
-                                          throw Exception('Token missing');
-
-                                        await apiService.deleteProduction(
-                                          item.id,
-                                          token,
-                                        );
-
-                                        // Show success message
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Production record deleted',
-                                            ),
-                                          ),
-                                        );
-
-                                        // Refresh the production list
-                                        ref.invalidate(productionProvider);
-                                      } catch (e) {
-                                        // Show error if delete fails
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'Failed to delete: $e',
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    }
-                                  },
-                                ),
                               ],
                             ),
                           ),

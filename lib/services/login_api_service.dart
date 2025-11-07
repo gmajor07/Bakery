@@ -39,6 +39,10 @@ class LoginApiService {
 
       return response.data;
     } on DioException catch (e) {
+      print("❌ DioException type: ${e.type}");
+      print("❌ DioException message: ${e.message}");
+      print("❌ DioException response: ${e.response?.data}");
+      print("❌ DioException status: ${e.response?.statusCode}");
       print("❌ DioException during login: ${e.response?.data}");
       throw e; // rethrow for widget to catch
     } catch (e, stack) {
@@ -47,5 +51,4 @@ class LoginApiService {
       rethrow;
     }
   }
-
 }

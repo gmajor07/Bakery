@@ -1,6 +1,8 @@
 import 'package:bak/screens/purchases_screens/purchases_order_screen.dart';
 import 'package:flutter/material.dart';
 
+import '../materials_received_screen.dart';
+
 class PurchasesActionsScreen extends StatelessWidget {
   const PurchasesActionsScreen({super.key});
 
@@ -23,6 +25,10 @@ class PurchasesActionsScreen extends StatelessWidget {
           }),
           _buildCard(context, 'Material Receiving', Icons.move_to_inbox, () {
             // Navigate to MaterialReceivingScreen
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => MaterialsReceivedScreen()),
+            );
           }),
         ],
       ),

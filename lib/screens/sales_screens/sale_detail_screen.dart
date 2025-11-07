@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../models/sale_item.dart';
 import '../../provider/sales_provider.dart';
 import '../../widgets/token_error_widget.dart';
+import '../pos_screens/generate_pdf.dart';
 
 class SaleDetailScreen extends ConsumerWidget {
   final int saleId;
@@ -13,52 +15,326 @@ class SaleDetailScreen extends ConsumerWidget {
     final saleAsync = ref.watch(saleDetailProvider(saleId));
 
     return Scaffold(
-      appBar: AppBar(title: Text('Sale #$saleId')),
-
+      appBar: AppBar(
+        title: Text('Sale #$saleId'),
+        actions: [
+          // Add print/export functionality
+          if (saleAsync.hasValue)
+            IconButton(
+              icon: const Icon(Icons.print),
+              onPressed: () => _printReceipt(saleAsync.value!, context),
+              tooltip: 'Print Receipt',
+            ),
+          if (saleAsync.hasValue)
+            IconButton(
+              icon: const Icon(Icons.share),
+              onPressed: () => _shareReceipt(saleAsync.value!, context),
+              tooltip: 'Share Receipt',
+            ),
+        ],
+      ),
       body: saleAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) {
-          if (err.toString().toLowerCase().contains('token')) {
-            return TokenErrorWidget(ref: ref);
-          }
-          return Center(child: Text('Error: $err'));
-        },
+        loading: () => _buildLoadingState(context),
+        error: (err, _) => _buildErrorState(err, ref, context),
         data: (sale) => _buildSaleDetails(context, sale),
       ),
     );
   }
 
-  Widget _buildSaleDetails(BuildContext context, SaleItem sale) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: ListView(
+  Widget _buildLoadingState(BuildContext context) {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text('🧾 Sale Information', style: Theme.of(context).textTheme.titleLarge),
-          const Divider(),
-          _infoRow('Date', sale.date),
-          _infoRow('Status', sale.status),
-          _infoRow('Customer', sale.customer),
-          _infoRow('Amount', 'TSh ${sale.amount.toStringAsFixed(2)}'),
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+          Text('Loading sale details...'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState(Object error, WidgetRef ref, BuildContext context) {
+    final errorMsg = error.toString().toLowerCase();
+
+    if (errorMsg.contains('token') ||
+        errorMsg.contains('unauthorized') ||
+        errorMsg.contains('401')) {
+      return TokenErrorWidget(ref: ref);
+    }
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, size: 64, color: Colors.red),
           const SizedBox(height: 16),
-          Text('🛒 Items Sold', style: Theme.of(context).textTheme.titleLarge),
-          const Divider(),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              columns: const [
-                DataColumn(label: Text('Product')),
-                DataColumn(label: Text('Qty')),
-                DataColumn(label: Text('Unit Price')),
-                DataColumn(label: Text('Subtotal')),
+          Text(
+            'Failed to load sale details',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            error.toString(),
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: () => ref.invalidate(saleDetailProvider(saleId)),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Try Again'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSaleDetails(BuildContext context, SaleItem sale) {
+    final formattedDate = _formatDate(sale.date);
+    final formattedAmount = 'TSh ${sale.amount.toStringAsFixed(0)}';
+    final totalItems = sale.items.fold<int>(
+      0,
+      (sum, item) => sum + item.quantity,
+    );
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Card
+          Card(
+            elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Receipt #${sale.receiptNumber}',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      _buildStatusChip(sale.status),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  _buildInfoGrid(
+                    sale,
+                    formattedDate,
+                    formattedAmount,
+                    totalItems,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Items List
+          Text(
+            'Items Sold ($totalItems items)',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          _buildItemsList(sale.items),
+
+          const SizedBox(height: 20),
+
+          // Payment Summary
+          _buildPaymentSummary(sale, context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(String status) {
+    Color chipColor;
+    switch (status.toLowerCase()) {
+      case 'completed':
+      case 'paid':
+        chipColor = Colors.brown;
+        break;
+      case 'pending':
+        chipColor = Colors.orange;
+        break;
+      case 'cancelled':
+        chipColor = Colors.red;
+        break;
+      default:
+        chipColor = Colors.grey;
+    }
+
+    return Chip(
+      label: Text(
+        status.toUpperCase(),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      backgroundColor: chipColor,
+    );
+  }
+
+  Widget _buildInfoGrid(
+    SaleItem sale,
+    String formattedDate,
+    String formattedAmount,
+    int totalItems,
+  ) {
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      childAspectRatio: 3,
+      crossAxisSpacing: 8,
+      mainAxisSpacing: 8,
+      children: [
+        _buildInfoItem('Date', formattedDate, Icons.calendar_today),
+        _buildInfoItem('Customer', sale.customer, Icons.person),
+        _buildInfoItem('Total Amount', formattedAmount, Icons.attach_money),
+        _buildInfoItem(
+          'Total Items',
+          totalItems.toString(),
+          Icons.shopping_cart,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoItem(String label, String value, IconData icon) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: Colors.grey[600]),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildItemsList(List<SaleProduct> items) {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // Table Header
+            const Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    'Product',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    'Qty',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    'Price',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    'Total',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
               ],
-              rows: sale.items.map((item) {
-                return DataRow(cells: [
-                  DataCell(Text(item.name)),
-                  DataCell(Text(item.quantity.toString())),
-                  DataCell(Text(item.price.toStringAsFixed(2))),
-                  DataCell(Text((item.price * item.quantity).toStringAsFixed(2))),
-                ]);
-              }).toList(),
+            ),
+            const Divider(),
+            // Items
+            ...items.map((item) => _buildItemRow(item)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildItemRow(SaleProduct item) {
+    final itemTotal = item.price * item.quantity;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Text(
+              item.name,
+              style: const TextStyle(fontSize: 14),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              item.quantity.toString(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              'TSh ${item.price.toStringAsFixed(0)}',
+              textAlign: TextAlign.right,
+              style: const TextStyle(fontSize: 14),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              'TSh ${itemTotal.toStringAsFixed(0)}',
+              textAlign: TextAlign.right,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
             ),
           ),
         ],
@@ -66,14 +342,84 @@ class SaleDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _infoRow(String label, String value) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-        Text(value),
-      ],
-    ),
-  );
+  Widget _buildPaymentSummary(SaleItem sale, BuildContext context) {
+    final subtotal = sale.items.fold<double>(
+      0,
+      (sum, item) => sum + (item.price * item.quantity),
+    );
+    const tax = 0.0; // You can add tax calculation if available
+    final total = sale.amount;
+
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Payment Summary',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            _buildSummaryRow('Subtotal', subtotal),
+            _buildSummaryRow('Tax', tax),
+            const Divider(),
+            _buildSummaryRow('Total Amount', total, isTotal: true),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryRow(String label, double amount, {bool isTotal = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+              fontSize: isTotal ? 16 : 14,
+            ),
+          ),
+          Text(
+            'TSh ${amount.toStringAsFixed(0)}',
+            style: TextStyle(
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+              fontSize: isTotal ? 16 : 14,
+              color: isTotal ? Colors.brown : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(String dateString) {
+    try {
+      final date = DateTime.parse(dateString);
+      return DateFormat('MMM dd, yyyy - HH:mm').format(date);
+    } catch (e) {
+      return dateString;
+    }
+  }
+
+  void _printReceipt(SaleItem sale, BuildContext context) {
+    generateSaleReceiptPdf(sale);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Receipt generated successfully')),
+    );
+  }
+
+  void _shareReceipt(SaleItem sale, BuildContext context) {
+    // Implement share functionality
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Share functionality coming soon')),
+    );
+  }
 }

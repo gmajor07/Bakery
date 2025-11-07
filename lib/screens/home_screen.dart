@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../app_drawer.dart';
 import '../auth/auth_provider.dart';
 import 'sales_screens/sales_actions_screen.dart';
 import 'production_screen.dart';
@@ -37,6 +38,7 @@ class HomeScreen extends ConsumerWidget {
           ),
         ],
       ),
+      drawer: const AppDrawer(),
       body: GridView.count(
         crossAxisCount: 2,
         padding: const EdgeInsets.all(16),
@@ -44,51 +46,24 @@ class HomeScreen extends ConsumerWidget {
         mainAxisSpacing: 16,
         children: [
           _buildCard(context, 'Sales', Icons.attach_money, () async {
-            final token = await ref
-                .read(authProvider.notifier)
-                .getAccessToken();
-            if (token == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Token not found. Please log in again.'),
-                ),
-              );
-              return;
-            }
-
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => SalesActionsScreen()),
             );
           }),
           _buildCard(context, 'Purchases', Icons.shopping_cart, () async {
-            final token = await ref
-                .read(authProvider.notifier)
-                .getAccessToken();
-            if (token == null) return;
-
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => PurchasesActionsScreen()),
             );
           }),
           _buildCard(context, 'Production', Icons.factory, () async {
-            final token = await ref
-                .read(authProvider.notifier)
-                .getAccessToken();
-            if (token == null) return;
-
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => ProductionScreen()),
             );
           }),
           _buildCard(context, 'Inventory', Icons.inventory, () async {
-            final token = await ref
-                .read(authProvider.notifier)
-                .getAccessToken();
-            if (token == null) return;
-
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => InventoryActionsScreen()),

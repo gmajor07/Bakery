@@ -10,60 +10,179 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final emailController = TextEditingController();
-  final codeController = TextEditingController();
-  bool isLoading = false;
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isLoading = false;
+  bool _obscurePassword = true;
 
-  void handleLogin() async {
-    final email = emailController.text.trim();
-    final code = codeController.text.trim();
+  void _handleLogin() async {
+    if (!_formKey.currentState!.validate()) return;
 
-    if (email.isEmpty || code.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter both email and code')),
-      );
-      return;
-    }
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
 
-    setState(() => isLoading = true);
+    setState(() => _isLoading = true);
     final api = LoginApiService(ref);
 
     try {
-      await api.login(email, code);
+      await api.login(email, password);
 
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
-      // Only show a generic message to the user
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Login failed. Please try again.')),
+        SnackBar(
+          content: const Text('Login failed. Please check your credentials.'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
-
-      // Detailed error stays in console
       print("❌ Login exception: $e");
     } finally {
-      if (mounted) setState(() => isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  String? _validateEmail(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter your email';
+    }
+    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+    if (!emailRegex.hasMatch(value)) {
+      return 'Please enter a valid email';
+    }
+    return null;
+  }
+
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter your password';
+    }
+    if (value.length < 4) {
+      return 'Password must be at least 4 characters';
+    }
+    return null;
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text('Login', style: TextStyle(fontSize: 24)),
-            TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Email')),
-            TextField(controller: codeController, decoration: const InputDecoration(labelText: 'Code')),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: isLoading ? null : handleLogin,
-              child: Text(isLoading ? 'Logging in...' : 'Login'),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Logo/Icon
+                      Icon(
+                        Icons.lock_outline,
+                        size: 64,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Title
+                      Text(
+                        'Login',
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Subtitle
+                      Text(
+                        'Enter your credentials to access your account',
+
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyMedium?.copyWith(color: Colors.black54),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Email Field
+                      TextFormField(
+                        controller: _emailController,
+                        decoration: const InputDecoration(
+                          labelText: 'Email',
+                          hintText: 'Enter your email',
+                          prefixIcon: Icon(Icons.email_outlined),
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        validator: _validateEmail,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Password Field
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        decoration: InputDecoration(
+                          labelText: 'Password',
+                          hintText: 'Enter your password',
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
+                          ),
+                        ),
+                        textInputAction: TextInputAction.done,
+                        validator: _validatePassword,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        onFieldSubmitted: (_) => _handleLogin(),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Login Button
+                      ElevatedButton(
+                        onPressed: _isLoading ? null : _handleLogin,
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation(
+                                    Colors.white,
+                                  ),
+                                ),
+                              )
+                            : const Text('Sign In'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ],
+          ),
         ),
       ),
     );
