@@ -3,27 +3,28 @@ import '../services/sales_api_service.dart';
 import '../auth/auth_provider.dart';
 
 final salesProvider = StateNotifierProvider<SalesNotifier, bool>(
-      (ref) => SalesNotifier(ref),
+  (ref) => SalesNotifier(ref),
 );
 
 class SalesNotifier extends StateNotifier<bool> {
-  final Ref ref; // ✅ Store Ref in a field
+  final Ref ref;
 
   SalesNotifier(this.ref) : super(false);
 
-  /// 🔹 Create a sale
+  /// 🔹 Create sale (wrapper for API + loading state)
   Future<Map<String, dynamic>> createSale({
     int? customerId,
     required bool isCredit,
     required double total,
     required List<Map<String, dynamic>> items,
+    int? dueDays,
   }) async {
-    state = true;
+    state = true; // show loading
     try {
       final token = await ref.read(authProvider.notifier).getAccessToken();
       if (token == null) throw Exception("No token found");
 
-      final api = SalesApiService(ref); // pass Ref here
+      final api = SalesApiService(ref);
 
       final sale = await api.createSale(
         accessToken: token,
@@ -31,11 +32,12 @@ class SalesNotifier extends StateNotifier<bool> {
         isCredit: isCredit,
         total: total,
         items: items,
+        dueDays: dueDays,
       );
 
       return sale;
     } finally {
-      state = false;
+      state = false; // hide loading
     }
   }
 
@@ -44,12 +46,13 @@ class SalesNotifier extends StateNotifier<bool> {
     required int saleId,
     required double amount,
     String paymentMethod = 'cash',
-    int? customerId, required String token,
+    int? customerId,
+    int? dueDays,
   }) async {
     final token = await ref.read(authProvider.notifier).getAccessToken();
     if (token == null) throw Exception("No token found");
 
-    final api = SalesApiService(ref); // pass Ref here
+    final api = SalesApiService(ref);
 
     try {
       await api.recordPayment(
@@ -58,6 +61,7 @@ class SalesNotifier extends StateNotifier<bool> {
         amount: amount,
         paymentMethod: paymentMethod,
         customerId: customerId,
+        dueDays: dueDays,
       );
     } on Exception catch (e) {
       print("❌ Failed to record payment: $e");

@@ -10,8 +10,8 @@ class SalesApiService {
   final Ref ref;
 
   SalesApiService(this.ref)
-      : _baseService = BaseApiService(ref),
-  _dio = BaseApiService(ref).dio;
+    : _baseService = BaseApiService(ref),
+      _dio = BaseApiService(ref).dio;
 
   /// 🔹 Fetch sales history
   Future<List<SaleItem>> fetchSalesHistory({
@@ -20,11 +20,14 @@ class SalesApiService {
     DateTime? endDate,
   }) async {
     try {
-      final token = await _baseService.ref.read(authProvider.notifier).getAccessToken();
+      final token = await _baseService.ref
+          .read(authProvider.notifier)
+          .getAccessToken();
       if (token == null) throw Exception("Token is null");
 
       final queryParams = {
-        if (customerName != null && customerName.isNotEmpty) 'customer': customerName,
+        if (customerName != null && customerName.isNotEmpty)
+          'customer': customerName,
         if (startDate != null) 'startDate': startDate.toIso8601String(),
         if (endDate != null) 'endDate': endDate.toIso8601String(),
       };
@@ -34,8 +37,6 @@ class SalesApiService {
         queryParameters: queryParams,
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
-
-      print("🔹 Sales history response: ${response.data}");
 
       final List data = response.data['sales'] ?? response.data;
       return data.map((json) => SaleItem.fromJson(json)).toList();
@@ -52,15 +53,15 @@ class SalesApiService {
   /// 🔹 Fetch single sale detail
   Future<SaleItem> fetchSaleDetail(int saleId) async {
     try {
-      final token = await _baseService.ref.read(authProvider.notifier).getAccessToken();
+      final token = await _baseService.ref
+          .read(authProvider.notifier)
+          .getAccessToken();
       if (token == null) throw Exception("Token is null");
 
       final response = await _dio.get(
         '/sales/$saleId',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
-
-      print("🔹 Sale detail response: ${response.data}");
 
       return SaleItem.fromJson(response.data);
     } on DioException catch (e) {
@@ -78,32 +79,43 @@ class SalesApiService {
     int? customerId,
     required bool isCredit,
     required double total,
-    required List<Map<String, dynamic>> items, required String accessToken,
+    required List<Map<String, dynamic>> items,
+    required String accessToken,
+    int? dueDays, // Optional for credit sales
   }) async {
     try {
-      final token = await _baseService.ref.read(authProvider.notifier).getAccessToken();
-      if (token == null) throw Exception("Token is null");
+      // Calculate due date if credit sale
+      String? creditDueDate;
+      if (isCredit && dueDays != null) {
+        final dueDate = DateTime.now().add(Duration(days: dueDays)).toUtc();
+        creditDueDate = dueDate.toIso8601String();
+      }
+
+      final payload = {
+        "customerId": customerId,
+        "isCredit": isCredit,
+        "creditDueDate": creditDueDate,
+        "total": total,
+        "items": items
+            .map(
+              (item) => {
+                "productId": item["product_id"],
+                "quantity": item["quantity"],
+                "price": item["price"],
+              },
+            )
+            .toList(),
+      };
 
       final response = await _dio.post(
         '/sales',
-        data: {
-          "customerId": customerId,
-          "isCredit": isCredit,
-          "total": total,
-          "items": items
-              .map(
-                (item) => {
-              "productId": item["product_id"],
-              "quantity": item["quantity"],
-              "price": item["price"],
-            },
-          )
-              .toList(),
-        },
-        options: Options(headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        }),
+        data: payload,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $accessToken',
+            'Content-Type': 'application/json',
+          },
+        ),
       );
 
       print("💰 Sale created: ${response.data}");
@@ -124,25 +136,32 @@ class SalesApiService {
     required int saleId,
     required double amount,
     String? paymentMethod,
-    int? customerId, required String accessToken,
+    int? customerId,
+    required String accessToken,
+    int? dueDays, // For credit payments
   }) async {
     try {
-      final token = await _baseService.ref.read(authProvider.notifier).getAccessToken();
-      if (token == null) throw Exception("Token is null");
-
       final payload = {
         "amount": amount,
         if (paymentMethod != null) "payment_method": paymentMethod,
         if (customerId != null) "customerId": customerId,
       };
 
+      // Include creditDueDate if payment is credit
+      if (paymentMethod == 'credit' && dueDays != null) {
+        final dueDate = DateTime.now().add(Duration(days: dueDays));
+        payload["creditDueDate"] = dueDate.toIso8601String();
+      }
+
       final response = await _dio.post(
         '/sales/$saleId/payments',
         data: payload,
-        options: Options(headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        }),
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $accessToken',
+            'Content-Type': 'application/json',
+          },
+        ),
       );
 
       print("💵 Payment recorded: ${response.data}");

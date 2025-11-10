@@ -244,7 +244,6 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
         final screenWidth = MediaQuery.of(context).size.width;
         final isTablet = screenWidth > 600;
 
-        // Grid for tablet, horizontal scroll for small screens
         final cards = [
           _buildSummaryCard(
             'Total Payments',
@@ -283,7 +282,7 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
                       .map(
                         (c) => Padding(
                           padding: const EdgeInsets.only(right: 12),
-                          child: c,
+                          child: SizedBox(width: 180, child: c),
                         ),
                       )
                       .toList(),
@@ -472,9 +471,7 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
               style: const TextStyle(fontSize: 13),
             ),
             Text(
-              DateFormat(
-                'MMM dd, yyyy',
-              ).format(payment.paymentDate), // Simplified date
+              DateFormat('MMM dd, yyyy').format(payment.paymentDate),
               style: TextStyle(color: Colors.grey[600], fontSize: 11),
               overflow: TextOverflow.ellipsis,
             ),
@@ -488,7 +485,7 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
           ],
         ),
         trailing: SizedBox(
-          width: 100, // Fixed width to prevent overflow
+          width: 100,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -512,9 +509,7 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
             ],
           ),
         ),
-        onTap: () {
-          _showPaymentDetails(context, payment);
-        },
+        onTap: () => _showPaymentDetails(context, payment),
       ),
     );
   }

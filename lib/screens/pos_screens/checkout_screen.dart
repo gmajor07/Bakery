@@ -17,6 +17,8 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   String paymentMethod = 'Cash';
   bool _isProcessing = false;
+  String? _selectedDueDays;
+  final List<String> _dueDaysOptions = ['7', '14', '21', '30'];
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +28,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     final subtotal = cartNotifier.totalPrice;
     const vat = 0.0;
-    final total = subtotal + vat;
+
+    final isCredit = paymentMethod == 'Credit';
+    final creditInterest = isCredit ? subtotal * 0.18 : 0.0;
+    final total = isCredit ? (subtotal + creditInterest) : (subtotal + vat);
 
     return Scaffold(
       appBar: AppBar(
@@ -53,8 +58,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             _buildPaymentMethodSection(),
             const SizedBox(height: 24),
 
+            // 🔹 Credit Due Days (Only for Credit)
+            if (paymentMethod == 'Credit') ...[
+              _buildCreditDueDaysSection(),
+              const SizedBox(height: 24),
+            ],
+
             // 🔹 Totals Section
-            _buildTotalsSection(subtotal, vat, total),
+            _buildTotalsSection(subtotal, vat, creditInterest, total, isCredit),
             const SizedBox(height: 32),
 
             // 🔹 Complete Sale Button
@@ -241,7 +252,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     value: 'Credit',
                     icon: Icons.credit_card,
                     title: 'Credit',
-                    subtitle: 'Customer credit',
+                    subtitle: 'Customer credit (+18%)',
                   ),
                 ),
               ],
@@ -309,12 +320,80 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         ),
         value: value,
         groupValue: paymentMethod,
-        onChanged: (value) => setState(() => paymentMethod = value!),
+        onChanged: (value) {
+          setState(() {
+            paymentMethod = value!;
+            // Reset due days when switching payment method
+            if (paymentMethod == 'Cash') {
+              _selectedDueDays = null;
+            }
+          });
+        },
       ),
     );
   }
 
-  Widget _buildTotalsSection(double subtotal, double vat, double total) {
+  Widget _buildCreditDueDaysSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Credit Due Days',
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey[300]!),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              isExpanded: true,
+              value: _selectedDueDays,
+              hint: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Text('Select due days'),
+              ),
+              items: _dueDaysOptions
+                  .map(
+                    (days) => DropdownMenuItem(
+                      value: days,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text('$days days'),
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedDueDays = value;
+                });
+              },
+            ),
+          ),
+        ),
+        if (_selectedDueDays == null && paymentMethod == 'Credit') ...[
+          const SizedBox(height: 8),
+          Text(
+            'Please select due days for credit sale',
+            style: TextStyle(color: Colors.red[600], fontSize: 12),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildTotalsSection(
+    double subtotal,
+    double vat,
+    double creditInterest,
+    double total,
+    bool isCredit,
+  ) {
     return Card(
       elevation: 2,
       child: Padding(
@@ -330,9 +409,21 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             ),
             const SizedBox(height: 12),
             _buildTotalRow('Subtotal:', subtotal),
+            if (isCredit)
+              _buildTotalRow('Credit Interest (18%):', creditInterest),
             _buildTotalRow('VAT:', vat),
             const Divider(),
             _buildTotalRow('Total Amount:', total, isBold: true),
+            if (isCredit && _selectedDueDays != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Due in $_selectedDueDays days',
+                style: TextStyle(
+                  color: Colors.orange[700],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -371,8 +462,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     // Validate form
     bool isValid = cart.isNotEmpty;
-    if (isCredit && selectedCustomer == null) {
-      isValid = false;
+    if (isCredit) {
+      if (selectedCustomer == null) {
+        isValid = false;
+      }
+      if (_selectedDueDays == null) {
+        isValid = false;
+      }
     }
 
     return SizedBox(
@@ -404,6 +500,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   void _showConfirmDialog(double total) {
     final selectedCustomer = ref.watch(selectedCustomerProvider);
+    final isCredit = paymentMethod == 'Credit';
 
     showDialog(
       context: context,
@@ -420,6 +517,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             _buildTextRow('Payment Method:', paymentMethod),
             if (selectedCustomer != null)
               _buildTextRow('Customer:', selectedCustomer.name),
+            if (isCredit && _selectedDueDays != null)
+              _buildTextRow('Due Days:', '$_selectedDueDays days'),
           ],
         ),
         actions: [
@@ -465,19 +564,30 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   Future<void> _completeSale(WidgetRef ref, double total) async {
     setState(() => _isProcessing = true);
 
-    final cart = ref.read(cartProvider);
-    final customer = ref.read(selectedCustomerProvider);
-    final isCredit = paymentMethod == 'Credit';
-
-    final items = cart.entries.map((e) {
-      return {
-        "product_id": e.value.product.id,
-        "quantity": e.value.quantity,
-        "price": e.value.product.price,
-      };
-    }).toList();
-
     try {
+      final cart = ref.read(cartProvider);
+      if (cart.isEmpty) throw Exception("Cart is empty");
+
+      final customer = ref.read(selectedCustomerProvider);
+      final isCredit = paymentMethod == 'Credit';
+
+      // ✅ Validate credit requirements
+      if (isCredit) {
+        if (customer == null)
+          throw Exception("Customer is required for credit sales");
+        if (_selectedDueDays == null)
+          throw Exception("Select due days for credit sale");
+      }
+
+      // 🔹 Prepare items for API
+      final items = cart.entries.map((e) {
+        return {
+          "product_id": e.value.product.id,
+          "quantity": e.value.quantity,
+          "price": e.value.product.price,
+        };
+      }).toList();
+
       // 🔹 Create sale
       final sale = await ref
           .read(salesProvider.notifier)
@@ -486,26 +596,30 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             isCredit: isCredit,
             total: total,
             items: items,
+            dueDays: isCredit ? int.parse(_selectedDueDays!) : null,
           );
 
-      print("🟢 Sale Response: $sale");
+      print("🟢 Sale created: $sale");
 
-      // 🔹 Record payment ONLY for credit payment
+      // 🔹 Record payment for credit sales
       if (isCredit) {
         final token = ref.read(authProvider).accessToken;
+        if (token == null) throw Exception("Access token is missing");
+
         await ref
             .read(salesProvider.notifier)
             .recordPayment(
-              token: token!,
               saleId: sale['id'],
               amount: total,
               paymentMethod: 'credit',
               customerId: customer?.id,
+              dueDays: int.parse(_selectedDueDays!),
             );
       }
 
+      // 🔹 Clear cart and show success
       ref.read(cartProvider.notifier).clearCart();
-      _showSuccessDialog(sale);
+      _showSuccessDialog(sale, isCredit);
     } catch (err, stack) {
       print("❌ ERROR DURING SALE:");
       print(err);
@@ -522,14 +636,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
   }
 
-  void _showSuccessDialog(Map<String, dynamic> sale) {
+  void _showSuccessDialog(Map<String, dynamic> sale, bool isCredit) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         title: Row(
           children: [
-            Icon(Icons.check_circle, color: Colors.green),
+            const Icon(Icons.check_circle, color: Colors.green),
             const SizedBox(width: 8),
             const Text('Sale Completed'),
           ],
@@ -538,21 +652,46 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text('Sale ID: ${sale['id'] ?? 'N/A'}'),
+            const SizedBox(height: 4),
             Text('Total: TSh ${sale['total']?.toStringAsFixed(0) ?? '0'}'),
             const SizedBox(height: 8),
             Text(
               'Payment Method: $paymentMethod',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
+            if (isCredit) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Status: Credit Sale (Due in $_selectedDueDays days)',
+                style: TextStyle(
+                  color: Colors.orange[700],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Recorded as outstanding payment',
+                style: TextStyle(color: Colors.blue[700], fontSize: 12),
+              ),
+            ],
           ],
         ),
         actions: [
           TextButton(
-            child: const Text('Close'),
+            child: const Text('Print Receipt'),
+            onPressed: () {
+              // TODO: Implement print receipt functionality
+              Navigator.pop(context); // close dialog
+              Navigator.pop(context); // go back to POS screen
+            },
+          ),
+          FilledButton(
             onPressed: () {
               Navigator.pop(context); // close dialog
               Navigator.pop(context); // go back to POS screen
             },
+            child: const Text('Done'),
           ),
         ],
       ),

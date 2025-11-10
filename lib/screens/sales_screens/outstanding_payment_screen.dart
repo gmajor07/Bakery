@@ -1,70 +1,13 @@
+// outstanding_payments_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/outstanding_payment.dart';
+import '../../provider/outstanding_payments_provider.dart';
 import '../../provider/payment_provider.dart';
 import '../../widgets/token_error_widget.dart';
-
-// Pagination provider for outstanding payments
-final outstandingPaginationProvider =
-    StateNotifierProvider<
-      OutstandingPaginationNotifier,
-      OutstandingPaginationState
-    >((ref) {
-      return OutstandingPaginationNotifier();
-    });
-
-class OutstandingPaginationState {
-  final int currentPage;
-  final int itemsPerPage;
-  final bool hasMore;
-
-  OutstandingPaginationState({
-    this.currentPage = 1,
-    this.itemsPerPage = 15,
-    this.hasMore = true,
-  });
-
-  OutstandingPaginationState copyWith({
-    int? currentPage,
-    int? itemsPerPage,
-    bool? hasMore,
-  }) {
-    return OutstandingPaginationState(
-      currentPage: currentPage ?? this.currentPage,
-      itemsPerPage: itemsPerPage ?? this.itemsPerPage,
-      hasMore: hasMore ?? this.hasMore,
-    );
-  }
-}
-
-class OutstandingPaginationNotifier
-    extends StateNotifier<OutstandingPaginationState> {
-  OutstandingPaginationNotifier() : super(OutstandingPaginationState());
-
-  void nextPage() {
-    state = state.copyWith(currentPage: state.currentPage + 1);
-  }
-
-  void previousPage() {
-    if (state.currentPage > 1) {
-      state = state.copyWith(currentPage: state.currentPage - 1);
-    }
-  }
-
-  void goToPage(int page) {
-    state = state.copyWith(currentPage: page);
-  }
-
-  void setHasMore(bool hasMore) {
-    state = state.copyWith(hasMore: hasMore);
-  }
-
-  void reset() {
-    state = OutstandingPaginationState();
-  }
-}
+import 'outstanding_payment_details_screen.dart'; // New page
 
 class OutstandingPaymentsScreen extends ConsumerStatefulWidget {
   const OutstandingPaymentsScreen({super.key});
@@ -85,10 +28,7 @@ class _OutstandingPaymentsScreenState
   void initState() {
     super.initState();
     _scrollController.addListener(_scrollListener);
-    _searchController.addListener(() {
-      setState(() => searchQuery = _searchController.text.toLowerCase());
-      ref.read(outstandingPaginationProvider.notifier).reset();
-    });
+    _searchController.addListener(_onSearchChanged);
   }
 
   @override
@@ -108,6 +48,11 @@ class _OutstandingPaymentsScreenState
     }
   }
 
+  void _onSearchChanged() {
+    setState(() => searchQuery = _searchController.text.toLowerCase());
+    ref.read(outstandingPaginationProvider.notifier).reset();
+  }
+
   void _clearFilters() {
     setState(() {
       selectedRange = null;
@@ -115,6 +60,18 @@ class _OutstandingPaymentsScreenState
       searchQuery = '';
     });
     ref.read(outstandingPaginationProvider.notifier).reset();
+  }
+
+  void _navigateToPaymentDetails(OutstandingPayment payment) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => OutstandingPaymentDetailsScreen(payment: payment),
+      ),
+    ).then((_) {
+      // Refresh data when returning from details screen
+      ref.invalidate(outstandingPaymentsProvider);
+    });
   }
 
   @override
@@ -138,15 +95,15 @@ class _OutstandingPaymentsScreenState
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // 🔍 Search + 📅 Date Range
+            // Filters Section
             _buildFiltersSection(),
             const SizedBox(height: 16),
 
-            // 📊 Summary Cards
+            // Summary Cards
             _buildSummaryCards(outstandingAsync),
             const SizedBox(height: 16),
 
-            // 📋 Outstanding Payments List
+            // Payments List
             Expanded(
               child: outstandingAsync.when(
                 data: (allOutstanding) {
@@ -155,7 +112,6 @@ class _OutstandingPaymentsScreenState
                     filtered,
                     paginationState,
                   );
-
                   return _buildOutstandingList(
                     paginatedPayments,
                     filtered.length,
@@ -179,7 +135,6 @@ class _OutstandingPaymentsScreenState
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Search Field
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
@@ -201,8 +156,6 @@ class _OutstandingPaymentsScreenState
               ),
             ),
             const SizedBox(height: 12),
-
-            // Date Range and Clear Filters
             Row(
               children: [
                 Expanded(
@@ -321,9 +274,12 @@ class _OutstandingPaymentsScreenState
               children: [
                 Icon(icon, size: 20, color: color),
                 const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                Flexible(
+                  child: Text(
+                    title,
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
@@ -365,7 +321,6 @@ class _OutstandingPaymentsScreenState
     final startIndex = (pagination.currentPage - 1) * pagination.itemsPerPage;
     final endIndex = startIndex + pagination.itemsPerPage;
 
-    // Update hasMore state
     final hasMore = endIndex < payments.length;
     if (hasMore != pagination.hasMore) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -403,11 +358,8 @@ class _OutstandingPaymentsScreenState
 
     return Column(
       children: [
-        // Pagination Info
         _buildPaginationInfo(totalFiltered, pagination),
         const SizedBox(height: 12),
-
-        // Outstanding Payments List
         Expanded(
           child: ListView.builder(
             controller: _scrollController,
@@ -425,8 +377,6 @@ class _OutstandingPaymentsScreenState
             },
           ),
         ),
-
-        // Bottom Pagination Controls
         if (totalFiltered > pagination.itemsPerPage)
           Container(
             padding: const EdgeInsets.all(16),
@@ -436,6 +386,120 @@ class _OutstandingPaymentsScreenState
             child: _buildPaginationControls(totalFiltered, pagination),
           ),
       ],
+    );
+  }
+
+  Widget _buildOutstandingCard(OutstandingPayment payment) {
+    final isOverdue = payment.dueDate.isBefore(DateTime.now());
+    final progress = payment.paidAmount / payment.totalAmount;
+    final isFullyPaid = payment.balance <= 0; // Check if fully paid
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 1,
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: isFullyPaid
+                ? Colors.green.withOpacity(0.1)
+                : isOverdue
+                ? Colors.red.withOpacity(0.1)
+                : Colors.orange.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            isFullyPaid
+                ? Icons.check_circle
+                : isOverdue
+                ? Icons.warning
+                : Icons.pending,
+            color: isFullyPaid
+                ? Colors.green
+                : isOverdue
+                ? Colors.red
+                : Colors.orange,
+          ),
+        ),
+        title: Text(
+          'Receipt #${payment.receiptNumber}',
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(payment.customer, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 4),
+            LinearProgressIndicator(
+              value: progress,
+              backgroundColor: Colors.grey[300],
+              color: isFullyPaid ? Colors.green : Colors.orange,
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Text(
+                  'Paid: TSh ${NumberFormat('#,##0').format(payment.paidAmount)}',
+                  style: TextStyle(fontSize: 12, color: Colors.green[600]),
+                ),
+                const Spacer(),
+                Text(
+                  'Total: TSh ${NumberFormat('#,##0').format(payment.totalAmount)}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ],
+        ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              'TSh ${NumberFormat('#,##0').format(payment.balance)}',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isFullyPaid
+                    ? Colors.green
+                    : isOverdue
+                    ? Colors.red
+                    : Colors.orange,
+              ),
+            ),
+            Text(
+              DateFormat('MMM dd').format(payment.dueDate),
+              style: TextStyle(
+                color: isFullyPaid
+                    ? Colors.green
+                    : isOverdue
+                    ? Colors.red
+                    : Colors.grey[600],
+                fontSize: 12,
+                fontWeight: isOverdue ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+            if (isFullyPaid)
+              Text(
+                'PAID',
+                style: TextStyle(
+                  color: Colors.green,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              )
+            else if (isOverdue)
+              Text(
+                'OVERDUE',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+          ],
+        ),
+        onTap: isFullyPaid ? null : () => _navigateToPaymentDetails(payment),
+      ),
     );
   }
 
@@ -452,7 +516,7 @@ class _OutstandingPaymentsScreenState
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
-          'Showing $startItem-$displayedEnd of $totalFiltered outstanding',
+          'Showing $startItem-$displayedEnd of $totalFiltered payments',
           style: TextStyle(color: Colors.grey[600]),
         ),
         if (totalFiltered > pagination.itemsPerPage)
@@ -490,214 +554,6 @@ class _OutstandingPaymentsScreenState
               : null,
         ),
       ],
-    );
-  }
-
-  Widget _buildOutstandingCard(OutstandingPayment payment) {
-    final isOverdue = payment.dueDate.isBefore(DateTime.now());
-    final progress = payment.paidAmount / payment.totalAmount;
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      elevation: 1,
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: isOverdue
-                ? Colors.red.withOpacity(0.1)
-                : Colors.orange.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            isOverdue ? Icons.warning : Icons.pending,
-            color: isOverdue ? Colors.red : Colors.orange,
-          ),
-        ),
-        title: Text('Receipt #${payment.receiptNumber}'),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(payment.customer),
-            const SizedBox(height: 4),
-            // Progress bar
-            LinearProgressIndicator(
-              value: progress,
-              backgroundColor: Colors.grey[300],
-              color: progress == 1 ? Colors.green : Colors.orange,
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Text(
-                  'Paid: TSh ${NumberFormat('#,##0').format(payment.paidAmount)}',
-                  style: TextStyle(fontSize: 12, color: Colors.green[600]),
-                ),
-                const Spacer(),
-                Text(
-                  'Total: TSh ${NumberFormat('#,##0').format(payment.totalAmount)}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-              ],
-            ),
-          ],
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              'TSh ${NumberFormat('#,##0').format(payment.balance)}',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: isOverdue ? Colors.red : Colors.orange,
-              ),
-            ),
-            Text(
-              DateFormat('MMM dd, yyyy').format(payment.dueDate),
-              style: TextStyle(
-                color: isOverdue ? Colors.red : Colors.grey[600],
-                fontSize: 12,
-                fontWeight: isOverdue ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-            if (isOverdue)
-              Text(
-                'OVERDUE',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-          ],
-        ),
-        onTap: () {
-          _showPaymentDetails(context, payment);
-        },
-      ),
-    );
-  }
-
-  void _showPaymentDetails(BuildContext context, OutstandingPayment payment) {
-    final isOverdue = payment.dueDate.isBefore(DateTime.now());
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Outstanding Payment Details'),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildDetailRow(
-                'Receipt Number',
-                payment.receiptNumber.toString(),
-              ),
-              _buildDetailRow('Sale ID', payment.saleId.toString()),
-              _buildDetailRow('Customer', payment.customer),
-              _buildDetailRow(
-                'Total Amount',
-                'TSh ${NumberFormat('#,##0').format(payment.totalAmount)}',
-              ),
-              _buildDetailRow(
-                'Paid Amount',
-                'TSh ${NumberFormat('#,##0').format(payment.paidAmount)}',
-              ),
-              _buildDetailRow(
-                'Outstanding Balance',
-                'TSh ${NumberFormat('#,##0').format(payment.balance)}',
-              ),
-              _buildDetailRow(
-                'Due Date',
-                DateFormat('MMM dd, yyyy').format(payment.dueDate),
-                valueColor: isOverdue ? Colors.red : null,
-              ),
-              if (isOverdue)
-                Container(
-                  margin: const EdgeInsets.only(top: 8),
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.warning, size: 16, color: Colors.red),
-                      const SizedBox(width: 4),
-                      Text(
-                        'This payment is overdue',
-                        style: TextStyle(
-                          color: Colors.red[700],
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // TODO: Implement record payment functionality
-              _recordPayment(context, payment);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).primaryColor,
-            ),
-            child: const Text(
-              'Record Payment',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _recordPayment(BuildContext context, OutstandingPayment payment) {
-    // TODO: Implement payment recording functionality
-    // This would navigate to a payment recording screen
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Record payment for Receipt #${payment.receiptNumber}'),
-        action: SnackBarAction(
-          label: 'Proceed',
-          onPressed: () {
-            // Navigate to payment recording screen
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value, {Color? valueColor}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              '$label:',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(value, style: TextStyle(color: valueColor)),
-          ),
-        ],
-      ),
     );
   }
 
