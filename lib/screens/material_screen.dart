@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../provider/material_provider.dart';
 import '../provider/materials_search_provider.dart';
 import '../widgets/token_error_widget.dart';
+import 'create_material_screen.dart'; // ✅ make sure this screen exists
 
 class MaterialsScreen extends ConsumerWidget {
   const MaterialsScreen({super.key});
@@ -12,8 +13,29 @@ class MaterialsScreen extends ConsumerWidget {
     final materialsAsync = ref.watch(materialsProvider);
     final searchQuery = ref.watch(materialSearchQueryProvider).toLowerCase();
 
+    Future<void> refresh() async {
+      // ✅ re-fetch materials when pulled
+      await ref.read(materialsProvider.notifier).fetchMaterials();
+    }
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Materials')),
+      appBar: AppBar(title: const Text('Materials List')),
+
+      // ✅ Floating Action Button
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          // navigate to create screen
+          await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const CreateMaterialScreen()),
+          );
+
+          // refresh the list after returning
+          ref.read(materialsProvider.notifier).fetchMaterials();
+        },
+        child: const Icon(Icons.add),
+      ),
+
       body: materialsAsync.when(
         data: (materials) {
           if (materials.isEmpty) {
@@ -27,23 +49,24 @@ class MaterialsScreen extends ConsumerWidget {
                 item.status.toLowerCase().contains(searchQuery);
           }).toList();
 
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: TextField(
-                  decoration: const InputDecoration(
-                    labelText: 'Search materials',
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(),
+          return RefreshIndicator(
+            onRefresh: refresh, // ✅ pull-to-refresh
+            child: ListView(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: TextField(
+                    decoration: const InputDecoration(
+                      labelText: 'Search materials',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) =>
+                        ref.read(materialSearchQueryProvider.notifier).state =
+                            value,
                   ),
-                  onChanged: (value) =>
-                      ref.read(materialSearchQueryProvider.notifier).state =
-                          value,
                 ),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
+                SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
                   scrollDirection: Axis.horizontal,
                   child: DataTable(
@@ -81,8 +104,8 @@ class MaterialsScreen extends ConsumerWidget {
                     }).toList(),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),

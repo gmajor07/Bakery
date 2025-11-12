@@ -55,8 +55,9 @@ class MaterialApiService {
 
       return list.map((e) {
         if (e is Map<String, dynamic>) return MaterialReceipt.fromJson(e);
-        if (e is Map)
+        if (e is Map) {
           return MaterialReceipt.fromJson(Map<String, dynamic>.from(e));
+        }
         return MaterialReceipt.fromJson({});
       }).toList();
     } on DioException catch (e) {

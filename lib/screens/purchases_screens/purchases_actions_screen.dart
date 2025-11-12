@@ -8,11 +8,7 @@ class PurchasesActionsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Purchases Management'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: const Text('Purchases Management')),
       body: GridView.count(
         crossAxisCount: 2,
         padding: const EdgeInsets.all(16),
@@ -43,34 +39,6 @@ class PurchasesActionsScreen extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                   builder: (_) => const MaterialsReceivedScreen(),
-                ),
-              );
-            },
-          ),
-          _buildCard(
-            context,
-            'Suppliers',
-            Icons.business,
-            Colors.orange,
-            'Manage vendor list',
-            () {
-              // TODO: Navigate to SuppliersScreen
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Suppliers screen coming soon')),
-              );
-            },
-          ),
-          _buildCard(
-            context,
-            'Purchase History',
-            Icons.history,
-            Colors.purple,
-            'View past purchases',
-            () {
-              // TODO: Navigate to PurchaseHistoryScreen
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Purchase history screen coming soon'),
                 ),
               );
             },

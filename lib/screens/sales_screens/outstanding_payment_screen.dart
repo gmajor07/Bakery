@@ -74,6 +74,12 @@ class _OutstandingPaymentsScreenState
     });
   }
 
+  Future<void> _refreshData() async {
+    ref.invalidate(outstandingPaymentsProvider);
+    ref.read(outstandingPaginationProvider.notifier).reset();
+    await ref.read(outstandingPaymentsProvider.future);
+  }
+
   @override
   Widget build(BuildContext context) {
     final outstandingAsync = ref.watch(outstandingPaymentsProvider);
@@ -91,38 +97,42 @@ class _OutstandingPaymentsScreenState
             ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // Filters Section
-            _buildFiltersSection(),
-            const SizedBox(height: 16),
+      body: RefreshIndicator(
+        onRefresh: _refreshData,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              // Filters Section
+              _buildFiltersSection(),
+              const SizedBox(height: 16),
 
-            // Summary Cards
-            _buildSummaryCards(outstandingAsync),
-            const SizedBox(height: 16),
+              // Summary Cards
+              _buildSummaryCards(outstandingAsync),
+              const SizedBox(height: 16),
 
-            // Payments List
-            Expanded(
-              child: outstandingAsync.when(
-                data: (allOutstanding) {
-                  final filtered = _applyFilters(allOutstanding);
-                  final paginatedPayments = _applyPagination(
-                    filtered,
-                    paginationState,
-                  );
-                  return _buildOutstandingList(
-                    paginatedPayments,
-                    filtered.length,
-                    paginationState,
-                  );
-                },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, _) => _buildErrorState(err, context),
+              // Payments List
+              Expanded(
+                child: outstandingAsync.when(
+                  data: (allOutstanding) {
+                    final filtered = _applyFilters(allOutstanding);
+                    final paginatedPayments = _applyPagination(
+                      filtered,
+                      paginationState,
+                    );
+                    return _buildOutstandingList(
+                      paginatedPayments,
+                      filtered.length,
+                      paginationState,
+                    );
+                  },
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (err, _) => _buildErrorState(err, context),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

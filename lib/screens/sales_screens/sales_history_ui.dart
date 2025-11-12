@@ -378,29 +378,34 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
         ? 'Select date range'
         : '${DateFormat('MMM dd').format(range.start)} - ${DateFormat('MMM dd, yyyy').format(range.end)}';
 
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        icon: const Icon(Icons.date_range),
-        label: Text(label, overflow: TextOverflow.ellipsis, maxLines: 1),
-        onPressed: () async {
-          final picked = await showDateRangePicker(
-            context: context,
-            firstDate: DateTime(2023),
-            lastDate: DateTime.now(),
-            initialDateRange: range,
-          );
-          if (picked != null) {
-            ref.read(selectedDateRangeProvider.notifier).state = picked;
-            // Reset pagination when filter changes
-            ref.read(salesPaginationProvider.notifier).reset();
-          }
-        },
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth > 400;
+        return SizedBox(
+          width: isWide
+              ? null
+              : double.infinity, // ✅ allow width only when not inside Row
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.date_range),
+            label: Text(label, overflow: TextOverflow.ellipsis, maxLines: 1),
+            onPressed: () async {
+              final picked = await showDateRangePicker(
+                context: context,
+                firstDate: DateTime(2023),
+                lastDate: DateTime.now(),
+                initialDateRange: range,
+              );
+              if (picked != null) {
+                ref.read(selectedDateRangeProvider.notifier).state = picked;
+                ref.read(salesPaginationProvider.notifier).reset();
+              }
+            },
+          ),
+        );
+      },
     );
   }
 
-  // ✅ Sales List with improved design
   Widget _buildSalesList(
     BuildContext context,
     List<SaleItem> sales,
@@ -422,7 +427,8 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
 
     return Column(
       children: [
-        Expanded(
+        // ❌ Removed Expanded here
+        Flexible(
           child: ListView.builder(
             controller: _scrollController,
             itemCount: sales.length + (pagination.hasMore ? 1 : 0),
@@ -440,12 +446,11 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
           ),
         ),
 
-        // Bottom pagination for larger screens
         if (totalFiltered > pagination.itemsPerPage)
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: Colors.grey[300]!)),
+              border: Border(top: BorderSide(color: Colors.grey)),
             ),
             child: _buildPaginationControls(pagination, totalFiltered),
           ),

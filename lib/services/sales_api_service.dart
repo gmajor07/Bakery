@@ -5,13 +5,10 @@ import '../models/sale_item.dart';
 import 'base_api_service.dart';
 
 class SalesApiService {
-  final BaseApiService _baseService;
   final Dio _dio;
   final Ref ref;
 
-  SalesApiService(this.ref)
-    : _baseService = BaseApiService(ref),
-      _dio = BaseApiService(ref).dio;
+  SalesApiService(this.ref) : _dio = BaseApiService(ref).dio;
 
   /// 🔹 Fetch sales history
   Future<List<SaleItem>> fetchSalesHistory({
@@ -20,9 +17,7 @@ class SalesApiService {
     DateTime? endDate,
   }) async {
     try {
-      final token = await _baseService.ref
-          .read(authProvider.notifier)
-          .getAccessToken();
+      final token = await ref.read(authProvider.notifier).getAccessToken();
       if (token == null) throw Exception("Token is null");
 
       final queryParams = {
@@ -38,7 +33,7 @@ class SalesApiService {
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
-      final List data = response.data['sales'] ?? response.data;
+      final List<dynamic> data = response.data['sales'] ?? [];
       return data.map((json) => SaleItem.fromJson(json)).toList();
     } on DioException catch (e) {
       print("❌ Sales fetch error: ${e.response?.data}");
@@ -53,9 +48,7 @@ class SalesApiService {
   /// 🔹 Fetch single sale detail
   Future<SaleItem> fetchSaleDetail(int saleId) async {
     try {
-      final token = await _baseService.ref
-          .read(authProvider.notifier)
-          .getAccessToken();
+      final token = await ref.read(authProvider.notifier).getAccessToken();
       if (token == null) throw Exception("Token is null");
 
       final response = await _dio.get(
@@ -74,27 +67,19 @@ class SalesApiService {
     }
   }
 
-  /// 🔹 Create a new sale
+  /// 🔹 Create sale (NO automatic payment)
   Future<Map<String, dynamic>> createSale({
     int? customerId,
     required bool isCredit,
     required double total,
     required List<Map<String, dynamic>> items,
     required String accessToken,
-    int? dueDays, // Optional for credit sales
+    int? dueDays, // Only for credit
   }) async {
     try {
-      // Calculate due date if credit sale
-      String? creditDueDate;
-      if (isCredit && dueDays != null) {
-        final dueDate = DateTime.now().add(Duration(days: dueDays)).toUtc();
-        creditDueDate = dueDate.toIso8601String();
-      }
-
       final payload = {
         "customerId": customerId,
         "isCredit": isCredit,
-        "creditDueDate": creditDueDate,
         "total": total,
         "items": items
             .map(
@@ -107,6 +92,15 @@ class SalesApiService {
             .toList(),
       };
 
+      if (isCredit && dueDays != null) {
+        final dueDate = DateTime.now().add(Duration(days: dueDays)).toUtc();
+        payload["creditDueDate"] = dueDate.toIso8601String();
+      }
+
+      // 🔹 Print the request payload
+      print("📤 Sending sale request body:");
+      print(payload);
+
       final response = await _dio.post(
         '/sales',
         data: payload,
@@ -118,12 +112,19 @@ class SalesApiService {
         ),
       );
 
-      print("💰 Sale created: ${response.data}");
+      // 🔹 Print raw response
+      print("💰 Sale created response (raw): ${response.data}");
 
-      return response.data["sale"] ?? response.data;
+      final sale = response.data["sale"];
+      if (sale != null) {
+        print("🟢 Sale created: $sale");
+      }
+
+      // ⚠️ Do NOT record payment automatically
+      return sale ?? response.data;
     } on DioException catch (e) {
       print("❌ Create sale error: ${e.response?.data}");
-      throw Exception('Failed to create sale');
+      throw Exception('Failed to create sale: ${e.response?.data}');
     } catch (e, stack) {
       print("❌ Unexpected error: $e");
       print(stack);
@@ -131,14 +132,14 @@ class SalesApiService {
     }
   }
 
-  /// 🔹 Record payment
+  /// 🔹 Record payment manually (ONLY when user pays)
   Future<void> recordPayment({
     required int saleId,
     required double amount,
-    String? paymentMethod,
+    String? paymentMethod, // 'cash' or 'credit'
     int? customerId,
     required String accessToken,
-    int? dueDays, // For credit payments
+    int? dueDays, // For credit extension
   }) async {
     try {
       final payload = {
@@ -147,11 +148,14 @@ class SalesApiService {
         if (customerId != null) "customerId": customerId,
       };
 
-      // Include creditDueDate if payment is credit
       if (paymentMethod == 'credit' && dueDays != null) {
-        final dueDate = DateTime.now().add(Duration(days: dueDays));
+        final dueDate = DateTime.now().add(Duration(days: dueDays)).toUtc();
         payload["creditDueDate"] = dueDate.toIso8601String();
       }
+
+      // 🔹 Print payment payload
+      print("💵 Recording payment with payload:");
+      print(payload);
 
       final response = await _dio.post(
         '/sales/$saleId/payments',
@@ -164,14 +168,14 @@ class SalesApiService {
         ),
       );
 
-      print("💵 Payment recorded: ${response.data}");
+      print("✅ Payment recorded: ${response.data}");
     } on DioException catch (e) {
       print("❌ Payment error: ${e.response?.data}");
-      if (paymentMethod != 'cash') rethrow;
+      rethrow;
     } catch (e, stack) {
       print("❌ Unexpected payment error: $e");
       print(stack);
-      if (paymentMethod != 'cash') rethrow;
+      rethrow;
     }
   }
 }

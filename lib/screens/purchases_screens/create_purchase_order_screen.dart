@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../auth/auth_provider.dart';
 import '../../provider/purchase_orders_provider.dart';
 
 class CreatePurchaseOrderScreen extends ConsumerStatefulWidget {
@@ -46,9 +47,25 @@ class _CreatePurchaseOrderScreenState
     if (!_formKey.currentState!.validate()) return;
     _formKey.currentState!.save();
 
+    final auth = ref.read(authProvider.notifier);
     final api = ref.read(purchaseOrdersApiServiceProvider);
 
     try {
+      // 🔹 Ensure we have a valid access token
+      final token = await auth.getAccessToken();
+      if (token == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Session expired. Please log in again.'),
+            ),
+          );
+          await auth.logout();
+          return;
+        }
+      }
+
+      // 🔹 Proceed with creating the purchase order
       await api.createPurchaseOrder({
         "supplierId": selectedSupplierId,
         "totalCost": totalCost,
@@ -76,9 +93,26 @@ class _CreatePurchaseOrderScreenState
         Navigator.pop(context);
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("❌ Failed to create order: $e")));
+      // 🔹 Handle unauthorized errors (token expired)
+      final errorText = e.toString().toLowerCase();
+      if (errorText.contains('401') || errorText.contains('unauthorized')) {
+        await auth.logout();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Session expired. Please log in again.'),
+            ),
+          );
+        }
+        return;
+      }
+
+      // 🔹 Handle other errors
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("❌ Failed to create order: $e")));
+      }
     }
   }
 

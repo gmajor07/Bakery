@@ -93,32 +93,39 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
                   if (adjustments.isEmpty) {
                     return const Center(child: Text('No adjustments found.'));
                   }
-
                   return SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
                       columns: const [
+                        DataColumn(label: Text('Date')),
                         DataColumn(label: Text('Item Name')),
-                        DataColumn(label: Text('Type')),
+                        DataColumn(label: Text('Unit')),
                         DataColumn(label: Text('Quantity')),
                         DataColumn(label: Text('Reason')),
-                        DataColumn(label: Text('Created By')),
-                        DataColumn(label: Text('Date')),
                       ],
                       rows: adjustments.map((adj) {
                         return DataRow(
                           cells: [
-                            DataCell(Text(adj.inventoryItem.name)),
-                            DataCell(Text(adj.inventoryItem.type)),
-                            DataCell(Text(adj.amount.toString())),
-                            DataCell(Text(adj.reason)),
-                            DataCell(Text(adj.createdBy.name)),
                             DataCell(
                               Text(
                                 DateFormat(
-                                  'dd MMM yyyy',
+                                  'dd-MM-yyyy',
                                 ).format(DateTime.parse(adj.createdAt)),
                               ),
+                            ),
+                            DataCell(Text(adj.inventoryItem.name)),
+                            DataCell(
+                              Text(adj.inventoryItem.unit),
+                            ), // Assuming `unit` is available
+                            DataCell(
+                              Text(
+                                adj.amount > 0
+                                    ? '+${adj.amount}'
+                                    : adj.amount.toString(),
+                              ),
+                            ),
+                            DataCell(
+                              Text(adj.reason.isNotEmpty ? adj.reason : ''),
                             ),
                           ],
                         );

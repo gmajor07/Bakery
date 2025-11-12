@@ -123,7 +123,7 @@ class _MaterialsReceivedScreenState
                                   ),
                                 ),
                                 DataCell(
-                                  TextButton(
+                                  TextButton.icon(
                                     onPressed: () {
                                       Navigator.push(
                                         context,
@@ -134,7 +134,8 @@ class _MaterialsReceivedScreenState
                                         ),
                                       );
                                     },
-                                    child: const Text('View'),
+                                    icon: const Icon(Icons.visibility),
+                                    label: const Text('View'),
                                   ),
                                 ),
                               ],

@@ -588,7 +588,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         };
       }).toList();
 
-      // 🔹 Create sale
+      // 🔹 Create sale (no payment recorded here)
       final sale = await ref
           .read(salesProvider.notifier)
           .createSale(
@@ -600,22 +600,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           );
 
       print("🟢 Sale created: $sale");
-
-      // 🔹 Record payment for credit sales
-      if (isCredit) {
-        final token = ref.read(authProvider).accessToken;
-        if (token == null) throw Exception("Access token is missing");
-
-        await ref
-            .read(salesProvider.notifier)
-            .recordPayment(
-              saleId: sale['id'],
-              amount: total,
-              paymentMethod: 'credit',
-              customerId: customer?.id,
-              dueDays: int.parse(_selectedDueDays!),
-            );
-      }
 
       // 🔹 Clear cart and show success
       ref.read(cartProvider.notifier).clearCart();
@@ -681,7 +665,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           TextButton(
             child: const Text('Print Receipt'),
             onPressed: () {
-              // TODO: Implement print receipt functionality
               Navigator.pop(context); // close dialog
               Navigator.pop(context); // go back to POS screen
             },

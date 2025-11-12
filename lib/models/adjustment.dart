@@ -28,11 +28,19 @@ class Adjustment {
 class InventoryItem {
   final String name;
   final String type;
+  final String unit; // ✅ Add this line
 
-  InventoryItem({required this.name, required this.type});
+  InventoryItem({
+    required this.name,
+    required this.type,
+    required this.unit, // ✅ Add this line
+  });
 
-  factory InventoryItem.fromJson(Map<String, dynamic> json) =>
-      InventoryItem(name: json['name'] ?? '', type: json['type'] ?? '');
+  factory InventoryItem.fromJson(Map<String, dynamic> json) => InventoryItem(
+    name: json['name'] ?? '',
+    type: json['type'] ?? '',
+    unit: json['unit'] ?? '', // ✅ Add this line
+  );
 }
 
 class CreatedBy {
