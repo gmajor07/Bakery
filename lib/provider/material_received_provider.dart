@@ -1,11 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/material_receipt.dart';
+import '../models/material_received.dart';
 import '../services/material_received_api_service.dart';
 
+/// API service provider
 final materialApiServiceProvider = Provider<MaterialApiService>((ref) {
   return MaterialApiService(ref);
 });
 
+/// Filters model for pagination & search
 class MaterialFilters {
   final int page;
   final int limit;
@@ -42,10 +44,12 @@ class MaterialFilters {
   }
 }
 
+/// State provider for filters
 final materialFiltersProvider = StateProvider<MaterialFilters>(
   (ref) => MaterialFilters(),
 );
 
+/// Fetch paginated list of receipts
 final materialsProvider = FutureProvider.autoDispose<List<MaterialReceipt>>((
   ref,
 ) async {
@@ -62,7 +66,8 @@ final materialsProvider = FutureProvider.autoDispose<List<MaterialReceipt>>((
   );
 });
 
-final materialDetailProvider = FutureProvider.family
+/// ✅ Fetch single receipt detail — fixed name to match your MaterialDetailsScreen
+final materialReceiptDetailProvider = FutureProvider.family
     .autoDispose<MaterialReceipt, int>((ref, id) async {
       final service = ref.watch(materialApiServiceProvider);
       return service.fetchReceiptDetail(id);

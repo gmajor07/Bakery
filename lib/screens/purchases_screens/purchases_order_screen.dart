@@ -4,8 +4,8 @@ import 'package:intl/intl.dart';
 import '../../models/purchase_order.dart';
 import '../../provider/purchase_orders_provider.dart';
 import '../../provider/pagination_provider.dart';
-import '../../widgets/token_error_widget.dart';
 import '../../widgets/date_range_picker_widget.dart';
+import '../../widgets/token_error_widget.dart';
 import 'create_purchase_order_screen.dart';
 import 'purchase_order_detail_screen.dart';
 
@@ -65,6 +65,8 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
         return Colors.orange;
       case 'cancelled':
         return Colors.red;
+      case 'approved':
+        return Colors.brown;
       default:
         return Colors.grey;
     }
@@ -79,6 +81,8 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
         return Colors.orange.shade50;
       case 'cancelled':
         return Colors.red.shade50;
+      case 'approved':
+        return Colors.brown.shade50;
       default:
         return Colors.grey.shade50;
     }
@@ -232,7 +236,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
   }
 
   Widget _buildStatusFilter(String? selected) {
-    const statuses = [null, "Pending", "Completed", "Cancelled"];
+    const statuses = [null, "Pending","Approved", "Cancelled", "Completed"];
     return DropdownButtonFormField<String?>(
       value: selected,
       decoration: const InputDecoration(

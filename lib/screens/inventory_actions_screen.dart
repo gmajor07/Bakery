@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'inventory_screen.dart';
 import 'material_action_screen.dart';
 import 'product_screen.dart';
 
 class InventoryActionsScreen extends StatelessWidget {
+  const InventoryActionsScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -25,6 +28,13 @@ class InventoryActionsScreen extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => MaterialActionScreen()),
+            );
+          }),
+          _buildCard(context, 'Supplies', Icons.info_outline, () {
+            // Navigate to AdjustmentsScreen
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => InventoryScreen()),
             );
           }),
         ],

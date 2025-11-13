@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../auth/auth_provider.dart';
-import '../models/material_receipt.dart';
+import '../models/material_received.dart';
 import '../models/materials.dart';
 import 'base_api_service.dart';
 

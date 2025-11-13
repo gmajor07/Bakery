@@ -54,6 +54,7 @@ class _MaterialsReceivedScreenState
       body: SafeArea(
         child: Column(
           children: [
+            // Search and Date Filter
             Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
@@ -77,6 +78,8 @@ class _MaterialsReceivedScreenState
                 ],
               ),
             ),
+
+            // Table
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -98,6 +101,7 @@ class _MaterialsReceivedScreenState
                             DataColumn(label: Text('Date')),
                             DataColumn(label: Text('Supplier')),
                             DataColumn(label: Text('Total')),
+                            DataColumn(label: Text('Received By')),
                             DataColumn(label: Text('Status')),
                             DataColumn(label: Text('Actions')),
                           ],
@@ -105,12 +109,16 @@ class _MaterialsReceivedScreenState
                             final dateStr = DateFormat(
                               'dd-MM-yyyy',
                             ).format(r.receivedDate);
+
                             return DataRow(
                               cells: [
                                 DataCell(Text(r.purchaseOrderId.toString())),
                                 DataCell(Text(dateStr)),
                                 DataCell(Text(r.supplierName)),
-                                DataCell(Text(r.total.toStringAsFixed(0))),
+                                DataCell(
+                                  Text(NumberFormat('#,##0').format(r.total)),
+                                ),
+                                DataCell(Text(r.receivedBy)),
                                 DataCell(
                                   Text(
                                     r.status,
@@ -122,6 +130,7 @@ class _MaterialsReceivedScreenState
                                     ),
                                   ),
                                 ),
+
                                 DataCell(
                                   TextButton.icon(
                                     onPressed: () {
@@ -134,6 +143,7 @@ class _MaterialsReceivedScreenState
                                         ),
                                       );
                                     },
+
                                     icon: const Icon(Icons.visibility),
                                     label: const Text('View'),
                                   ),
@@ -160,6 +170,8 @@ class _MaterialsReceivedScreenState
                 ),
               ),
             ),
+
+            // Pagination
             Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
