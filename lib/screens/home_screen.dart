@@ -112,33 +112,7 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
 
-            // Quick Stats (Optional - you can add real data here)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _buildStatCard(
-                      context,
-                      'Today\'s Sales',
-                      'TSh 0', // Replace with actual data
-                      Icons.trending_up,
-                      Colors.green,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildStatCard(
-                      context,
-                      'Pending Orders',
-                      '0', // Replace with actual data
-                      Icons.pending_actions,
-                      Colors.orange,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            const SizedBox(height: 16),
 
             // Main Actions Grid
             Expanded(
@@ -153,7 +127,7 @@ class HomeScreen extends ConsumerWidget {
                       context: context,
                       title: 'Sales',
                       subtitle: 'Manage sales & payments',
-                      icon: Icons.attach_money,
+                      icon: Icons.shopping_bag,
                       iconColor: Colors.green,
                       onTap: () {
                         Navigator.push(

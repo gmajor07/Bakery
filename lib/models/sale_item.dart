@@ -29,12 +29,12 @@ class SaleItem {
     return SaleItem(
       id: json['id'] ?? 0,
       customer: json['customer'] is Map
-          ? json['customer']['name'] ?? 'Unknown'
-          : json['customer'] ?? 'Unknown',
+          ? json['customer']['name'] ?? 'Cash'
+          : json['customer']?.toString() ?? 'Cash',
       date: json['createdAt'] ?? '',
       amount: double.tryParse(json['total'].toString()) ?? 0.0,
-      status: json['status'] ?? '',
-      paymentStatus: json['paymentStatus'] ?? '',
+      status: json['status']?.toString() ?? '',
+      paymentStatus: json['paymentStatus']?.toString() ?? '',
       items: (json['items'] as List<dynamic>? ?? [])
           .map((item) => SaleProduct.fromJson(item))
           .toList(),

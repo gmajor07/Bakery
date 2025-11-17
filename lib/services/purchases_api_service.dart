@@ -61,7 +61,6 @@ class PurchaseOrdersApiService {
     }
   }
 
-  /// ✅ Create a new purchase order
   /// ✅ Create a new purchase order (fixed numeric type issue)
   Future<dynamic> createPurchaseOrder(Map<String, dynamic> data) async {
     final token = await ref.read(authProvider.notifier).getAccessToken();
@@ -159,5 +158,60 @@ class PurchaseOrdersApiService {
     final items = await fetchInventoryItems();
     final uniqueUnits = items.map((i) => i.unit).toSet().toList();
     return uniqueUnits.map((u) => UnitType(name: u)).toList();
+  }
+
+  /// Approve a purchase order
+  Future<void> approveOrder(int orderId) async {
+    final token = await ref.read(authProvider.notifier).getAccessToken();
+    if (token == null) throw Exception('Token is null');
+
+    try {
+      await _dio.post(
+        '/purchases/orders/$orderId/approve',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+    } on DioException catch (e) {
+      final error = e.response?.data?['message'] ?? 'Failed to approve order';
+      print("❌ Approve Order error: $error");
+      throw Exception(error);
+    }
+  }
+
+  /// Cancel a purchase order
+  Future<void> cancelOrder(int orderId) async {
+    final token = await ref.read(authProvider.notifier).getAccessToken();
+    if (token == null) throw Exception('Token is null');
+
+    try {
+      await _dio.post(
+        '/purchases/orders/$orderId/cancel',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+    } on DioException catch (e) {
+      final error = e.response?.data?['message'] ?? 'Failed to cancel order';
+      print("❌ Cancel Order error: $error");
+      throw Exception(error);
+    }
+  }
+
+  /// Receive goods for a purchase order
+  Future<void> receiveGoods({
+    required int orderId,
+    required List<Map<String, dynamic>> items,
+  }) async {
+    final token = await ref.read(authProvider.notifier).getAccessToken();
+    if (token == null) throw Exception('Token is null');
+
+    try {
+      await _dio.post(
+        '/purchases/orders/$orderId/receive',
+        data: {"items": items},
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+    } on DioException catch (e) {
+      final error = e.response?.data?['message'] ?? 'Failed to receive goods';
+      print("❌ Receive Goods error: $error");
+      throw Exception(error);
+    }
   }
 }

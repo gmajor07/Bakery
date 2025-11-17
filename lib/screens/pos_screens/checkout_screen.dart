@@ -1,6 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../auth/auth_provider.dart';
+import 'package:intl/intl.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+
 import '../../models/customer.dart';
 import '../../provider/pos_provider.dart';
 import '../../provider/customer_provider.dart';
@@ -27,11 +31,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final customersAsync = ref.watch(customerListProvider);
 
     final subtotal = cartNotifier.totalPrice;
-    const vat = 0.0;
 
     final isCredit = paymentMethod == 'Credit';
-    final creditInterest = isCredit ? subtotal * 0.18 : 0.0;
-    final total = isCredit ? (subtotal + creditInterest) : (subtotal + vat);
+    // VAT for credit (renamed from creditInterest)
+    final vatCredit = isCredit ? subtotal * 0.18 : 0.0;
+    final total = subtotal + vatCredit;
 
     return Scaffold(
       appBar: AppBar(
@@ -46,29 +50,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 🔹 Order Summary
             _buildOrderSummary(cart, subtotal),
             const SizedBox(height: 24),
-
-            // 🔹 Customer Selection
             _buildCustomerSection(customersAsync),
             const SizedBox(height: 24),
-
-            // 🔹 Payment Method
             _buildPaymentMethodSection(),
             const SizedBox(height: 24),
-
-            // 🔹 Credit Due Days (Only for Credit)
             if (paymentMethod == 'Credit') ...[
               _buildCreditDueDaysSection(),
               const SizedBox(height: 24),
             ],
-
-            // 🔹 Totals Section
-            _buildTotalsSection(subtotal, vat, creditInterest, total, isCredit),
+            _buildTotalsSection(subtotal, vatCredit, total, isCredit),
             const SizedBox(height: 32),
-
-            // 🔹 Complete Sale Button
             _buildCompleteSaleButton(cart, total),
           ],
         ),
@@ -123,7 +116,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       ],
                     ),
                   ),
-                ),
+                )
+                .toList(),
             if (cart.length > 3) ...[
               const SizedBox(height: 8),
               Text(
@@ -160,7 +154,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: DropdownButtonHideUnderline(
-                child: DropdownButton<Customer>(
+                child: DropdownButton<Customer?>(
                   isExpanded: true,
                   value: selectedCustomer,
                   hint: const Padding(
@@ -168,12 +162,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     child: Text('Select Customer (Optional for Cash)'),
                   ),
                   items: [
-                    const DropdownMenuItem<Customer>(
+                    DropdownMenuItem<Customer?>(
                       value: null,
-                      child: Text('No Customer (Walk-in)'),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: Text('Walk-in Customer'),
+                      ),
                     ),
                     ...customers.map(
-                      (c) => DropdownMenuItem(
+                      (c) => DropdownMenuItem<Customer?>(
                         value: c,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -252,7 +249,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     value: 'Credit',
                     icon: Icons.credit_card,
                     title: 'Credit',
-                    subtitle: 'Customer credit (+18%)',
+                    subtitle: 'Credit + VAT (18%)',
                   ),
                 ),
               ],
@@ -320,13 +317,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         ),
         value: value,
         groupValue: paymentMethod,
-        onChanged: (value) {
+        onChanged: (val) {
           setState(() {
-            paymentMethod = value!;
-            // Reset due days when switching payment method
-            if (paymentMethod == 'Cash') {
-              _selectedDueDays = null;
-            }
+            paymentMethod = val!;
+            if (paymentMethod == 'Cash') _selectedDueDays = null;
           });
         },
       ),
@@ -368,11 +362,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     ),
                   )
                   .toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedDueDays = value;
-                });
-              },
+              onChanged: (val) => setState(() => _selectedDueDays = val),
             ),
           ),
         ),
@@ -389,8 +379,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   Widget _buildTotalsSection(
     double subtotal,
-    double vat,
-    double creditInterest,
+    double vatCredit,
     double total,
     bool isCredit,
   ) {
@@ -409,9 +398,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             ),
             const SizedBox(height: 12),
             _buildTotalRow('Subtotal:', subtotal),
-            if (isCredit)
-              _buildTotalRow('Credit Interest (18%):', creditInterest),
-            _buildTotalRow('VAT:', vat),
+            if (isCredit) _buildTotalRow('VAT (18%):', vatCredit),
             const Divider(),
             _buildTotalRow('Total Amount:', total, isBold: true),
             if (isCredit && _selectedDueDays != null) ...[
@@ -460,15 +447,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final selectedCustomer = ref.watch(selectedCustomerProvider);
     final isCredit = paymentMethod == 'Credit';
 
-    // Validate form
     bool isValid = cart.isNotEmpty;
     if (isCredit) {
-      if (selectedCustomer == null) {
-        isValid = false;
-      }
-      if (_selectedDueDays == null) {
-        isValid = false;
-      }
+      if (selectedCustomer == null) isValid = false;
+      if (_selectedDueDays == null) isValid = false;
     }
 
     return SizedBox(
@@ -515,8 +497,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             _buildTotalRow('Total Amount:', total, isBold: true),
             const SizedBox(height: 8),
             _buildTextRow('Payment Method:', paymentMethod),
-            if (selectedCustomer != null)
-              _buildTextRow('Customer:', selectedCustomer.name),
+            _buildTextRow(
+              'Customer:',
+              selectedCustomer?.name ?? 'Walk-in Customer',
+            ),
             if (isCredit && _selectedDueDays != null)
               _buildTextRow('Due Days:', '$_selectedDueDays days'),
           ],
@@ -571,15 +555,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       final customer = ref.read(selectedCustomerProvider);
       final isCredit = paymentMethod == 'Credit';
 
-      // ✅ Validate credit requirements
       if (isCredit) {
-        if (customer == null)
+        if (customer == null) {
           throw Exception("Customer is required for credit sales");
-        if (_selectedDueDays == null)
+        }
+        if (_selectedDueDays == null) {
           throw Exception("Select due days for credit sale");
+        }
       }
 
-      // 🔹 Prepare items for API
       final items = cart.entries.map((e) {
         return {
           "product_id": e.value.product.id,
@@ -588,7 +572,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         };
       }).toList();
 
-      // 🔹 Create sale (no payment recorded here)
       final sale = await ref
           .read(salesProvider.notifier)
           .createSale(
@@ -599,16 +582,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             dueDays: isCredit ? int.parse(_selectedDueDays!) : null,
           );
 
-      print("🟢 Sale created: $sale");
+      if (kDebugMode) print("🟢 Sale created: $sale");
 
-      // 🔹 Clear cart and show success
       ref.read(cartProvider.notifier).clearCart();
       _showSuccessDialog(sale, isCredit);
     } catch (err, stack) {
-      print("❌ ERROR DURING SALE:");
-      print(err);
-      print(stack);
-
+      if (kDebugMode) {
+        print("❌ ERROR DURING SALE:");
+        print(err);
+        print(stack);
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Sale failed: ${err.toString()}'),
@@ -621,15 +604,24 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 
   void _showSuccessDialog(Map<String, dynamic> sale, bool isCredit) {
+    final selectedCustomer = ref.read(selectedCustomerProvider);
+    final subtotal = (sale['subtotal'] is num)
+        ? (sale['subtotal'] as num).toDouble()
+        : 0.0;
+    final vat = (sale['vat'] is num) ? (sale['vat'] as num).toDouble() : 0.0;
+    final total = (sale['total'] is num)
+        ? (sale['total'] as num).toDouble()
+        : 0.0;
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         title: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Colors.green),
-            const SizedBox(width: 8),
-            const Text('Sale Completed'),
+          children: const [
+            Icon(Icons.check_circle, color: Colors.green),
+            SizedBox(width: 8),
+            Text('Sale Completed'),
           ],
         ),
         content: Column(
@@ -638,46 +630,172 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           children: [
             Text('Sale ID: ${sale['id'] ?? 'N/A'}'),
             const SizedBox(height: 4),
-            Text('Total: TSh ${sale['total']?.toStringAsFixed(0) ?? '0'}'),
+            Text('Total: TSh ${total.toStringAsFixed(0)}'),
             const SizedBox(height: 8),
-            Text(
-              'Payment Method: $paymentMethod',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+            _buildTextRow('Payment Method:', paymentMethod),
+            _buildTextRow(
+              'Customer:',
+              selectedCustomer?.name ?? 'Walk-in Customer',
             ),
-            if (isCredit) ...[
-              const SizedBox(height: 4),
-              Text(
-                'Status: Credit Sale (Due in $_selectedDueDays days)',
-                style: TextStyle(
-                  color: Colors.orange[700],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Recorded as outstanding payment',
-                style: TextStyle(color: Colors.blue[700], fontSize: 12),
-              ),
-            ],
+            if (isCredit) _buildTextRow('VAT (18%):', vat.toStringAsFixed(0)),
           ],
         ),
         actions: [
           TextButton(
             child: const Text('Print Receipt'),
             onPressed: () {
-              Navigator.pop(context); // close dialog
-              Navigator.pop(context); // go back to POS screen
+              Navigator.pop(context);
+              _printSaleMap(sale);
             },
           ),
           FilledButton(
             onPressed: () {
-              Navigator.pop(context); // close dialog
-              Navigator.pop(context); // go back to POS screen
+              Navigator.pop(context);
+              Navigator.pop(context); // back to POS screen
             },
             child: const Text('Done'),
           ),
         ],
       ),
     );
+  }
+
+  // PRINT: generate a PDF from the returned sale map (robust regardless of model)
+  Future<void> _printSaleMap(Map<String, dynamic> sale) async {
+    final pdf = pw.Document();
+    final dateRaw = sale['date'] ?? DateTime.now().toIso8601String();
+    DateTime date;
+    try {
+      date = DateTime.parse(dateRaw.toString());
+    } catch (_) {
+      date = DateTime.now();
+    }
+    final dateFormatted = DateFormat('yyyy-MM-dd HH:mm').format(date);
+    final customerName =
+        (sale['customer'] == null || (sale['customer'] as String).isEmpty)
+        ? 'Walk-in Customer'
+        : sale['customer'].toString();
+
+    // Build items list, tolerant of various shapes
+    final List items = sale['items'] is List ? sale['items'] as List : [];
+    final subtotal = (sale['subtotal'] is num)
+        ? (sale['subtotal'] as num).toDouble()
+        : items.fold<double>(0, (s, it) {
+            final price = (it['price'] ?? it['unit_price'] ?? 0);
+            final qty = (it['quantity'] ?? it['qty'] ?? 0);
+            return s + ((price as num).toDouble() * (qty as num).toDouble());
+          });
+
+    final vat = (sale['vat'] is num)
+        ? (sale['vat'] as num).toDouble()
+        : ((sale['isCredit'] == true) ? subtotal * 0.18 : 0.0);
+    final grandTotal = (sale['total'] is num)
+        ? (sale['total'] as num).toDouble()
+        : subtotal + vat;
+
+    pdf.addPage(
+      pw.Page(
+        margin: const pw.EdgeInsets.all(20),
+        build: (context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                '🧾 SALES RECEIPT',
+                style: pw.TextStyle(
+                  fontSize: 22,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Text('Receipt #: ${sale['id'] ?? ''}'),
+              pw.Text('Customer: $customerName'),
+              pw.Text('Date: $dateFormatted'),
+              pw.Text(
+                'Payment Type: ${sale['isCredit'] == true ? "Credit" : "Cash"}',
+              ),
+              pw.SizedBox(height: 12),
+              pw.Text(
+                'Items',
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 6),
+              pw.Table.fromTextArray(
+                headers: ['Product', 'Qty', 'Unit Price', 'Subtotal'],
+                data: items.map((it) {
+                  final name = it['name'] ?? it['product_name'] ?? '';
+                  final qty = (it['quantity'] ?? it['qty'] ?? 0).toString();
+                  final price = ((it['price'] ?? it['unit_price'] ?? 0) as num)
+                      .toDouble()
+                      .toStringAsFixed(2);
+                  final sub =
+                      (((it['price'] ?? it['unit_price'] ?? 0) as num)
+                                  .toDouble() *
+                              ((it['quantity'] ?? it['qty'] ?? 0) as num)
+                                  .toDouble())
+                          .toStringAsFixed(2);
+                  return [name.toString(), qty, price, sub];
+                }).toList(),
+              ),
+              pw.SizedBox(height: 12),
+              pw.Divider(),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text("Subtotal:", style: pw.TextStyle(fontSize: 14)),
+                  pw.Text(
+                    "TSh ${subtotal.toStringAsFixed(2)}",
+                    style: pw.TextStyle(fontSize: 14),
+                  ),
+                ],
+              ),
+              if (vat > 0)
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text("VAT (18%):", style: pw.TextStyle(fontSize: 14)),
+                    pw.Text(
+                      "TSh ${vat.toStringAsFixed(2)}",
+                      style: pw.TextStyle(fontSize: 14),
+                    ),
+                  ],
+                ),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    "TOTAL:",
+                    style: pw.TextStyle(
+                      fontSize: 16,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.Text(
+                    "TSh ${grandTotal.toStringAsFixed(2)}",
+                    style: pw.TextStyle(
+                      fontSize: 16,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              pw.Divider(),
+              pw.SizedBox(height: 12),
+              pw.Center(
+                child: pw.Text(
+                  'Thank you for your purchase!',
+                  style: pw.TextStyle(fontSize: 14),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    await Printing.layoutPdf(onLayout: (format) => pdf.save());
   }
 }

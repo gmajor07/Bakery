@@ -1,4 +1,3 @@
-// outstanding_payments_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -115,7 +114,11 @@ class _OutstandingPaymentsScreenState
               Expanded(
                 child: outstandingAsync.when(
                   data: (allOutstanding) {
-                    final filtered = _applyFilters(allOutstanding);
+                    // Filter out paid payments first, then apply other filters
+                    final unpaidPayments = allOutstanding
+                        .where((payment) => payment.balance > 0)
+                        .toList();
+                    final filtered = _applyFilters(unpaidPayments);
                     final paginatedPayments = _applyPagination(
                       filtered,
                       paginationState,
@@ -217,7 +220,11 @@ class _OutstandingPaymentsScreenState
   ) {
     return outstandingAsync.when(
       data: (payments) {
-        final filtered = _applyFilters(payments);
+        // Filter out paid payments first, then apply other filters
+        final unpaidPayments = payments
+            .where((payment) => payment.balance > 0)
+            .toList();
+        final filtered = _applyFilters(unpaidPayments);
         final totalOutstanding = filtered.fold<double>(
           0,
           (sum, payment) => sum + payment.balance,
@@ -402,7 +409,6 @@ class _OutstandingPaymentsScreenState
   Widget _buildOutstandingCard(OutstandingPayment payment) {
     final isOverdue = payment.dueDate.isBefore(DateTime.now());
     final progress = payment.paidAmount / payment.totalAmount;
-    final isFullyPaid = payment.balance <= 0; // Check if fully paid
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -411,24 +417,14 @@ class _OutstandingPaymentsScreenState
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: isFullyPaid
-                ? Colors.green.withOpacity(0.1)
-                : isOverdue
+            color: isOverdue
                 ? Colors.red.withOpacity(0.1)
                 : Colors.orange.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(
-            isFullyPaid
-                ? Icons.check_circle
-                : isOverdue
-                ? Icons.warning
-                : Icons.pending,
-            color: isFullyPaid
-                ? Colors.green
-                : isOverdue
-                ? Colors.red
-                : Colors.orange,
+            isOverdue ? Icons.warning : Icons.pending,
+            color: isOverdue ? Colors.red : Colors.orange,
           ),
         ),
         title: Text(
@@ -443,7 +439,7 @@ class _OutstandingPaymentsScreenState
             LinearProgressIndicator(
               value: progress,
               backgroundColor: Colors.grey[300],
-              color: isFullyPaid ? Colors.green : Colors.orange,
+              color: Colors.orange,
             ),
             const SizedBox(height: 4),
             Row(
@@ -469,35 +465,18 @@ class _OutstandingPaymentsScreenState
               'TSh ${NumberFormat('#,##0').format(payment.balance)}',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: isFullyPaid
-                    ? Colors.green
-                    : isOverdue
-                    ? Colors.red
-                    : Colors.orange,
+                color: isOverdue ? Colors.red : Colors.orange,
               ),
             ),
             Text(
               DateFormat('MMM dd').format(payment.dueDate),
               style: TextStyle(
-                color: isFullyPaid
-                    ? Colors.green
-                    : isOverdue
-                    ? Colors.red
-                    : Colors.grey[600],
+                color: isOverdue ? Colors.red : Colors.grey[600],
                 fontSize: 12,
                 fontWeight: isOverdue ? FontWeight.bold : FontWeight.normal,
               ),
             ),
-            if (isFullyPaid)
-              Text(
-                'PAID',
-                style: TextStyle(
-                  color: Colors.green,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              )
-            else if (isOverdue)
+            if (isOverdue)
               Text(
                 'OVERDUE',
                 style: TextStyle(
@@ -508,7 +487,7 @@ class _OutstandingPaymentsScreenState
               ),
           ],
         ),
-        onTap: isFullyPaid ? null : () => _navigateToPaymentDetails(payment),
+        onTap: () => _navigateToPaymentDetails(payment),
       ),
     );
   }

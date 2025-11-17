@@ -163,7 +163,6 @@ class OutstandingPaymentDetailsScreen extends ConsumerWidget {
                       'Receipt Number',
                       payment.receiptNumber.toString(),
                     ),
-                    _buildDetailRow('Sale ID', payment.saleId.toString()),
                     _buildDetailRow('Customer', payment.customer),
                     _buildDetailRow(
                       'Total Amount',

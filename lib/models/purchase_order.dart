@@ -33,6 +33,29 @@ class PurchaseOrder {
           .toList(),
     );
   }
+
+  /// ✅ Correct copyWith
+  PurchaseOrder copyWith({
+    int? id,
+    int? supplierId,
+    double? totalCost,
+    String? status,
+    String? notes,
+    String? createdAt,
+    Supplier? supplier,
+    List<PurchaseOrderItem>? items,
+  }) {
+    return PurchaseOrder(
+      id: id ?? this.id,
+      supplierId: supplierId ?? this.supplierId,
+      totalCost: totalCost ?? this.totalCost,
+      status: status ?? this.status,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+      supplier: supplier ?? this.supplier,
+      items: items ?? this.items,
+    );
+  }
 }
 
 class Supplier {
@@ -49,7 +72,7 @@ class Supplier {
 class PurchaseOrderItem {
   final int id;
   final int inventoryItemId;
-  final String itemName; // <-- add this
+  final String itemName;
   final int quantity;
   final double price;
 
@@ -70,6 +93,23 @@ class PurchaseOrderItem {
           : 'Unknown',
       quantity: json['quantity'],
       price: (json['price'] as num).toDouble(),
+    );
+  }
+
+  /// Optional, but recommended
+  PurchaseOrderItem copyWith({
+    int? id,
+    int? inventoryItemId,
+    String? itemName,
+    int? quantity,
+    double? price,
+  }) {
+    return PurchaseOrderItem(
+      id: id ?? this.id,
+      inventoryItemId: inventoryItemId ?? this.inventoryItemId,
+      itemName: itemName ?? this.itemName,
+      quantity: quantity ?? this.quantity,
+      price: price ?? this.price,
     );
   }
 }

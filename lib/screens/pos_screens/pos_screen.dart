@@ -50,6 +50,33 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       appBar: AppBar(
         title: const Text('POS - Point of Sale'),
         actions: [
+          // Cart Button at the top right
+          if (totalItems > 0) ...[
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CartScreen()),
+                  );
+                  // Refresh automatically if sale was completed
+                  if (result == true) {
+                    await _refreshProducts();
+                  }
+                },
+                icon: const Icon(Icons.shopping_cart_checkout),
+                label: Text('$totalItems'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ],
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _refreshProducts,
@@ -139,7 +166,6 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                       ),
                     );
                   }
-
                   return ListView.builder(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -150,6 +176,11 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                       final product = filtered[index];
                       final cartItem = cart[product.id];
                       final quantity = cartItem?.quantity ?? 0;
+
+                      // Controller for quantity input
+                      final qtyController = TextEditingController(
+                        text: quantity.toString(),
+                      );
 
                       return Card(
                         margin: const EdgeInsets.symmetric(vertical: 6),
@@ -194,7 +225,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                 ),
                               ),
 
-                              // Price and Add Button
+                              // Price and Quantity Controls
                               Expanded(
                                 flex: 3,
                                 child: Column(
@@ -211,7 +242,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                     const SizedBox(height: 8),
 
                                     if (quantity > 0) ...[
-                                      // Quantity controls when item is in cart
+                                      // Quantity controls
                                       Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.end,
@@ -229,15 +260,60 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                               padding: const EdgeInsets.all(4),
                                             ),
                                           ),
-                                          Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                            ),
-                                            child: Text(
-                                              quantity.toString(),
-                                              style: const TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
+                                          // Manual quantity input
+                                          SizedBox(
+                                            width: 50,
+                                            child: TextField(
+                                              controller: qtyController,
+                                              keyboardType:
+                                                  TextInputType.number,
+                                              textAlign: TextAlign.center,
+                                              onSubmitted: (value) {
+                                                final intQty =
+                                                    int.tryParse(value) ??
+                                                    quantity;
+
+                                                if (intQty <= 0) {
+                                                  ref
+                                                      .read(
+                                                        cartProvider.notifier,
+                                                      )
+                                                      .removeProduct(
+                                                        product.id,
+                                                      );
+                                                } else if (intQty <=
+                                                    product.quantity) {
+                                                  ref
+                                                      .read(
+                                                        cartProvider.notifier,
+                                                      )
+                                                      .updateProductQuantity(
+                                                        product.id,
+                                                        intQty,
+                                                      );
+                                                } else {
+                                                  // Reset to max stock if exceeded
+                                                  qtyController.text = product
+                                                      .quantity
+                                                      .toString();
+                                                  ref
+                                                      .read(
+                                                        cartProvider.notifier,
+                                                      )
+                                                      .updateProductQuantity(
+                                                        product.id,
+                                                        product.quantity,
+                                                      );
+                                                }
+                                              },
+                                              decoration: const InputDecoration(
+                                                border: OutlineInputBorder(),
+                                                isDense: true,
+                                                contentPadding:
+                                                    EdgeInsets.symmetric(
+                                                      vertical: 4,
+                                                      horizontal: 4,
+                                                    ),
                                               ),
                                             ),
                                           ),
@@ -265,16 +341,14 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                         ],
                                       ),
                                     ] else ...[
-                                      // Add button when item is not in cart
+                                      // Add button when item not in cart
                                       FilledButton.icon(
                                         onPressed: product.quantity == 0
                                             ? null
                                             : () => ref
                                                   .read(cartProvider.notifier)
                                                   .addProduct(product),
-                                        icon: const Icon(
-                                          Icons.add,
-                                        ), // ➕ Plus icon
+                                        icon: const Icon(Icons.add),
                                         label: const Text('Add to Cart'),
                                         style: FilledButton.styleFrom(
                                           backgroundColor: Theme.of(
@@ -288,7 +362,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                           shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.circular(
                                               8,
-                                            ), // Rounded rectangle
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -340,30 +414,6 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           ),
         ],
       ),
-
-      // Floating Cart Button with auto refresh after sale
-      floatingActionButton: totalItems > 0
-          ? FloatingActionButton.extended(
-              onPressed: () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const CartScreen()),
-                );
-                // Refresh automatically if sale was completed
-                if (result == true) {
-                  await _refreshProducts();
-                }
-              },
-              icon: const Icon(Icons.shopping_cart_checkout),
-              label: Text('Cart ($totalItems)'),
-              backgroundColor: Theme.of(context).primaryColor,
-              foregroundColor: Colors.white,
-              elevation: 6,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            )
-          : null,
     );
   }
 }

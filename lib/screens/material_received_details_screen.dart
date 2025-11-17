@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../provider/material_received_provider.dart';
 import '../widgets/token_error_widget.dart';
-import '../models/material_received.dart';
 
 class MaterialDetailsScreen extends ConsumerWidget {
   final int receiptId;
@@ -12,6 +11,7 @@ class MaterialDetailsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // ✅ Fix: Use the correct provider name (materialDetailProvider)
     final receiptAsync = ref.watch(materialReceiptDetailProvider(receiptId));
 
     return Scaffold(
@@ -39,7 +39,6 @@ class MaterialDetailsScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
 
-                    // Status
                     Row(
                       children: [
                         const Text(
@@ -59,7 +58,6 @@ class MaterialDetailsScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 12),
 
-                    // Supplier
                     _infoRow('Supplier', receipt.supplierName),
                     _infoRow('Order Date', dateStr),
                     _infoRow('Received By', receipt.receivedBy),
@@ -67,7 +65,7 @@ class MaterialDetailsScreen extends ConsumerWidget {
 
                     const SizedBox(height: 20),
                     const Text(
-                      'Ordered Items',
+                      'Received Items',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -75,7 +73,7 @@ class MaterialDetailsScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 10),
 
-                    // Items Table
+                    // ✅ Items table
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: DataTable(
@@ -84,23 +82,19 @@ class MaterialDetailsScreen extends ConsumerWidget {
                         ),
                         columns: const [
                           DataColumn(label: Text('Item Name')),
-                          DataColumn(label: Text('Ordered Quantity')),
-                          DataColumn(label: Text('Received Quantity')),
+                          DataColumn(label: Text('Quantity')),
                           DataColumn(label: Text('Unit Cost')),
-                          DataColumn(label: Text('Total Cost')),
+                          DataColumn(label: Text('Total')),
                         ],
                         rows: receipt.items.map((item) {
                           return DataRow(
                             cells: [
-                              DataCell(Text(item.name)),
                               DataCell(
-                                Text(
-                                  '${NumberFormat('#,##0').format(item.quantity)} ${item.unit}',
-                                ),
+                                Text(item.name.isNotEmpty ? item.name : '-'),
                               ),
                               DataCell(
                                 Text(
-                                  '${NumberFormat('#,##0').format(receipt.receivedQuantity)} ${item.unit}',
+                                  NumberFormat('#,##0').format(item.quantity),
                                 ),
                               ),
                               DataCell(

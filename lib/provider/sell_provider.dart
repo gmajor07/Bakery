@@ -4,7 +4,7 @@ import '../auth/auth_provider.dart';
 
 /// 🔹 SALES PROVIDER — tracks loading state
 final salesProvider = StateNotifierProvider<SalesNotifier, bool>(
-  (ref) => SalesNotifier(ref),
+      (ref) => SalesNotifier(ref),
 );
 
 class SalesNotifier extends StateNotifier<bool> {

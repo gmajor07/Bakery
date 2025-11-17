@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'auth/auth_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/pos_screens/pos_screen.dart';
 import 'theme.dart';
 
 void main() {
@@ -29,6 +30,7 @@ class MyApp extends ConsumerWidget {
       theme: AppTheme.lightTheme,
       routes: {
         '/home': (_) => HomeScreen(),
+        '/products': (_) => PosScreen(),
         '/login': (_) => const LoginScreen(),
       },
       home: authState.isAuthenticated ? HomeScreen() : const LoginScreen(),

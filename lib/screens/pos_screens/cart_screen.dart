@@ -3,11 +3,43 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../provider/pos_provider.dart';
 import 'checkout_screen.dart';
 
-class CartScreen extends ConsumerWidget {
+class CartScreen extends ConsumerStatefulWidget {
   const CartScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CartScreen> createState() => _CartScreenState();
+}
+
+class _CartScreenState extends ConsumerState<CartScreen> {
+  final Map<int, TextEditingController> _controllers = {};
+
+  @override
+  void dispose() {
+    for (var controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  TextEditingController _getController(int productId, int quantity) {
+    if (!_controllers.containsKey(productId)) {
+      _controllers[productId] = TextEditingController(
+        text: quantity.toString(),
+      );
+    } else {
+      final controller = _controllers[productId]!;
+      if (controller.text != quantity.toString()) {
+        controller.text = quantity.toString();
+        controller.selection = TextSelection.fromPosition(
+          TextPosition(offset: controller.text.length),
+        );
+      }
+    }
+    return _controllers[productId]!;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final cart = ref.watch(cartProvider);
     final cartNotifier = ref.read(cartProvider.notifier);
     final totalItems = cartNotifier.totalItems;
@@ -31,7 +63,6 @@ class CartScreen extends ConsumerWidget {
           ? _buildEmptyCart(context)
           : Column(
               children: [
-                // Cart Items List
                 Expanded(
                   child: ListView.builder(
                     padding: const EdgeInsets.all(16),
@@ -42,49 +73,17 @@ class CartScreen extends ConsumerWidget {
                     },
                   ),
                 ),
-
-                // Total and Checkout Section
                 _buildTotalSection(totalPrice, context),
               ],
             ),
     );
   }
 
-  Widget _buildEmptyCart(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.shopping_cart_outlined, size: 80, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          const Text(
-            'Your cart is empty',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Add some products to get started',
-            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.pop(context); // Go back to POS screen
-            },
-            icon: const Icon(Icons.shopping_bag),
-            label: const Text('Browse Products'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildCartItem(CartItem item, WidgetRef ref, BuildContext context) {
     final maxQuantity = item.product.quantity;
     final currentQuantity = item.quantity;
+
+    final controller = _getController(item.product.id, currentQuantity);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -94,7 +93,6 @@ class CartScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            // Product Info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -128,11 +126,8 @@ class CartScreen extends ConsumerWidget {
                 ],
               ),
             ),
-
-            // Quantity Controls
             Column(
               children: [
-                // Quantity Display and Controls
                 Container(
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.grey[300]!),
@@ -141,7 +136,6 @@ class CartScreen extends ConsumerWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Decrease Button
                       IconButton(
                         icon: const Icon(Icons.remove, size: 18),
                         onPressed: currentQuantity == 1
@@ -149,25 +143,32 @@ class CartScreen extends ConsumerWidget {
                             : () => ref
                                   .read(cartProvider.notifier)
                                   .removeProduct(item.product.id),
-                        style: IconButton.styleFrom(
-                          padding: const EdgeInsets.all(4),
-                          visualDensity: VisualDensity.compact,
-                        ),
                       ),
-
-                      // Quantity
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Text(
-                          currentQuantity.toString(),
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                      SizedBox(
+                        width: 50,
+                        child: TextField(
+                          controller: controller,
+                          keyboardType: TextInputType.number,
+                          textAlign: TextAlign.center,
+                          onChanged: (value) {
+                            final intQty = int.tryParse(value);
+                            if (intQty != null) {
+                              ref
+                                  .read(cartProvider.notifier)
+                                  .updateProductQuantity(
+                                    item.product.id,
+                                    intQty,
+                                    item.product,
+                                  );
+                            }
+                          },
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(vertical: 4),
                           ),
                         ),
                       ),
-
-                      // Increase Button
                       IconButton(
                         icon: const Icon(Icons.add, size: 18),
                         onPressed: currentQuantity >= maxQuantity
@@ -175,18 +176,11 @@ class CartScreen extends ConsumerWidget {
                             : () => ref
                                   .read(cartProvider.notifier)
                                   .addProduct(item.product),
-                        style: IconButton.styleFrom(
-                          padding: const EdgeInsets.all(4),
-                          visualDensity: VisualDensity.compact,
-                        ),
                       ),
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 8),
-
-                // Item Total and Remove
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -202,12 +196,11 @@ class CartScreen extends ConsumerWidget {
                       onPressed: () => _showRemoveItemDialog(
                         context,
                         ref,
-                        item.product.id, // This is now int
+                        item.product.id,
                         item.product.name,
                       ),
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 8),
-                        visualDensity: VisualDensity.compact,
                       ),
                       child: Text(
                         'Remove',
@@ -224,6 +217,44 @@ class CartScreen extends ConsumerWidget {
     );
   }
 
+  Widget _buildEmptyCart(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.shopping_cart_outlined,
+            size: 64,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(height: 16),
+          const Text('Your cart is empty', style: TextStyle(fontSize: 16)),
+          const SizedBox(height: 16),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () {
+              Navigator.pushNamed(
+                context,
+                '/products',
+              ); // Adjust route as needed
+            },
+            child: const Text(
+              'Browse Products',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTotalSection(double totalPrice, BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -233,7 +264,6 @@ class CartScreen extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          // Total Row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -251,10 +281,7 @@ class CartScreen extends ConsumerWidget {
               ),
             ],
           ),
-
           const SizedBox(height: 16),
-
-          // Checkout Button
           SizedBox(
             width: double.infinity,
             child: FilledButton(
@@ -264,18 +291,7 @@ class CartScreen extends ConsumerWidget {
                   MaterialPageRoute(builder: (_) => const CheckoutScreen()),
                 );
               },
-              style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text(
-                'Proceed to Checkout',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
+              child: const Text('Proceed to Checkout'),
             ),
           ),
         ],
@@ -286,35 +302,24 @@ class CartScreen extends ConsumerWidget {
   void _showRemoveItemDialog(
     BuildContext context,
     WidgetRef ref,
-    int productId, // Changed from String to int
+    int productId,
     String productName,
   ) {
     showDialog(
       context: context,
-      builder: (BuildContext dialogContext) => AlertDialog(
+      builder: (context) => AlertDialog(
         title: const Text('Remove Item'),
-        content: Text(
-          'Are you sure you want to remove "$productName" from your cart?',
-        ),
+        content: Text('Remove "$productName" from your cart?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
+            onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () {
-              ref
-                  .read(cartProvider.notifier)
-                  .removeProduct(productId); // Now passing int
-              Navigator.pop(dialogContext);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('"$productName" removed from cart'),
-                  backgroundColor: Colors.green,
-                ),
-              );
+              ref.read(cartProvider.notifier).removeProduct(productId);
+              Navigator.pop(context);
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Remove'),
           ),
         ],
@@ -325,28 +330,19 @@ class CartScreen extends ConsumerWidget {
   void _showClearCartDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
-      builder: (BuildContext dialogContext) => AlertDialog(
+      builder: (context) => AlertDialog(
         title: const Text('Clear Cart'),
-        content: const Text(
-          'Are you sure you want to remove all items from your cart?',
-        ),
+        content: const Text('Remove all items from your cart?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
+            onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () {
               ref.read(cartProvider.notifier).clearCart();
-              Navigator.pop(dialogContext);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Cart cleared'),
-                  backgroundColor: Colors.green,
-                ),
-              );
+              Navigator.pop(context);
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Clear All'),
           ),
         ],

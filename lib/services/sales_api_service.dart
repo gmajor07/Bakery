@@ -15,6 +15,7 @@ class SalesApiService {
     String? customerName,
     DateTime? startDate,
     DateTime? endDate,
+    String? searchQuery,
   }) async {
     try {
       final token = await ref.read(authProvider.notifier).getAccessToken();

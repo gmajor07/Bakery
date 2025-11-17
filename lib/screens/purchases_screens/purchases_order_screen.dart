@@ -1,3 +1,4 @@
+import 'package:bak/screens/purchases_screens/receiving_goods_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -88,6 +89,14 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
     }
   }
 
+  // Refresh function
+  Future<void> _refreshData() async {
+    ref.invalidate(purchaseOrdersProvider);
+    ref.read(purchasePaginationProvider.notifier).reset();
+    // Add a small delay to show the refresh indicator
+    await Future.delayed(const Duration(milliseconds: 500));
+  }
+
   @override
   Widget build(BuildContext context) {
     final asyncOrders = ref.watch(purchaseOrdersProvider);
@@ -110,21 +119,13 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh',
-            onPressed: () {
-              ref.invalidate(purchaseOrdersProvider);
-              ref.read(purchasePaginationProvider.notifier).reset();
-            },
+            onPressed: _refreshData,
           ),
         ],
       ),
-
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(purchaseOrdersProvider);
-            ref.read(purchasePaginationProvider.notifier).reset();
-            await Future.delayed(const Duration(milliseconds: 500));
-          },
+          onRefresh: _refreshData,
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -144,8 +145,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                           ),
                         );
                         if (result == true) {
-                          ref.invalidate(purchaseOrdersProvider);
-                          ref.read(purchasePaginationProvider.notifier).reset();
+                          await _refreshData();
                         }
                       },
                       icon: const Icon(Icons.add),
@@ -236,7 +236,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
   }
 
   Widget _buildStatusFilter(String? selected) {
-    const statuses = [null, "Pending","Approved", "Cancelled", "Completed"];
+    const statuses = [null, "Pending", "Approved", "Cancelled", "Completed"];
     return DropdownButtonFormField<String?>(
       value: selected,
       decoration: const InputDecoration(
@@ -383,21 +383,35 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                         ),
                       ),
                       DataCell(
-                        IconButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    PurchaseOrderDetailScreen(order: o),
+                        Row(
+                          children: [
+                            // Always show View Details
+                            IconButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        PurchaseOrderDetailScreen(order: o),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(
+                                Icons.remove_red_eye,
+                                color: Colors.blue,
                               ),
-                            );
-                          },
-                          icon: const Icon(
-                            Icons.remove_red_eye,
-                            color: Colors.blue,
-                          ),
-                          tooltip: 'View Details',
+                              tooltip: 'View Details',
+                            ),
+
+                            const SizedBox(width: 8),
+
+                            // Show Receive Goods button only if approved
+                            if (o.status.toLowerCase() == 'approved')
+                              ElevatedButton(
+                                onPressed: () async {},
+                                child: const Text('View Receive'),
+                              ),
+                          ],
                         ),
                       ),
                     ],

@@ -17,7 +17,7 @@ class OrderedItem {
 
   factory OrderedItem.fromJson(Map<String, dynamic> json) {
     final qty = json['quantity'] ?? json['receivedQuantity'] ?? 0;
-    final price = json['unitPrice'] ?? json['price'] ?? 0;
+    final price = json['unitPrice'] ?? json['cost'] ?? json['price'] ?? 0;
     final total =
         json['total'] ?? (qty is num && price is num ? qty * price : 0);
 
@@ -64,24 +64,17 @@ class MaterialReceipt {
   });
 
   factory MaterialReceipt.fromJson(Map<String, dynamic> json) {
-    // Received By
-    String receivedBy = json['createdByName'] ?? '-';
+    // ✅ Handle receivedBy
+    String receivedBy =
+        json['receivedBy'] ?? json['createdByName'] ?? json['createdBy'] ?? '-';
 
-    // Supplier Name
+    // ✅ Handle supplier
     String supplierName =
         json['supplierName'] ??
         json['purchaseOrder']?['supplier']?['name'] ??
         '-';
 
-    // Total
-    double total = (json['total'] is num)
-        ? (json['total'] as num).toDouble()
-        : double.tryParse(json['total']?.toString() ?? '') ??
-              (json['purchaseOrder']?['totalCost'] is num
-                  ? (json['purchaseOrder']?['totalCost'] as num).toDouble()
-                  : 0.0);
-
-    // Items (safely check purchaseOrder.items or root items)
+    // ✅ Extract items
     List<dynamic> rawItems = [];
     if (json['items'] is List) {
       rawItems = json['items'];
@@ -103,6 +96,14 @@ class MaterialReceipt {
         unit: '',
       );
     }).toList();
+
+    // ✅ Compute total from items if not provided
+    double total = 0.0;
+    if (json['total'] is num) {
+      total = (json['total'] as num).toDouble();
+    } else if (items.isNotEmpty) {
+      total = items.fold(0.0, (sum, item) => sum + item.total);
+    }
 
     return MaterialReceipt(
       id: json['id'] is int

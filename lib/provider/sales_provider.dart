@@ -5,6 +5,11 @@ import '../models/customer.dart';
 import '../models/sale_item.dart';
 import '../services/sales_api_service.dart';
 
+// --- NEW: Search Query Provider Definition ---
+/// 🔹 Search Query for Sales History
+final searchQueryProvider = StateProvider<String?>((ref) => null);
+// ---------------------------------------------
+
 /// 🔹 Date Range for Filtering Sales
 final selectedDateRangeProvider = StateProvider<DateTimeRange?>((ref) {
   final now = DateTime.now();
@@ -15,6 +20,7 @@ final selectedDateRangeProvider = StateProvider<DateTimeRange?>((ref) {
 final selectedCustomerProvider = StateProvider<Customer?>((ref) => null);
 
 /// 🔹 SALES HISTORY PROVIDER — With Token Error Handling
+// The provider is now updated to watch the new searchQueryProvider.
 final salesHistoryProvider = FutureProvider<List<SaleItem>>((ref) async {
   final auth = ref.read(authProvider.notifier);
   final token = await auth.getAccessToken();
@@ -26,12 +32,18 @@ final salesHistoryProvider = FutureProvider<List<SaleItem>>((ref) async {
   try {
     final selectedCustomer = ref.watch(selectedCustomerProvider);
     final dateRange = ref.watch(selectedDateRangeProvider);
+    // --- UPDATED: Watch the search query ---
+    final searchQuery = ref.watch(searchQueryProvider);
+    // ---------------------------------------
 
     final api = SalesApiService(ref);
     return await api.fetchSalesHistory(
       customerName: selectedCustomer?.name,
       startDate: dateRange?.start,
       endDate: dateRange?.end,
+      // --- UPDATED: Pass the search query to the API call ---
+      searchQuery: searchQuery,
+      // ------------------------------------------------------
     );
   } catch (e) {
     final message = e.toString().toLowerCase();

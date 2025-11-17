@@ -39,8 +39,8 @@ class MaterialApiService {
       );
 
       final raw = response.data;
-      // normalize to a list
       List<dynamic> list = [];
+
       if (raw is List) {
         list = raw;
       } else if (raw is Map<String, dynamic>) {
@@ -48,130 +48,53 @@ class MaterialApiService {
           list = raw['goodsReceipts'];
         } else if (raw['data'] is List) {
           list = raw['data'];
-        } else if (raw['goods_receipts'] is List) {
-          list = raw['goods_receipts'];
         }
       }
 
-      return list.map((e) {
-        if (e is Map<String, dynamic>) return MaterialReceipt.fromJson(e);
-        if (e is Map) {
-          return MaterialReceipt.fromJson(Map<String, dynamic>.from(e));
-        }
-        return MaterialReceipt.fromJson({});
-      }).toList();
+      return list.map((e) => MaterialReceipt.fromJson(e)).toList();
     } on DioException catch (e) {
       final msg = e.response?.data?['message'] ?? 'Failed to fetch receipts';
       throw Exception(msg);
-    } catch (e) {
-      throw Exception('Error fetching receipts: $e');
     }
   }
 
-  /// Fetch single receipt detail (preferred if items are not returned in list)
+  /// Fetch single receipt detail
   Future<MaterialReceipt> fetchReceiptDetail(int receiptId) async {
     final token = await ref.read(authProvider.notifier).getAccessToken();
     if (token == null) throw Exception('Token not found');
 
     try {
-      // 1️⃣ Get the goods receipt first
-      final receiptResp = await _dio.get(
-        '/purchases/receiving',
-        queryParameters: {'id': receiptId},
+      final response = await _dio.get(
+        '/purchases/receiving/$receiptId',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
-      Map<String, dynamic> receiptData = {};
-      if (receiptResp.data is Map<String, dynamic>) {
-        if (receiptResp.data['goodsReceipts'] is List &&
-            receiptResp.data['goodsReceipts'].isNotEmpty) {
-          receiptData = receiptResp.data['goodsReceipts'][0];
-        } else if (receiptResp.data['data'] is Map<String, dynamic>) {
-          receiptData = receiptResp.data['data'];
-        }
+      final data = response.data is Map<String, dynamic>
+          ? response.data
+          : (response.data['data'] ?? {});
+
+      // ✅ Ensure items array exists
+      if (data['items'] == null) {
+        data['items'] = [];
       }
 
-      // 2️⃣ Fetch purchase order to get items
-      final purchaseOrderId = receiptData['purchaseOrderId'];
-      final poResp = await _dio.get(
-        '/purchases/orders/$purchaseOrderId',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
-
-      Map<String, dynamic> poData = {};
-      if (poResp.data is Map<String, dynamic>) {
-        poData = poResp.data;
-      }
-
-      // Merge purchase order items into receipt
-      List<dynamic> rawItems = poData['items'] ?? [];
-      // Fetch item names for each item
-
-      List<OrderedItem> items = await Future.wait(
-        rawItems.map((e) async {
-          final map = Map<String, dynamic>.from(e);
-          final item = OrderedItem.fromJson(map);
-
-          final inventoryId = map['inventoryItemId'];
-          if (inventoryId == null) return item; // fallback if no ID
-
-          final id = int.tryParse(inventoryId.toString()) ?? 0; // safe parsing
-          if (id == 0) return item;
-
-          try {
-            final resp = await _dio.get(
-              '/inventory/items/$id',
-              options: Options(headers: {'Authorization': 'Bearer $token'}),
-            );
-            final data = resp.data as Map<String, dynamic>? ?? {};
-            return OrderedItem(
-              id: item.id,
-              name: data['name'] ?? '',
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              total: item.total,
-              unit: data['unit'] ?? item.unit,
-            );
-          } catch (_) {
-            // fallback if item fetch fails
-            return item;
-          }
-        }),
-      );
-
-      receiptData['items'] = items
+      // ✅ Ensure each item has a name (from the API)
+      data['items'] = (data['items'] as List)
           .map(
-            (e) => {
-              'id': e.id,
-              'name': e.name,
-              'quantity': e.quantity,
-              'unitPrice': e.unitPrice,
-              'total': e.total,
-              'unit': e.unit,
+            (item) => {
+              'name': item['name'] ?? '',
+              'quantity': item['quantity'] ?? 0,
+              'cost': item['cost'] ?? 0,
+              'total': item['total'] ?? 0,
             },
           )
           .toList();
 
-      // Add supplier name if missing
-      if (receiptData['supplierName'] == null &&
-          poData['supplier'] != null &&
-          poData['supplier']['name'] != null) {
-        receiptData['supplierName'] = poData['supplier']['name'];
-      }
-
-      // Add receivedBy from createdByName
-      if (receiptData['receivedBy'] == null &&
-          receiptData['createdByName'] != null) {
-        receiptData['receivedBy'] = receiptData['createdByName'];
-      }
-
-      return MaterialReceipt.fromJson(receiptData);
+      return MaterialReceipt.fromJson(data);
     } on DioException catch (e) {
       final msg =
           e.response?.data?['message'] ?? 'Failed to fetch receipt detail';
       throw Exception(msg);
-    } catch (e) {
-      throw Exception('Error fetching receipt detail: $e');
     }
   }
 }

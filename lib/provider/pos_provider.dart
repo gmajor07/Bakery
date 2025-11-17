@@ -4,33 +4,67 @@ import '../models/product.dart';
 class CartNotifier extends StateNotifier<Map<int, CartItem>> {
   CartNotifier() : super({});
 
+  /// Add +1 product to the cart
   void addProduct(Product product) {
-    if (state.containsKey(product.id)) {
-      final updatedItem = state[product.id]!.copyWith(
-        quantity: state[product.id]!.quantity + 1,
-      );
-      state = {...state, product.id: updatedItem}; // ✅ FIXED
-    } else {
-      state = {...state, product.id: CartItem(product: product, quantity: 1)};
-    }
+    final currentItem = state[product.id];
+    final updatedQuantity = (currentItem?.quantity ?? 0) + 1;
+
+    state = {
+      ...state,
+      product.id: CartItem(product: product, quantity: updatedQuantity),
+    };
   }
 
+  /// Remove -1 product or remove item if it reaches zero
   void removeProduct(int productId) {
-    if (!state.containsKey(productId)) return;
+    final currentItem = state[productId];
+    if (currentItem == null) return;
 
-    final currentItem = state[productId]!;
-    if (currentItem.quantity > 1) {
-      final updatedItem = currentItem.copyWith(
-        quantity: currentItem.quantity - 1,
-      );
-      state = {...state, productId: updatedItem};
+    final newQuantity = currentItem.quantity - 1;
+    if (newQuantity > 0) {
+      state = {
+        ...state,
+        productId: currentItem.copyWith(quantity: newQuantity),
+      };
     } else {
-      final newState = {...state};
-      newState.remove(productId);
-      state = newState;
+      state = Map<int, CartItem>.from(state)..remove(productId);
     }
   }
 
+  /// Update manually entered quantity
+  void updateProductQuantity(int productId, int quantity, [Product? product]) {
+    // ✅ If product not in cart but user entered a value, add it
+    final existingItem = state[productId];
+
+    if (existingItem == null && product != null) {
+      if (quantity > 0) {
+        state = {
+          ...state,
+          productId: CartItem(product: product, quantity: quantity),
+        };
+      }
+      return;
+    }
+
+    if (existingItem == null) return;
+
+    final maxQuantity = existingItem.product.quantity;
+    final newQuantity = quantity.clamp(0, maxQuantity);
+
+    // ✅ If zero, remove from cart
+    if (newQuantity == 0) {
+      final newState = Map<int, CartItem>.from(state)..remove(productId);
+      state = newState;
+    } else {
+      // ✅ Always assign a NEW map reference
+      state = {
+        ...state,
+        productId: existingItem.copyWith(quantity: newQuantity),
+      };
+    }
+  }
+
+  /// Clear entire cart
   void clearCart() => state = {};
 
   int get totalItems =>
@@ -41,7 +75,7 @@ class CartNotifier extends StateNotifier<Map<int, CartItem>> {
 }
 
 final cartProvider = StateNotifierProvider<CartNotifier, Map<int, CartItem>>(
-      (ref) => CartNotifier(),
+  (ref) => CartNotifier(),
 );
 
 class CartItem {

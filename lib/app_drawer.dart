@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:bak/screens/sales_screens/sales_history_ui.dart';
 import '../theme.dart';
 import 'screens/inventory_actions_screen.dart';
 import 'screens/pos_screens/pos_screen.dart';
@@ -10,6 +9,7 @@ import 'screens/sales_screens/outstanding_payment_screen.dart';
 import 'screens/sales_screens/payment_history_screen.dart';
 import 'screens/sales_screens/sales_actions_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/sales_screens/sales_history_screen.dart';
 
 class AppDrawer extends StatefulWidget {
   const AppDrawer({super.key});

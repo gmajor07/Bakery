@@ -1,24 +1,41 @@
+import 'package:bak/provider/purchase_orders_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import '../../models/purchase_order.dart';
-import '../../provider/purchase_orders_provider.dart';
-import '../../purchases_model/inventory_item.dart';
 
-class PurchaseOrderDetailScreen extends StatelessWidget {
+import '../../models/purchase_inventory_item.dart';
+import '../../models/purchase_order.dart';
+
+class PurchaseOrderDetailScreen extends ConsumerStatefulWidget {
   final PurchaseOrder order;
 
   const PurchaseOrderDetailScreen({super.key, required this.order});
 
   @override
+  ConsumerState<PurchaseOrderDetailScreen> createState() =>
+      _PurchaseOrderDetailScreenState();
+}
+
+class _PurchaseOrderDetailScreenState
+    extends ConsumerState<PurchaseOrderDetailScreen> {
+  late PurchaseOrder _order;
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _order = widget.order;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final date = DateFormat(
       'dd-MM-yyyy',
-    ).format(DateTime.parse(order.createdAt));
-    final totalFormatted = NumberFormat('#,###').format(order.totalCost);
+    ).format(DateTime.parse(_order.createdAt));
+    final totalFormatted = NumberFormat('#,###').format(_order.totalCost);
 
     return Scaffold(
-      appBar: AppBar(title: Text('Purchase Order ${order.id}')),
+      appBar: AppBar(title: Text('Purchase Order #${_order.id}')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -26,54 +43,56 @@ class PurchaseOrderDetailScreen extends StatelessWidget {
           children: [
             const SizedBox(height: 20),
 
-            // 🔹 Order Summary title
+            // SUMMARY TITLE
             const Text(
               'Order Summary',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
 
-            // 🔹 Status badge
+            // STATUS BADGE
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: _statusColor(order.status),
+                color: _statusColor(_order.status),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                order.status,
+                _order.status.toUpperCase(),
                 style: const TextStyle(color: Colors.white),
               ),
             ),
+
             const SizedBox(height: 20),
 
-            // 🔹 Supplier
-            _buildLabelValue('Supplier', order.supplier.name),
-
-            // 🔹 Order Date
+            _buildLabelValue('Supplier', _order.supplier.name),
             _buildLabelValue('Order Date', date),
-
-            // 🔹 Total Cost
             _buildLabelValue('Total Cost', totalFormatted),
 
+            if (_order.notes.isNotEmpty)
+              _buildLabelValue('Notes', _order.notes),
+
             const SizedBox(height: 20),
 
-            // 🔹 Items list
+            // ITEMS TABLE
             const Text(
               'Items List',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            Consumer(
-              builder: (context, ref, _) => _buildItemsTable(context, ref),
-            ),
+
+            _buildItemsTable(ref),
+
+            const SizedBox(height: 20),
+
+            // ACTION BUTTONS
+            _buildActionButtons(ref),
           ],
         ),
       ),
     );
   }
 
-  /// Helper widget for label/value pairs
   Widget _buildLabelValue(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -92,12 +111,16 @@ class PurchaseOrderDetailScreen extends StatelessWidget {
     );
   }
 
-  /// Items table
-  Widget _buildItemsTable(BuildContext context, WidgetRef ref) {
+  Widget _buildItemsTable(WidgetRef ref) {
     final inventoryAsync = ref.watch(inventoryItemsProvider);
 
     return inventoryAsync.when(
       data: (inventoryItems) {
+        // MAP API InventoryItems to PurchaseInventoryItem to avoid type conflict
+        final purchaseInventoryItems = inventoryItems
+            .map((i) => PurchaseInventoryItem.fromInventoryItem(i))
+            .toList();
+
         return Card(
           elevation: 2,
           shape: RoundedRectangleBorder(
@@ -119,14 +142,13 @@ class PurchaseOrderDetailScreen extends StatelessWidget {
                   DataColumn(label: Text('Unit Cost')),
                   DataColumn(label: Text('Total')),
                 ],
-                rows: order.items.map((item) {
-                  final inventoryItem = inventoryItems.firstWhere(
+                rows: _order.items.map((item) {
+                  final inventoryItem = purchaseInventoryItems.firstWhere(
                     (i) => i.id == item.inventoryItemId,
-                    orElse: () => InventoryItem(
+                    orElse: () => PurchaseInventoryItem(
                       id: 0,
-                      name: 'Unknown',
+                      name: item.itemName,
                       unit: '',
-                      cost: 0,
                     ),
                   );
 
@@ -152,7 +174,110 @@ class PurchaseOrderDetailScreen extends StatelessWidget {
     );
   }
 
-  Color _statusColor(String status) {
+  Widget _buildActionButtons(WidgetRef ref) {
+    final isPending = _order.status.toLowerCase() == 'pending';
+    final isApproved = _order.status.toLowerCase() == 'approved';
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        if (isPending)
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            onPressed: _isSubmitting ? null : () => _handleApprove(ref),
+            child: _isSubmitting
+                ? const CircularProgressIndicator(color: Colors.white)
+                : const Text('Approve Order'),
+          ),
+
+        if (isPending) const SizedBox(width: 8),
+
+        if (isPending)
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: _isSubmitting ? null : () => _handleCancel(ref),
+            child: _isSubmitting
+                ? const CircularProgressIndicator(color: Colors.white)
+                : const Text('Cancel Order'),
+          ),
+
+        if (isApproved) const SizedBox(width: 8),
+
+        if (isApproved)
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            onPressed: _isSubmitting ? null : () => _handleReceive(ref),
+            child: _isSubmitting
+                ? const CircularProgressIndicator(color: Colors.white)
+                : const Text('Receive Goods'),
+          ),
+      ],
+    );
+  }
+
+  // ACTION HANDLERS
+  Future<void> _handleApprove(WidgetRef ref) async {
+    setState(() => _isSubmitting = true);
+    try {
+      await ref.read(purchaseOrdersApiServiceProvider).approveOrder(_order.id);
+      setState(() => _order = _order.copyWith(status: 'approved'));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Order Approved')));
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<void> _handleCancel(WidgetRef ref) async {
+    setState(() => _isSubmitting = true);
+    try {
+      await ref.read(purchaseOrdersApiServiceProvider).cancelOrder(_order.id);
+      setState(() => _order = _order.copyWith(status: 'cancelled'));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Order Cancelled')));
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<void> _handleReceive(WidgetRef ref) async {
+    setState(() => _isSubmitting = true);
+    try {
+      final payloadItems = _order.items
+          .map(
+            (i) => {
+              "inventoryItemId": i.inventoryItemId,
+              "receivedQuantity": i.quantity,
+            },
+          )
+          .toList();
+      await ref
+          .read(purchaseOrdersApiServiceProvider)
+          .receiveGoods(orderId: _order.id, items: payloadItems);
+      setState(() => _order = _order.copyWith(status: 'completed'));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Goods Received')));
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error receiving goods: $e')));
+    } finally {
+      setState(() => _isSubmitting = false);
+    }
+  }
+
+  static Color _statusColor(String status) {
     switch (status.toLowerCase()) {
       case 'completed':
         return Colors.green;
@@ -160,6 +285,8 @@ class PurchaseOrderDetailScreen extends StatelessWidget {
         return Colors.orange;
       case 'cancelled':
         return Colors.red;
+      case 'approved':
+        return Colors.blue;
       default:
         return Colors.grey;
     }
