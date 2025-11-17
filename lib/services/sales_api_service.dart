@@ -10,12 +10,60 @@ class SalesApiService {
 
   SalesApiService(this.ref) : _dio = BaseApiService(ref).dio;
 
-  /// 🔹 Fetch sales history
+  // Helper to extract a friendly message from a DioException
+  String _getFriendlyError(DioException e, String defaultMessage) {
+    String? serverMessage;
+    try {
+      // Check for common error response structures
+      if (e.response?.data is Map) {
+        serverMessage =
+            e.response?.data['message'] ?? e.response?.data['error'];
+      }
+    } catch (_) {
+      // Ignore parsing errors
+    }
+    // Fallback to default message if server message is null or empty
+    return serverMessage ?? defaultMessage;
+  }
+
+  // --- NEW: fetchAllSales method to support client-side filtering ---
+  /// 🔹 Fetch ALL sales history (Used for client-side filtering)
+  Future<List<SaleItem>> fetchAllSales() async {
+    try {
+      final token = await ref.read(authProvider.notifier).getAccessToken();
+      // 1. Specific Token Error
+      if (token == null) throw Exception("Token is null");
+
+      final response = await _dio.get(
+        '/sales',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+
+      final List<dynamic> data = response.data['sales'] ?? [];
+      return data.map((json) => SaleItem.fromJson(json)).toList();
+    } on DioException catch (e) {
+      print("❌ All Sales fetch error: ${e.response?.data}");
+      // 2. Friendly Dio Error
+      final message = _getFriendlyError(
+        e,
+        'Could not retrieve sales history. Check your connection.',
+      );
+      throw Exception(message);
+    } catch (e, stack) {
+      print("❌ Unexpected error: $e");
+      print(stack);
+      // 3. Friendly Generic Error
+      throw Exception('An unexpected error occurred while loading sales.');
+    }
+  }
+
+  // ------------------------------------------------------------------
+
+  /// 🔹 Fetch sales history (Kept for server-side filtering/re-use, but simplified)
   Future<List<SaleItem>> fetchSalesHistory({
     String? customerName,
     DateTime? startDate,
     DateTime? endDate,
-    String? searchQuery,
   }) async {
     try {
       final token = await ref.read(authProvider.notifier).getAccessToken();
@@ -38,11 +86,15 @@ class SalesApiService {
       return data.map((json) => SaleItem.fromJson(json)).toList();
     } on DioException catch (e) {
       print("❌ Sales fetch error: ${e.response?.data}");
-      throw Exception('Failed to load sales history');
+      final message = _getFriendlyError(
+        e,
+        'Could not retrieve filtered sales. Check server status.',
+      );
+      throw Exception(message);
     } catch (e, stack) {
       print("❌ Unexpected error: $e");
       print(stack);
-      throw Exception('Failed to load sales history');
+      throw Exception('An unexpected error occurred during sales filtering.');
     }
   }
 
@@ -60,11 +112,14 @@ class SalesApiService {
       return SaleItem.fromJson(response.data);
     } on DioException catch (e) {
       print("❌ Sale detail error: ${e.response?.data}");
-      throw Exception('Failed to load sale detail');
+      final message = _getFriendlyError(e, 'Failed to load sale details.');
+      throw Exception(message);
     } catch (e, stack) {
       print("❌ Unexpected error: $e");
       print(stack);
-      throw Exception('Failed to load sale detail');
+      throw Exception(
+        'An unexpected error occurred while loading sale details.',
+      );
     }
   }
 
@@ -125,11 +180,16 @@ class SalesApiService {
       return sale ?? response.data;
     } on DioException catch (e) {
       print("❌ Create sale error: ${e.response?.data}");
-      throw Exception('Failed to create sale: ${e.response?.data}');
+      // The original was already good here, but we will make it cleaner
+      final message = _getFriendlyError(
+        e,
+        'Failed to create sale. Please review details.',
+      );
+      throw Exception(message);
     } catch (e, stack) {
       print("❌ Unexpected error: $e");
       print(stack);
-      throw Exception('Failed to create sale');
+      throw Exception('An unexpected error occurred during sale creation.');
     }
   }
 
@@ -158,7 +218,7 @@ class SalesApiService {
       print("💵 Recording payment with payload:");
       print(payload);
 
-      final response = await _dio.post(
+      await _dio.post(
         '/sales/$saleId/payments',
         data: payload,
         options: Options(
@@ -169,14 +229,18 @@ class SalesApiService {
         ),
       );
 
-      print("✅ Payment recorded: ${response.data}");
+      print("✅ Payment recorded.");
     } on DioException catch (e) {
       print("❌ Payment error: ${e.response?.data}");
-      rethrow;
+      final message = _getFriendlyError(
+        e,
+        'Failed to record payment. Please check inputs.',
+      );
+      throw Exception(message);
     } catch (e, stack) {
       print("❌ Unexpected payment error: $e");
       print(stack);
-      rethrow;
+      throw Exception('An unexpected error occurred while recording payment.');
     }
   }
 }

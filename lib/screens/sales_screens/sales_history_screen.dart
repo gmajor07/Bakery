@@ -3,14 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/sale_item.dart';
-// Note: We no longer need selectedDateRangeProvider or searchQueryProvider from here
 import '../../provider/sales_provider.dart';
+// 🚨 NEW: Import the TokenErrorWidget
 import '../../widgets/token_error_widget.dart';
 import '../pos_screens/generate_pdf.dart';
 import 'sale_detail_screen.dart';
 
 // ----------------------------------------------------------------------
-// 🚨 NEW: Client-Side Pagination State Definitions (Copied from Payment)
+// 🚨 Client-Side Pagination State Definitions (Kept as is)
 // ----------------------------------------------------------------------
 
 final salesPaginationProvider =
@@ -25,7 +25,7 @@ class SalesPaginationState {
 
   SalesPaginationState({
     this.currentPage = 1,
-    this.itemsPerPage = 15, // Default items per page
+    this.itemsPerPage = 50, // Default items per page
     this.hasMore = true,
   });
 
@@ -68,6 +68,9 @@ class SalesPaginationNotifier extends StateNotifier<SalesPaginationState> {
 // 🚨 Sales History Screen with Client-Side Logic
 // ----------------------------------------------------------------------
 
+// 🚨 NEW: Date filter options enum
+enum QuickDateFilter { all, today, yesterday, last7Days, thisMonth, lastMonth }
+
 class SalesHistoryScreen extends ConsumerStatefulWidget {
   const SalesHistoryScreen({super.key});
 
@@ -81,11 +84,16 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   // Local state for client-side search/filter
   String searchQuery = '';
   DateTimeRange? selectedRange;
+  // 🚨 NEW: State for the quick date filter selection
+  QuickDateFilter selectedQuickFilter = QuickDateFilter.last7Days;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_scrollListener);
+
+    // Set initial date range to last 7 days
+    selectedRange = _getDateRange(QuickDateFilter.last7Days);
 
     // Search listener logic from PaymentScreen
     _searchController.addListener(() {
@@ -98,6 +106,7 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
       ref.invalidate(salesHistoryProvider);
     });
   }
+  // ... (rest of initState, dispose, scrollListener, onRefresh, clearAllFilters remain the same)
 
   @override
   void dispose() {
@@ -106,7 +115,6 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
     super.dispose();
   }
 
-  // Scroll Listener logic from PaymentScreen for infinite scroll
   void _scrollListener() {
     if (_scrollController.position.pixels ==
         _scrollController.position.maxScrollExtent) {
@@ -118,22 +126,57 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   }
 
   Future<void> _onRefresh() async {
-    // Refresh loads all data again
     ref.invalidate(salesHistoryProvider);
   }
 
   void _clearAllFilters() {
     setState(() {
       selectedRange = null;
+      selectedQuickFilter = QuickDateFilter.all; // Reset quick filter
       _searchController.clear();
       searchQuery = '';
     });
     ref.read(salesPaginationProvider.notifier).reset();
   }
 
+  // ----------------------------------------------------------------------
+  // 🚨 NEW: Helper method to calculate date ranges
+  // ----------------------------------------------------------------------
+  DateTimeRange? _getDateRange(QuickDateFilter filter) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    switch (filter) {
+      case QuickDateFilter.all:
+        return null;
+      case QuickDateFilter.today:
+        return DateTimeRange(start: today, end: today);
+      case QuickDateFilter.yesterday:
+        final yesterday = today.subtract(const Duration(days: 1));
+        return DateTimeRange(start: yesterday, end: yesterday);
+      case QuickDateFilter.last7Days:
+        final lastWeek = today.subtract(const Duration(days: 6));
+        return DateTimeRange(start: lastWeek, end: today);
+      case QuickDateFilter.thisMonth:
+        final startOfMonth = DateTime(now.year, now.month, 1);
+        return DateTimeRange(start: startOfMonth, end: today);
+      case QuickDateFilter.lastMonth:
+        final lastMonthEnd = DateTime(now.year, now.month, 0);
+        final lastMonthStart = DateTime(
+          lastMonthEnd.year,
+          lastMonthEnd.month,
+          1,
+        );
+        return DateTimeRange(start: lastMonthStart, end: lastMonthEnd);
+    }
+  }
+
+  // ----------------------------------------------------------------------
+  // 🚨 UI: Build method (Updated error state)
+  // ----------------------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
-    // salesHistoryProvider must fetch ALL sales data
     final salesAsync = ref.watch(salesHistoryProvider);
     final paginationState = ref.watch(salesPaginationProvider);
 
@@ -185,7 +228,17 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
                   );
                 },
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, _) => _buildErrorState(err, context),
+                // 🚨 UPDATED: Use TokenErrorWidget for error display
+                error: (error, _) {
+                  final msg = error.toString().toLowerCase();
+                  if (msg.contains('401') ||
+                      msg.contains('unauthorized') ||
+                      msg.contains('token') ||
+                      msg.contains('expired')) {
+                    return TokenErrorWidget(ref: ref);
+                  }
+                  return Center(child: Text('Error: $error'));
+                },
               ),
             ),
           ],
@@ -195,7 +248,7 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   }
 
   // ----------------------------------------------------------------------
-  // 🚨 Filter and Pagination Methods (Copied/Adapted from Payment)
+  // 🚨 UI: Date filter section (Updated with Quick Filters)
   // ----------------------------------------------------------------------
 
   Widget _buildFiltersSection(BuildContext context) {
@@ -204,6 +257,7 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Search Field
             TextField(
@@ -225,7 +279,13 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            // Date Range Picker
+
+            // 🚨 NEW: Quick Date Filter Chips/Buttons
+            _buildQuickDateFilters(),
+
+            const SizedBox(height: 12),
+
+            // Date Range Picker (Only if 'Custom' option is needed, otherwise use only quick filters)
             Row(
               children: [
                 Expanded(
@@ -233,11 +293,13 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
                     icon: const Icon(Icons.date_range),
                     label: Text(
                       selectedRange == null
-                          ? 'Select date range'
+                          ? 'Select Custom Range'
                           : '${DateFormat('MMM dd').format(selectedRange!.start)} - ${DateFormat('MMM dd, yyyy').format(selectedRange!.end)}',
                       overflow: TextOverflow.ellipsis,
                     ),
                     onPressed: () async {
+                      // Deselect quick filter when choosing custom range
+                      setState(() => selectedQuickFilter = QuickDateFilter.all);
                       final now = DateTime.now();
                       final picked = await showDateRangePicker(
                         context: context,
@@ -246,20 +308,34 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
                         initialDateRange: selectedRange,
                       );
                       if (picked != null) {
-                        setState(() => selectedRange = picked);
+                        // Ensure the range includes the end day completely
+                        final end = DateTime(
+                          picked.end.year,
+                          picked.end.month,
+                          picked.end.day,
+                          23,
+                          59,
+                          59,
+                        );
+                        setState(
+                          () => selectedRange = DateTimeRange(
+                            start: picked.start,
+                            end: end,
+                          ),
+                        );
                         ref.read(salesPaginationProvider.notifier).reset();
                       }
                     },
                   ),
                 ),
                 const SizedBox(width: 12),
-                if (selectedRange != null)
+                if (selectedRange != null &&
+                    selectedQuickFilter ==
+                        QuickDateFilter
+                            .all) // Only show clear button for custom range
                   IconButton(
                     icon: const Icon(Icons.clear),
-                    onPressed: () {
-                      setState(() => selectedRange = null);
-                      ref.read(salesPaginationProvider.notifier).reset();
-                    },
+                    onPressed: _clearAllFilters,
                     tooltip: 'Clear date filter',
                   ),
               ],
@@ -270,26 +346,98 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
     );
   }
 
+  Widget _buildQuickDateFilters() {
+    const filters = [
+      QuickDateFilter.today,
+      QuickDateFilter.yesterday,
+      QuickDateFilter.last7Days,
+      QuickDateFilter.thisMonth,
+      QuickDateFilter.lastMonth,
+    ];
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: filters.map((filter) {
+          final isSelected = filter == selectedQuickFilter;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: FilterChip(
+              label: Text(_getFilterName(filter)),
+              selected: isSelected,
+              onSelected: (selected) {
+                if (selected) {
+                  setState(() {
+                    selectedQuickFilter = filter;
+                    selectedRange = _getDateRange(filter);
+                  });
+                  ref.read(salesPaginationProvider.notifier).reset();
+                } else if (filter == selectedQuickFilter) {
+                  // Allow deselection to 'All'
+                  setState(() {
+                    selectedQuickFilter = QuickDateFilter.all;
+                    selectedRange = null;
+                  });
+                  ref.read(salesPaginationProvider.notifier).reset();
+                }
+              },
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  String _getFilterName(QuickDateFilter filter) {
+    switch (filter) {
+      case QuickDateFilter.all:
+        return 'All Time';
+      case QuickDateFilter.today:
+        return 'Today';
+      case QuickDateFilter.yesterday:
+        return 'Yesterday';
+      case QuickDateFilter.last7Days:
+        return 'Last 7 Days';
+      case QuickDateFilter.thisMonth:
+        return 'This Month';
+      case QuickDateFilter.lastMonth:
+        return 'Last Month';
+    }
+  }
+
+  // ----------------------------------------------------------------------
+  // 🚨 Filter and Pagination Methods (Updated date filter logic)
+  // ----------------------------------------------------------------------
+  // In _SalesHistoryScreenState
+
   List<SaleItem> _applyFilters(List<SaleItem> sales) {
     return sales.where((sale) {
-      // Search by customer or receipt number
+      // Search by customer or receipt number (remains the same)
       final matchesSearch =
           sale.receiptNumber.toString().toLowerCase().contains(searchQuery) ||
           sale.customer.toLowerCase().contains(searchQuery);
 
       // Filter by date range
       final saleDate = DateTime.parse(sale.date);
+
+      // 🚨 REFINED FIX for date comparison
       final matchesDate =
           selectedRange == null ||
-          (saleDate.isAfter(
-                selectedRange!.start.subtract(const Duration(days: 1)),
+          (
+          // Check if saleDate is ON or AFTER the start date (inclusive)
+          saleDate.isAfter(
+                selectedRange!.start.subtract(const Duration(seconds: 1)),
               ) &&
+              // Check if saleDate is ON or BEFORE the inclusive end date (23:59:59)
+              // We use the same comparison trick to ensure inclusion up to the last second of the day.
               saleDate.isBefore(
-                selectedRange!.end.add(const Duration(days: 1)),
+                selectedRange!.end.add(const Duration(seconds: 1)),
               ));
+
       return matchesSearch && matchesDate;
     }).toList();
   }
+  // ... (rest of _applyPagination, _buildSalesList, _buildPaginationInfo, _buildEmptyState, and SaleCard remain the same)
 
   List<SaleItem> _applyPagination(
     List<SaleItem> sales,
@@ -419,35 +567,6 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
                   ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErrorState(Object error, BuildContext context) {
-    final msg = error.toString().toLowerCase();
-    if (msg.contains('token') ||
-        msg.contains('401') ||
-        msg.contains('unauthorized')) {
-      return TokenErrorWidget(ref: ref);
-    }
-
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 64, color: Colors.red),
-          const SizedBox(height: 16),
-          Text(
-            'Failed to load sales history',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: _onRefresh,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Try Again'),
           ),
         ],
       ),

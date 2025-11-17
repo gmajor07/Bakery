@@ -31,27 +31,6 @@ class ApiService {
     }
   }
 
-  // 🔹 Delete method
-  Future<void> deleteProduction(int id, String token) async {
-    try {
-      final response = await _dio.delete(
-        '/production/$id',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
-
-      if (response.statusCode != 204 && response.statusCode != 200) {
-        throw Exception('Failed to delete production record');
-      }
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
-        throw InvalidTokenException();
-      }
-      throw Exception(
-        e.response?.data?['message'] ?? 'Failed to delete production record',
-      );
-    }
-  }
-
   Future<List<Customer>> fetchCustomers({
     int page = 1,
     int limit = 20,

@@ -452,10 +452,10 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.green.withOpacity(0.1),
+            color: Colors.brown.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
-          child: const Icon(Icons.payment, color: Colors.green, size: 20),
+          child: const Icon(Icons.payment, color: Colors.brown, size: 20),
         ),
         title: Text(
           'Receipt #${payment.receiptNumber}',

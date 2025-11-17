@@ -1,26 +1,14 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../auth/auth_provider.dart';
 import '../models/customer.dart';
 import '../models/sale_item.dart';
 import '../services/sales_api_service.dart';
 
-// --- NEW: Search Query Provider Definition ---
-/// 🔹 Search Query for Sales History
-final searchQueryProvider = StateProvider<String?>((ref) => null);
-// ---------------------------------------------
-
-/// 🔹 Date Range for Filtering Sales
-final selectedDateRangeProvider = StateProvider<DateTimeRange?>((ref) {
-  final now = DateTime.now();
-  return DateTimeRange(start: now.subtract(const Duration(days: 7)), end: now);
-});
-
 /// 🔹 Selected Customer for Filtering
+// 🚨 RESTORED: This provider is kept because it's required elsewhere.
 final selectedCustomerProvider = StateProvider<Customer?>((ref) => null);
 
-/// 🔹 SALES HISTORY PROVIDER — With Token Error Handling
-// The provider is now updated to watch the new searchQueryProvider.
+/// 🔹 SALES HISTORY PROVIDER — Fetches ALL data for client-side filtering
 final salesHistoryProvider = FutureProvider<List<SaleItem>>((ref) async {
   final auth = ref.read(authProvider.notifier);
   final token = await auth.getAccessToken();
@@ -30,21 +18,10 @@ final salesHistoryProvider = FutureProvider<List<SaleItem>>((ref) async {
   }
 
   try {
-    final selectedCustomer = ref.watch(selectedCustomerProvider);
-    final dateRange = ref.watch(selectedDateRangeProvider);
-    // --- UPDATED: Watch the search query ---
-    final searchQuery = ref.watch(searchQueryProvider);
-    // ---------------------------------------
-
+    // Note: We no longer watch the customer or date range here.
     final api = SalesApiService(ref);
-    return await api.fetchSalesHistory(
-      customerName: selectedCustomer?.name,
-      startDate: dateRange?.start,
-      endDate: dateRange?.end,
-      // --- UPDATED: Pass the search query to the API call ---
-      searchQuery: searchQuery,
-      // ------------------------------------------------------
-    );
+    // Fetches ALL sales records for client-side filtering in the screen.
+    return await api.fetchAllSales();
   } catch (e) {
     final message = e.toString().toLowerCase();
 

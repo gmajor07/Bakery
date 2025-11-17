@@ -628,7 +628,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Sale ID: ${sale['id'] ?? 'N/A'}'),
             const SizedBox(height: 4),
             Text('Total: TSh ${total.toStringAsFixed(0)}'),
             const SizedBox(height: 8),
@@ -637,23 +636,24 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               'Customer:',
               selectedCustomer?.name ?? 'Walk-in Customer',
             ),
-            if (isCredit) _buildTextRow('VAT (18%):', vat.toStringAsFixed(0)),
           ],
         ),
         actions: [
-          TextButton(
-            child: const Text('Print Receipt'),
+          TextButton.icon(
+            icon: const Icon(Icons.print),
+            label: const Text('Print Receipt'),
             onPressed: () {
               Navigator.pop(context);
               _printSaleMap(sale);
             },
           ),
-          FilledButton(
+          FilledButton.icon(
+            icon: const Icon(Icons.check_circle),
+            label: const Text('Done'),
             onPressed: () {
               Navigator.pop(context);
               Navigator.pop(context); // back to POS screen
             },
-            child: const Text('Done'),
           ),
         ],
       ),
