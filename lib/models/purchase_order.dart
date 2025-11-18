@@ -21,8 +21,8 @@ class PurchaseOrder {
 
   factory PurchaseOrder.fromJson(Map<String, dynamic> json) {
     return PurchaseOrder(
-      id: json['id'],
-      supplierId: json['supplierId'],
+      id: int.parse(json['id'].toString()),
+      supplierId: int.parse(json['supplierId'].toString()),
       totalCost: (json['totalCost'] as num).toDouble(),
       status: json['status'],
       notes: json['notes'] ?? '',
@@ -33,6 +33,7 @@ class PurchaseOrder {
           .toList(),
     );
   }
+
 
   /// ✅ Correct copyWith
   PurchaseOrder copyWith({
@@ -65,8 +66,12 @@ class Supplier {
   Supplier({required this.id, required this.name});
 
   factory Supplier.fromJson(Map<String, dynamic> json) {
-    return Supplier(id: json['id'], name: json['name']);
+    return Supplier(
+      id: int.parse(json['id'].toString()),
+      name: json['name'],
+    );
   }
+
 }
 
 class PurchaseOrderItem {
@@ -86,15 +91,16 @@ class PurchaseOrderItem {
 
   factory PurchaseOrderItem.fromJson(Map<String, dynamic> json) {
     return PurchaseOrderItem(
-      id: json['id'],
-      inventoryItemId: json['inventoryItemId'],
+      id: int.parse(json['id'].toString()),
+      inventoryItemId: int.parse(json['inventoryItemId'].toString()),
       itemName: json['inventoryItem'] != null
           ? json['inventoryItem']['name']
           : 'Unknown',
-      quantity: json['quantity'],
+      quantity: int.parse(json['quantity'].toString()),
       price: (json['price'] as num).toDouble(),
     );
   }
+
 
   /// Optional, but recommended
   PurchaseOrderItem copyWith({

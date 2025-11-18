@@ -214,4 +214,27 @@ class PurchaseOrdersApiService {
       throw Exception(error);
     }
   }
+
+  // PATCH: update purchase order status
+  Future<void> updateOrderStatus(int orderId, String status) async {
+    final token = await ref.read(authProvider.notifier).getAccessToken();
+    if (token == null) throw Exception('Token is null');
+
+    try {
+      await _dio.patch(
+        '/purchases/orders/$orderId/status',
+        data: {"status": status},
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+    } on DioException catch (e) {
+      final error = e.response?.data?['message'] ?? 'Failed to update status';
+      throw Exception(error);
+    }
+  }
+
 }

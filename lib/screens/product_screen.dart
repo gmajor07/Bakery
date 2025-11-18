@@ -7,15 +7,6 @@ import '../provider/products_search_provider.dart';
 import '../theme.dart';
 import '../widgets/token_error_widget.dart';
 
-// Assuming you have a Product class defined (e.g., in a model file):
-// class Product {
-//   final String name;
-//   final String description;
-//   final double price;
-//   final bool isInStock;
-//   final String status;
-//   Product(this.name, this.description, this.price, this.isInStock, this.status);
-// }
 
 // Pagination provider
 final paginationProvider = StateProvider<int>((ref) => 0);

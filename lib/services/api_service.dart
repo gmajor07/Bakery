@@ -72,4 +72,18 @@ class ApiService {
       );
     }
   }
+  Future<ProductionItem> fetchProductionItemById(String token, int id) async {
+    try {
+      final response = await _dio.get(
+        '/production/$id',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      return ProductionItem.fromJson(response.data);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) throw InvalidTokenException();
+      throw Exception(
+          e.response?.data?['message'] ?? 'Failed to fetch production run');
+    }
+  }
+
 }

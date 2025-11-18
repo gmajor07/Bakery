@@ -14,9 +14,9 @@ import 'sale_detail_screen.dart';
 // ----------------------------------------------------------------------
 
 final salesPaginationProvider =
-    StateNotifierProvider<SalesPaginationNotifier, SalesPaginationState>(
+StateNotifierProvider<SalesPaginationNotifier, SalesPaginationState>(
       (ref) => SalesPaginationNotifier(),
-    );
+);
 
 class SalesPaginationState {
   final int currentPage;
@@ -84,16 +84,16 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   // Local state for client-side search/filter
   String searchQuery = '';
   DateTimeRange? selectedRange;
-  // 🚨 NEW: State for the quick date filter selection
-  QuickDateFilter selectedQuickFilter = QuickDateFilter.last7Days;
+  // 🚨 FIX: Change default to today
+  QuickDateFilter selectedQuickFilter = QuickDateFilter.today;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_scrollListener);
 
-    // Set initial date range to last 7 days
-    selectedRange = _getDateRange(QuickDateFilter.last7Days);
+    // 🚨 FIX: Set initial date range to today
+    selectedRange = _getDateRange(QuickDateFilter.today);
 
     // Search listener logic from PaymentScreen
     _searchController.addListener(() {
@@ -106,7 +106,6 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
       ref.invalidate(salesHistoryProvider);
     });
   }
-  // ... (rest of initState, dispose, scrollListener, onRefresh, clearAllFilters remain the same)
 
   @override
   void dispose() {
@@ -145,21 +144,26 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   DateTimeRange? _getDateRange(QuickDateFilter filter) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
+    final tomorrow = today.add(const Duration(days: 1));
 
     switch (filter) {
       case QuickDateFilter.all:
         return null;
       case QuickDateFilter.today:
-        return DateTimeRange(start: today, end: today);
+      // 🚨 FIX: Ensure today's range covers the entire day
+        return DateTimeRange(
+            start: today,
+            end: tomorrow.subtract(const Duration(seconds: 1))
+        );
       case QuickDateFilter.yesterday:
         final yesterday = today.subtract(const Duration(days: 1));
-        return DateTimeRange(start: yesterday, end: yesterday);
+        return DateTimeRange(start: yesterday, end: today.subtract(const Duration(seconds: 1)));
       case QuickDateFilter.last7Days:
         final lastWeek = today.subtract(const Duration(days: 6));
-        return DateTimeRange(start: lastWeek, end: today);
+        return DateTimeRange(start: lastWeek, end: tomorrow.subtract(const Duration(seconds: 1)));
       case QuickDateFilter.thisMonth:
         final startOfMonth = DateTime(now.year, now.month, 1);
-        return DateTimeRange(start: startOfMonth, end: today);
+        return DateTimeRange(start: startOfMonth, end: tomorrow.subtract(const Duration(seconds: 1)));
       case QuickDateFilter.lastMonth:
         final lastMonthEnd = DateTime(now.year, now.month, 0);
         final lastMonthStart = DateTime(
@@ -267,13 +271,13 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: searchQuery.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => searchQuery = '');
-                          ref.read(salesPaginationProvider.notifier).reset();
-                        },
-                      )
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => searchQuery = '');
+                    ref.read(salesPaginationProvider.notifier).reset();
+                  },
+                )
                     : null,
                 border: const OutlineInputBorder(),
               ),
@@ -318,7 +322,7 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
                           59,
                         );
                         setState(
-                          () => selectedRange = DateTimeRange(
+                              () => selectedRange = DateTimeRange(
                             start: picked.start,
                             end: end,
                           ),
@@ -331,8 +335,7 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
                 const SizedBox(width: 12),
                 if (selectedRange != null &&
                     selectedQuickFilter ==
-                        QuickDateFilter
-                            .all) // Only show clear button for custom range
+                        QuickDateFilter.all) // Only show clear button for custom range
                   IconButton(
                     icon: const Icon(Icons.clear),
                     onPressed: _clearAllFilters,
@@ -408,41 +411,47 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   // ----------------------------------------------------------------------
   // 🚨 Filter and Pagination Methods (Updated date filter logic)
   // ----------------------------------------------------------------------
-  // In _SalesHistoryScreenState
 
   List<SaleItem> _applyFilters(List<SaleItem> sales) {
     return sales.where((sale) {
-      // Search by customer or receipt number (remains the same)
+      // Search by customer or receipt number
       final matchesSearch =
           sale.receiptNumber.toString().toLowerCase().contains(searchQuery) ||
-          sale.customer.toLowerCase().contains(searchQuery);
+              sale.customer.toLowerCase().contains(searchQuery);
 
-      // Filter by date range
+      // If no date range is selected, return based on search only
+      if (selectedRange == null) {
+        return matchesSearch;
+      }
+
+      // Parse sale date
       final saleDate = DateTime.parse(sale.date);
 
-      // 🚨 REFINED FIX for date comparison
-      final matchesDate =
-          selectedRange == null ||
-          (
-          // Check if saleDate is ON or AFTER the start date (inclusive)
-          saleDate.isAfter(
-                selectedRange!.start.subtract(const Duration(seconds: 1)),
-              ) &&
-              // Check if saleDate is ON or BEFORE the inclusive end date (23:59:59)
-              // We use the same comparison trick to ensure inclusion up to the last second of the day.
-              saleDate.isBefore(
-                selectedRange!.end.add(const Duration(seconds: 1)),
-              ));
+      // Normalize dates to compare only year, month, day (ignore time)
+      final saleDateNormalized = DateTime(saleDate.year, saleDate.month, saleDate.day);
+      final startNormalized = DateTime(
+          selectedRange!.start.year,
+          selectedRange!.start.month,
+          selectedRange!.start.day
+      );
+      final endNormalized = DateTime(
+          selectedRange!.end.year,
+          selectedRange!.end.month,
+          selectedRange!.end.day
+      );
+
+      // Check if sale date is within the selected range (inclusive)
+      final matchesDate = (saleDateNormalized.isAfter(startNormalized.subtract(const Duration(days: 1))) &&
+          saleDateNormalized.isBefore(endNormalized.add(const Duration(days: 1))));
 
       return matchesSearch && matchesDate;
     }).toList();
   }
-  // ... (rest of _applyPagination, _buildSalesList, _buildPaginationInfo, _buildEmptyState, and SaleCard remain the same)
 
   List<SaleItem> _applyPagination(
-    List<SaleItem> sales,
-    SalesPaginationState pagination,
-  ) {
+      List<SaleItem> sales,
+      SalesPaginationState pagination,
+      ) {
     final startIndex = (pagination.currentPage - 1) * pagination.itemsPerPage;
     final endIndex = startIndex + pagination.itemsPerPage;
 
@@ -460,10 +469,10 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   }
 
   Widget _buildSalesList(
-    List<SaleItem> sales,
-    int totalFiltered,
-    SalesPaginationState pagination,
-  ) {
+      List<SaleItem> sales,
+      int totalFiltered,
+      SalesPaginationState pagination,
+      ) {
     if (sales.isEmpty) {
       final hasFilters = selectedRange != null || searchQuery.isNotEmpty;
       return _buildEmptyState(hasFilters);
@@ -509,9 +518,9 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   }
 
   Widget _buildPaginationInfo(
-    int totalFiltered,
-    SalesPaginationState pagination,
-  ) {
+      int totalFiltered,
+      SalesPaginationState pagination,
+      ) {
     final startItem =
         (pagination.currentPage - 1) * pagination.itemsPerPage + 1;
     final endItem = pagination.currentPage * pagination.itemsPerPage;

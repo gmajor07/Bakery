@@ -405,12 +405,6 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
 
                             const SizedBox(width: 8),
 
-                            // Show Receive Goods button only if approved
-                            if (o.status.toLowerCase() == 'approved')
-                              ElevatedButton(
-                                onPressed: () async {},
-                                child: const Text('View Receive'),
-                              ),
                           ],
                         ),
                       ),

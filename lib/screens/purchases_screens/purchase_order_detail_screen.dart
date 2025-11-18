@@ -29,10 +29,10 @@ class _PurchaseOrderDetailScreenState
 
   @override
   Widget build(BuildContext context) {
-    final date = DateFormat(
-      'dd-MM-yyyy',
-    ).format(DateTime.parse(_order.createdAt));
-    final totalFormatted = NumberFormat('#,###').format(_order.totalCost);
+    final date = DateFormat('dd-MM-yyyy')
+        .format(DateTime.parse(_order.createdAt));
+    final totalFormatted =
+    NumberFormat('#,###').format(_order.totalCost);
 
     return Scaffold(
       appBar: AppBar(title: Text('Purchase Order #${_order.id}')),
@@ -43,14 +43,12 @@ class _PurchaseOrderDetailScreenState
           children: [
             const SizedBox(height: 20),
 
-            // SUMMARY TITLE
             const Text(
               'Order Summary',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
 
-            // STATUS BADGE
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
@@ -74,7 +72,6 @@ class _PurchaseOrderDetailScreenState
 
             const SizedBox(height: 20),
 
-            // ITEMS TABLE
             const Text(
               'Items List',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -85,7 +82,6 @@ class _PurchaseOrderDetailScreenState
 
             const SizedBox(height: 20),
 
-            // ACTION BUTTONS
             _buildActionButtons(ref),
           ],
         ),
@@ -99,10 +95,9 @@ class _PurchaseOrderDetailScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
+          Text(label,
+              style:
+              const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 4),
           Text(value, style: const TextStyle(fontSize: 15)),
           const Divider(),
@@ -116,25 +111,19 @@ class _PurchaseOrderDetailScreenState
 
     return inventoryAsync.when(
       data: (inventoryItems) {
-        // MAP API InventoryItems to PurchaseInventoryItem to avoid type conflict
         final purchaseInventoryItems = inventoryItems
             .map((i) => PurchaseInventoryItem.fromInventoryItem(i))
             .toList();
 
         return Card(
           elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
-                headingTextStyle: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
+                headingTextStyle:
+                const TextStyle(fontWeight: FontWeight.bold),
                 columns: const [
                   DataColumn(label: Text('Item')),
                   DataColumn(label: Text('Quantity')),
@@ -143,8 +132,13 @@ class _PurchaseOrderDetailScreenState
                   DataColumn(label: Text('Total')),
                 ],
                 rows: _order.items.map((item) {
+                  final qty =
+                      int.tryParse(item.quantity.toString()) ?? 0;
+                  final price =
+                      int.tryParse(item.price.toString()) ?? 0;
+
                   final inventoryItem = purchaseInventoryItems.firstWhere(
-                    (i) => i.id == item.inventoryItemId,
+                        (i) => i.id == item.inventoryItemId,
                     orElse: () => PurchaseInventoryItem(
                       id: 0,
                       name: item.itemName,
@@ -152,15 +146,17 @@ class _PurchaseOrderDetailScreenState
                     ),
                   );
 
-                  final total = item.quantity * item.price;
+                  final total = qty * price;
 
                   return DataRow(
                     cells: [
                       DataCell(Text(inventoryItem.name)),
-                      DataCell(Text(item.quantity.toString())),
+                      DataCell(Text(qty.toString())),
                       DataCell(Text(inventoryItem.unit)),
-                      DataCell(Text(NumberFormat('#,###').format(item.price))),
-                      DataCell(Text(NumberFormat('#,###').format(total))),
+                      DataCell(
+                          Text(NumberFormat('#,###').format(price))),
+                      DataCell(
+                          Text(NumberFormat('#,###').format(total))),
                     ],
                   );
                 }).toList(),
@@ -170,7 +166,7 @@ class _PurchaseOrderDetailScreenState
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error loading inventory: $e')),
+      error: (e, _) => Text('Error loading inventory: $e'),
     );
   }
 
@@ -215,19 +211,17 @@ class _PurchaseOrderDetailScreenState
     );
   }
 
-  // ACTION HANDLERS
+  // --------------------- ACTION HANDLERS ------------------------
+
   Future<void> _handleApprove(WidgetRef ref) async {
     setState(() => _isSubmitting = true);
     try {
-      await ref.read(purchaseOrdersApiServiceProvider).approveOrder(_order.id);
+      await ref.read(purchaseOrdersApiServiceProvider)
+          .updateOrderStatus(_order.id, 'approved');
       setState(() => _order = _order.copyWith(status: 'approved'));
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Order Approved')));
+      _show('Order Approved');
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      _show('Error: $e');
     } finally {
       setState(() => _isSubmitting = false);
     }
@@ -236,45 +230,46 @@ class _PurchaseOrderDetailScreenState
   Future<void> _handleCancel(WidgetRef ref) async {
     setState(() => _isSubmitting = true);
     try {
-      await ref.read(purchaseOrdersApiServiceProvider).cancelOrder(_order.id);
+      await ref.read(purchaseOrdersApiServiceProvider)
+          .updateOrderStatus(_order.id, 'cancelled');
       setState(() => _order = _order.copyWith(status: 'cancelled'));
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Order Cancelled')));
+      _show('Order Cancelled');
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      _show('Error: $e');
     } finally {
       setState(() => _isSubmitting = false);
     }
   }
 
+
   Future<void> _handleReceive(WidgetRef ref) async {
     setState(() => _isSubmitting = true);
     try {
-      final payloadItems = _order.items
-          .map(
-            (i) => {
-              "inventoryItemId": i.inventoryItemId,
-              "receivedQuantity": i.quantity,
-            },
-          )
-          .toList();
+      final payloadItems = _order.items.map((i) {
+        final qty = int.tryParse(i.quantity.toString()) ?? 0;
+        return {
+          "inventoryItemId": i.inventoryItemId,
+          "receivedQuantity": qty,
+        };
+      }).toList();
+
       await ref
           .read(purchaseOrdersApiServiceProvider)
           .receiveGoods(orderId: _order.id, items: payloadItems);
+
       setState(() => _order = _order.copyWith(status: 'completed'));
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Goods Received')));
+      _show('Goods Received');
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error receiving goods: $e')));
+      _show('Error receiving goods: $e');
     } finally {
       setState(() => _isSubmitting = false);
     }
+  }
+
+  void _show(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg)),
+    );
   }
 
   static Color _statusColor(String status) {
