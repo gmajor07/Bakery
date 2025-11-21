@@ -30,7 +30,13 @@ class InventoryScreen extends ConsumerWidget {
           // Inventory List/Table
           Expanded(
             child: inventoryAsync.when(
-              data: (items) => _buildInventoryDisplay(context, items, searchQuery, isTablet, ref),
+              data: (items) => _buildInventoryDisplay(
+                context,
+                items,
+                searchQuery,
+                isTablet,
+                ref,
+              ),
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) {
                 final msg = error.toString().toLowerCase();
@@ -49,15 +55,17 @@ class InventoryScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeaderSection(BuildContext context, WidgetRef ref, bool isTablet) {
+  Widget _buildHeaderSection(
+    BuildContext context,
+    WidgetRef ref,
+    bool isTablet,
+  ) {
     return Card(
       margin: const EdgeInsets.all(16),
       elevation: 2,
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: isTablet
-            ? _buildTabletHeader(ref)
-            : _buildMobileHeader(ref),
+        child: isTablet ? _buildTabletHeader(ref) : _buildMobileHeader(ref),
       ),
     );
   }
@@ -80,7 +88,7 @@ class InventoryScreen extends ConsumerWidget {
               border: const OutlineInputBorder(),
             ),
             onChanged: (value) =>
-            ref.read(searchQueryProvider.notifier).state = value,
+                ref.read(searchQueryProvider.notifier).state = value,
           ),
         ),
         const SizedBox(width: 12),
@@ -115,7 +123,7 @@ class InventoryScreen extends ConsumerWidget {
             border: const OutlineInputBorder(),
           ),
           onChanged: (value) =>
-          ref.read(searchQueryProvider.notifier).state = value,
+              ref.read(searchQueryProvider.notifier).state = value,
         ),
         const SizedBox(height: 12),
         ElevatedButton.icon(
@@ -132,7 +140,10 @@ class InventoryScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildResultsCount(AsyncValue<List<dynamic>> inventoryAsync, String searchQuery) {
+  Widget _buildResultsCount(
+    AsyncValue<List<dynamic>> inventoryAsync,
+    String searchQuery,
+  ) {
     return inventoryAsync.when(
       data: (items) {
         final filtered = _filterItems(items, searchQuery);
@@ -142,10 +153,7 @@ class InventoryScreen extends ConsumerWidget {
             children: [
               Text(
                 '${filtered.length} item${filtered.length != 1 ? 's' : ''} found',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: Colors.grey[600], fontSize: 14),
               ),
             ],
           ),
@@ -156,7 +164,13 @@ class InventoryScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildInventoryDisplay(BuildContext context, List<dynamic> items, String searchQuery, bool isTablet, WidgetRef ref) {
+  Widget _buildInventoryDisplay(
+    BuildContext context,
+    List<dynamic> items,
+    String searchQuery,
+    bool isTablet,
+    WidgetRef ref,
+  ) {
     final filtered = _filterItems(items, searchQuery);
 
     if (filtered.isEmpty) {
@@ -177,15 +191,47 @@ class InventoryScreen extends ConsumerWidget {
         ),
         child: DataTable(
           headingRowColor: WidgetStateColor.resolveWith(
-                (states) => Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+            (states) => Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest.withOpacity(0.5),
           ),
           columns: const [
-            DataColumn(label: Text('Item Name', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Unit', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Quantity', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Min Level', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Cost', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
+            DataColumn(
+              label: Text(
+                'Item Name',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Unit',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Quantity',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Min Level',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Cost',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Status',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
           ],
           rows: items.map((item) {
             return DataRow(
@@ -205,7 +251,10 @@ class InventoryScreen extends ConsumerWidget {
                   Text(
                     item.currentQuantity.toString(),
                     style: TextStyle(
-                      color: _getQuantityColor(item.currentQuantity, item.minLevel),
+                      color: _getQuantityColor(
+                        item.currentQuantity,
+                        item.minLevel,
+                      ),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -214,7 +263,10 @@ class InventoryScreen extends ConsumerWidget {
                 DataCell(Text('Tsh ${item.cost.toStringAsFixed(0)}')),
                 DataCell(
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: _getStatusColor(item.status).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
@@ -267,7 +319,10 @@ class InventoryScreen extends ConsumerWidget {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: _getStatusColor(item.status).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
@@ -296,9 +351,15 @@ class InventoryScreen extends ConsumerWidget {
                   childAspectRatio: 3,
                   children: [
                     _buildDetailItem('Unit', item.unit),
-                    _buildDetailItem('Quantity', item.currentQuantity.toString()),
+                    _buildDetailItem(
+                      'Quantity',
+                      item.currentQuantity.toString(),
+                    ),
                     _buildDetailItem('Min Level', item.minLevel.toString()),
-                    _buildDetailItem('Cost', 'Tsh ${item.cost.toStringAsFixed(0)}'),
+                    _buildDetailItem(
+                      'Cost',
+                      'Tsh ${item.cost.toStringAsFixed(0)}',
+                    ),
                   ],
                 ),
 
@@ -308,7 +369,11 @@ class InventoryScreen extends ConsumerWidget {
                     padding: const EdgeInsets.only(top: 8),
                     child: Row(
                       children: [
-                        Icon(Icons.warning, size: 16, color: Colors.orange[700]),
+                        Icon(
+                          Icons.warning,
+                          size: 16,
+                          color: Colors.orange[700],
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           'Low stock - reorder needed',
@@ -333,26 +398,21 @@ class InventoryScreen extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
-        ),
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
         const SizedBox(height: 2),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
         ),
       ],
     );
   }
 
-  Widget _buildEmptyState(BuildContext context, String searchQuery, WidgetRef ref) {
+  Widget _buildEmptyState(
+    BuildContext context,
+    String searchQuery,
+    WidgetRef ref,
+  ) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -383,7 +443,6 @@ class InventoryScreen extends ConsumerWidget {
       ),
     );
   }
-
 
   List<dynamic> _filterItems(List<dynamic> items, String searchQuery) {
     if (searchQuery.isEmpty) return items;

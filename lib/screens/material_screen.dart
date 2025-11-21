@@ -36,9 +36,9 @@ class MaterialsScreen extends ConsumerWidget {
       // Floating Action Button - Show only on tablet or when search is empty
       floatingActionButton: isTablet || searchQuery.isEmpty
           ? FloatingActionButton(
-        onPressed: () => _navigateToCreateScreen(context, ref),
-        child: const Icon(Icons.add),
-      )
+              onPressed: () => _navigateToCreateScreen(context, ref),
+              child: const Icon(Icons.add),
+            )
           : null,
 
       body: materialsAsync.when(
@@ -102,7 +102,7 @@ class MaterialsScreen extends ConsumerWidget {
           contentPadding: const EdgeInsets.symmetric(horizontal: 16),
         ),
         onChanged: (value) =>
-        ref.read(materialSearchQueryProvider.notifier).state = value,
+            ref.read(materialSearchQueryProvider.notifier).state = value,
       ),
     );
   }
@@ -114,10 +114,7 @@ class MaterialsScreen extends ConsumerWidget {
         children: [
           Text(
             '$count material${count != 1 ? 's' : ''} found',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 14,
-            ),
+            style: TextStyle(color: Colors.grey[600], fontSize: 14),
           ),
         ],
       ),
@@ -133,15 +130,47 @@ class MaterialsScreen extends ConsumerWidget {
         ),
         child: DataTable(
           headingRowColor: WidgetStateColor.resolveWith(
-                (states) => Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+            (states) => Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest.withOpacity(0.5),
           ),
           columns: const [
-            DataColumn(label: Text('Item Name', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Unit', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Quantity', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Min Level', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Cost', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
+            DataColumn(
+              label: Text(
+                'Item Name',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Unit',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Quantity',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Min Level',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Cost',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Status',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
           ],
           rows: materials.map((item) {
             return DataRow(
@@ -162,11 +191,19 @@ class MaterialsScreen extends ConsumerWidget {
                 DataCell(Text('Tsh ${item.cost.toStringAsFixed(0)}')),
                 DataCell(
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      color: _getStatusColor(item.status, item.lowStock).withOpacity(0.1),
+                      color: _getStatusColor(
+                        item.status,
+                        item.lowStock,
+                      ).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _getStatusColor(item.status, item.lowStock)),
+                      border: Border.all(
+                        color: _getStatusColor(item.status, item.lowStock),
+                      ),
                     ),
                     child: Text(
                       item.status,
@@ -215,11 +252,19 @@ class MaterialsScreen extends ConsumerWidget {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
-                        color: _getStatusColor(item.status, item.lowStock).withOpacity(0.1),
+                        color: _getStatusColor(
+                          item.status,
+                          item.lowStock,
+                        ).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: _getStatusColor(item.status, item.lowStock)),
+                        border: Border.all(
+                          color: _getStatusColor(item.status, item.lowStock),
+                        ),
                       ),
                       child: Text(
                         item.status,
@@ -244,9 +289,15 @@ class MaterialsScreen extends ConsumerWidget {
                   childAspectRatio: 3,
                   children: [
                     _buildDetailItem('Unit', item.unit),
-                    _buildDetailItem('Quantity', item.quantity.toStringAsFixed(3)),
+                    _buildDetailItem(
+                      'Quantity',
+                      item.quantity.toStringAsFixed(3),
+                    ),
                     _buildDetailItem('Min Level', item.minLevel.toString()),
-                    _buildDetailItem('Cost', 'Tsh ${item.cost.toStringAsFixed(0)}'),
+                    _buildDetailItem(
+                      'Cost',
+                      'Tsh ${item.cost.toStringAsFixed(0)}',
+                    ),
                   ],
                 ),
               ],
@@ -261,26 +312,21 @@ class MaterialsScreen extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
-        ),
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
         const SizedBox(height: 2),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
         ),
       ],
     );
   }
 
-  Widget _buildEmptyState(BuildContext context, Future<void> Function() refresh, WidgetRef ref) {
+  Widget _buildEmptyState(
+    BuildContext context,
+    Future<void> Function() refresh,
+    WidgetRef ref,
+  ) {
     return RefreshIndicator(
       onRefresh: refresh,
       child: SingleChildScrollView(
@@ -291,7 +337,11 @@ class MaterialsScreen extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey),
+                const Icon(
+                  Icons.inventory_2_outlined,
+                  size: 64,
+                  color: Colors.grey,
+                ),
                 const SizedBox(height: 16),
                 const Text(
                   'No materials found',
@@ -316,7 +366,11 @@ class MaterialsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildNoSearchResults(BuildContext context, String query, Future<void> Function() refresh) {
+  Widget _buildNoSearchResults(
+    BuildContext context,
+    String query,
+    Future<void> Function() refresh,
+  ) {
     return RefreshIndicator(
       onRefresh: refresh,
       child: SingleChildScrollView(
@@ -400,9 +454,14 @@ class MaterialsScreen extends ConsumerWidget {
   void _navigateToCreateScreen(BuildContext context, WidgetRef ref) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const CreateMaterialScreen()),
+      MaterialPageRoute(
+        builder: (_) => const CreateMaterialScreen(
+          heading: "Add New Material",
+          type: "raw_material",
+          screenTitle: '',
+        ),
+      ),
     );
-    // refresh the list after returning
     ref.read(materialsProvider.notifier).fetchMaterials();
   }
 }
