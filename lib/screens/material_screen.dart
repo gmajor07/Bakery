@@ -186,7 +186,7 @@ class MaterialsScreen extends ConsumerWidget {
                   ),
                 ),
                 DataCell(Text(item.unit)),
-                DataCell(Text(item.quantity.toStringAsFixed(3))),
+                DataCell(Text(item.quantity.toStringAsFixed)),
                 DataCell(Text(item.minLevel.toString())),
                 DataCell(Text('Tsh ${item.cost.toStringAsFixed(0)}')),
                 DataCell(
@@ -456,7 +456,7 @@ class MaterialsScreen extends ConsumerWidget {
       context,
       MaterialPageRoute(
         builder: (_) => const CreateMaterialScreen(
-          heading: "Add New Material",
+          heading: "Add  Material",
           type: "raw_material",
           screenTitle: '',
         ),

@@ -463,57 +463,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
             // Quick Date Filter Chips/Buttons
             _buildQuickDateFilters(),
 
-            const SizedBox(height: 12),
-
-            Row(
-              children: [
-                // Status Filter
-                Expanded(child: _buildStatusFilter(selectedStatus)),
-                const SizedBox(width: 12),
-
-                // Custom Date Range Picker
-                Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.date_range),
-                    label: Text(
-                      selectedRange == null
-                          ? 'Select Custom Range'
-                          : '${DateFormat('MMM dd').format(selectedRange.start)} - ${DateFormat('MMM dd, yyyy').format(selectedRange.end)}',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    onPressed: () async {
-                      // Deselect quick filter when choosing custom range
-                      setState(() => selectedQuickFilter = QuickDateFilter.all);
-                      final now = DateTime.now();
-                      final picked = await showDateRangePicker(
-                        context: context,
-                        firstDate: DateTime(now.year - 5),
-                        lastDate: DateTime(now.year + 1),
-                        initialDateRange: selectedRange,
-                      );
-                      if (picked != null) {
-                        // Ensure the range includes the end day completely (23:59:59)
-                        final end = DateTime(
-                          picked.end.year,
-                          picked.end.month,
-                          picked.end.day,
-                          23,
-                          59,
-                          59,
-                        );
-                        ref
-                            .read(selectedPurchaseDateRangeProvider.notifier)
-                            .state = DateTimeRange(
-                          start: picked.start,
-                          end: end,
-                        );
-                        ref.read(purchasePaginationProvider.notifier).reset();
-                      }
-                    },
-                  ),
-                ),
-              ],
-            ),
+         
           ],
         ),
       ),

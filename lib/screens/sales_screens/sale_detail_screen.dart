@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart'; // 📦 NEW: Import share_plus
+import 'package:printing/printing.dart'; // 📦 NEW: Import printing
+import 'dart:io'; // Needed for File/XFile if sharing
 import '../../models/sale_item.dart';
 import '../../provider/sales_provider.dart';
 import '../../widgets/token_error_widget.dart';
@@ -9,6 +12,70 @@ import '../pos_screens/generate_pdf.dart';
 class SaleDetailScreen extends ConsumerWidget {
   final int saleId;
   const SaleDetailScreen({super.key, required this.saleId});
+
+  // 💡 Helper to format currency with TSh and commas
+  String _formatCurrency(double amount) {
+    final formatter = NumberFormat('#,##0', 'en_US');
+    return 'TSh ${formatter.format(amount)}';
+  }
+
+  // Helper to format date
+  String _formatDate(String dateString) {
+    try {
+      final date = DateTime.parse(dateString);
+      return DateFormat('MMM dd, yyyy - HH:mm').format(date);
+    } catch (e) {
+      return dateString;
+    }
+  }
+
+  // 1. 🔄 MODIFIED: Print function now calls generate and shows feedback
+  void _printReceipt(SaleItem sale, BuildContext context) async {
+    final bytes = await generateSaleReceiptPdf(sale);
+    if (bytes != null) {
+      // Trigger printing with the generated PDF bytes
+      await Printing.layoutPdf(onLayout: (format) => bytes);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Receipt sent to printer.')));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to generate receipt.')),
+      );
+    }
+  }
+
+  // 2. ✅ IMPLEMENTED: Share functionality
+  void _shareReceipt(SaleItem sale, BuildContext context) async {
+    // 💡 Add await here to resolve the Future and get the Uint8List bytes
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Generating receipt for sharing...')),
+    );
+
+    // Call the same generation function to get the PDF bytes
+    final bytes = await generateSaleReceiptPdf(sale);
+
+    if (bytes != null) {
+      // Use XFile.fromData to create XFile from bytes for sharing
+      final file = XFile.fromData(
+        bytes,
+        name: 'receipt_${sale.receiptNumber}.pdf',
+      );
+
+      // Use the share_plus package to open the native share dialog
+      await Share.shareXFiles(
+        [file],
+        text:
+            'Please find the receipt for Sale #${sale.receiptNumber} attached.',
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to generate receipt for sharing.'),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -40,6 +107,8 @@ class SaleDetailScreen extends ConsumerWidget {
       ),
     );
   }
+
+  // --- Widget Builders ---
 
   Widget _buildLoadingState(BuildContext context) {
     return const Center(
@@ -78,6 +147,8 @@ class SaleDetailScreen extends ConsumerWidget {
             error.toString(),
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.grey[600]),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
@@ -92,7 +163,7 @@ class SaleDetailScreen extends ConsumerWidget {
 
   Widget _buildSaleDetails(BuildContext context, SaleItem sale) {
     final formattedDate = _formatDate(sale.date);
-    final formattedAmount = 'TSh ${sale.amount.toStringAsFixed(0)}';
+    final formattedAmount = _formatCurrency(sale.amount);
     final totalItems = sale.items.fold<int>(
       0,
       (sum, item) => sum + item.quantity,
@@ -276,6 +347,8 @@ class SaleDetailScreen extends ConsumerWidget {
                   ),
                 ),
                 Expanded(
+                  // 💡 Added explicit flex to Price column
+                  flex: 2,
                   child: Text(
                     'Price',
                     style: TextStyle(fontWeight: FontWeight.bold),
@@ -283,6 +356,8 @@ class SaleDetailScreen extends ConsumerWidget {
                   ),
                 ),
                 Expanded(
+                  // 💡 Added explicit flex to Total column
+                  flex: 2,
                   child: Text(
                     'Total',
                     style: TextStyle(fontWeight: FontWeight.bold),
@@ -302,6 +377,10 @@ class SaleDetailScreen extends ConsumerWidget {
 
   Widget _buildItemRow(SaleProduct item) {
     final itemTotal = item.price * item.quantity;
+
+    // 💡 Apply comma formatting to item price and total
+    final formattedPrice = _formatCurrency(item.price.toDouble());
+    final formattedTotal = _formatCurrency(itemTotal.toDouble());
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -324,15 +403,19 @@ class SaleDetailScreen extends ConsumerWidget {
             ),
           ),
           Expanded(
+            // 💡 Use flex: 2 to give more horizontal space
+            flex: 2,
             child: Text(
-              'TSh ${item.price.toStringAsFixed(0)}',
+              formattedPrice,
               textAlign: TextAlign.right,
               style: const TextStyle(fontSize: 14),
             ),
           ),
           Expanded(
+            // 💡 Use flex: 2 to give more horizontal space
+            flex: 2,
             child: Text(
-              'TSh ${itemTotal.toStringAsFixed(0)}',
+              formattedTotal,
               textAlign: TextAlign.right,
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
             ),
@@ -375,6 +458,9 @@ class SaleDetailScreen extends ConsumerWidget {
   }
 
   Widget _buildSummaryRow(String label, double amount, {bool isTotal = false}) {
+    // 💡 Apply comma formatting here
+    final formattedAmount = _formatCurrency(amount);
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -388,7 +474,7 @@ class SaleDetailScreen extends ConsumerWidget {
             ),
           ),
           Text(
-            'TSh ${amount.toStringAsFixed(0)}',
+            formattedAmount,
             style: TextStyle(
               fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
               fontSize: isTotal ? 16 : 14,
@@ -397,29 +483,6 @@ class SaleDetailScreen extends ConsumerWidget {
           ),
         ],
       ),
-    );
-  }
-
-  String _formatDate(String dateString) {
-    try {
-      final date = DateTime.parse(dateString);
-      return DateFormat('MMM dd, yyyy - HH:mm').format(date);
-    } catch (e) {
-      return dateString;
-    }
-  }
-
-  void _printReceipt(SaleItem sale, BuildContext context) {
-    generateSaleReceiptPdf(sale);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Receipt generated successfully')),
-    );
-  }
-
-  void _shareReceipt(SaleItem sale, BuildContext context) {
-    // Implement share functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Share functionality coming soon')),
     );
   }
 }

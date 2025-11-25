@@ -5,7 +5,10 @@ import '../provider/adjustment_provider.dart';
 import '../widgets/token_error_widget.dart';
 import 'new_adjustment.dart';
 
-// 🚨 NEW: Date filter options enum
+// Assuming you have an Adjustment model defined elsewhere that is similar to:
+// class Adjustment { final int id; final num amount; final String reason; final String createdAt; final InventoryItem inventoryItem; }
+// class InventoryItem { final String name; final String unit; }
+
 enum QuickDateFilter { all, today, yesterday, last7Days, thisMonth, lastMonth }
 
 class AdjustmentsScreen extends ConsumerStatefulWidget {
@@ -17,37 +20,24 @@ class AdjustmentsScreen extends ConsumerStatefulWidget {
 
 class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
   final TextEditingController _searchController = TextEditingController();
-  // 🚨 NEW: State for quick date filter
   QuickDateFilter selectedQuickFilter = QuickDateFilter.today;
 
   @override
   void initState() {
     super.initState();
 
-    // Read the current filters to initialize the search bar
     final filters = ref.read(adjustmentFiltersProvider);
     _searchController.text = filters.search ?? '';
 
-    // 🚨 FIX: Delay the provider modification until after the first frame.
-    // We only want to apply the default 'today' filter if no date filter
-    // is currently active (e.g., if the user hasn't selected a custom range
-    // on a previous visit).
+    // FIX: Delay the provider modification until after the first frame.
     if (filters.startDate == null && filters.endDate == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _applyQuickDateFilter(QuickDateFilter.today);
       });
-    } else {
-      // If a filter is already set, update the quick filter chip state
-      // based on the current date values, or set to 'all' if custom.
-      // (Advanced logic would be needed here to accurately match the QuickDateFilter enum to existing dates.)
-      // For simplicity, we assume if filters.startDate is set, we don't change it,
-      // but we may want to set selectedQuickFilter to QuickDateFilter.all if it was a custom range.
     }
   }
 
-  // 🚨 NEW: Helper method to calculate date ranges
   void _applyQuickDateFilter(QuickDateFilter filter) {
-    // Set the state for the chip visually
     setState(() => selectedQuickFilter = filter);
 
     final now = DateTime.now();
@@ -64,6 +54,7 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
         break;
       case QuickDateFilter.today:
         startDate = today.toIso8601String();
+        // Ensure the end date is inclusive of the entire day
         endDate = tomorrow
             .subtract(const Duration(seconds: 1))
             .toIso8601String();
@@ -88,9 +79,7 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
             .toIso8601String();
         break;
       case QuickDateFilter.lastMonth:
-        // Calculate the last day of the previous month
         final lastMonthEnd = DateTime(now.year, now.month, 0);
-        // Calculate the first day of the previous month
         final lastMonthStart = DateTime(
           lastMonthEnd.year,
           lastMonthEnd.month,
@@ -101,7 +90,6 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
         break;
     }
 
-    // This is the line that must not be called synchronously in initState/build
     ref
         .read(adjustmentFiltersProvider.notifier)
         .update(
@@ -113,26 +101,29 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
     final picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      lastDate: DateTime.now().add(
+        const Duration(days: 1),
+      ), // Allow selecting today
     );
 
     if (picked != null) {
-      // 🚨 NEW: Deselect quick filter when choosing custom range
       setState(() => selectedQuickFilter = QuickDateFilter.all);
 
       ref
           .read(adjustmentFiltersProvider.notifier)
           .update(
             (s) => s.copyWith(
+              // Ensure end date is inclusive of the whole day (by setting it to 23:59:59 of the end day)
               startDate: picked.start.toIso8601String(),
-              endDate: picked.end.toIso8601String(),
+              endDate: picked.end
+                  .add(const Duration(hours: 23, minutes: 59, seconds: 59))
+                  .toIso8601String(),
               page: 1,
             ),
           );
     }
   }
 
-  // 🚨 NEW: Clear all filters
   void _clearAllFilters() {
     setState(() {
       selectedQuickFilter = QuickDateFilter.all;
@@ -146,7 +137,6 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
         );
   }
 
-  // 🚨 NEW: Get filter display name
   String _getFilterName(QuickDateFilter filter) {
     switch (filter) {
       case QuickDateFilter.all:
@@ -209,12 +199,11 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
         icon: const Icon(Icons.add),
         label: const Text('New Adjustment'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // 🚨 UPDATED: Enhanced filters section
-            Card(
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Card(
               elevation: 2,
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -249,7 +238,7 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    // 🚨 NEW: Quick Date Filter Chips
+                    // Quick Date Filter Chips
                     _buildQuickDateFilters(),
 
                     const SizedBox(height: 12),
@@ -259,7 +248,7 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
-                            icon: const Icon(Icons.date_range),
+                            icon: const Icon(Icons.calendar_today),
                             label: Text(
                               filters.startDate == null ||
                                       filters.endDate == null
@@ -276,88 +265,42 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+          ),
 
-            // Adjustments Data
-            Expanded(
-              child: adjustmentsAsync.when(
-                data: (adjustments) {
-                  if (adjustments.isEmpty) {
-                    return _buildEmptyState(hasFilters);
-                  }
-                  return SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: DataTable(
-                      columns: const [
-                        DataColumn(label: Text('Date')),
-                        DataColumn(label: Text('Item Name')),
-                        DataColumn(label: Text('Unit')),
-                        DataColumn(label: Text('Quantity')),
-                        DataColumn(label: Text('Reason')),
-                      ],
-                      rows: adjustments.map((adj) {
-                        return DataRow(
-                          cells: [
-                            DataCell(
-                              Text(
-                                DateFormat(
-                                  'dd-MM-yyyy HH:mm',
-                                ).format(DateTime.parse(adj.createdAt)),
-                              ),
-                            ),
-                            DataCell(Text(adj.inventoryItem.name)),
-                            DataCell(Text(adj.inventoryItem.unit)),
-                            DataCell(
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: adj.amount > 0
-                                      ? Colors.green.withOpacity(0.1)
-                                      : Colors.red.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  adj.amount > 0
-                                      ? '+${adj.amount}'
-                                      : adj.amount.toString(),
-                                  style: TextStyle(
-                                    color: adj.amount > 0
-                                        ? Colors.green
-                                        : Colors.red,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            DataCell(
-                              Text(adj.reason.isNotEmpty ? adj.reason : 'N/A'),
-                            ),
-                          ],
-                        );
-                      }).toList(),
-                    ),
-                  );
-                },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, _) {
-                  final msg = error.toString().toLowerCase();
-                  if (msg.contains('401') ||
-                      msg.contains('unauthorized') ||
-                      msg.contains('token') ||
-                      msg.contains('expired')) {
-                    return TokenErrorWidget(ref: ref);
-                  }
-                  return Center(child: Text('Error: ${error.toString()}'));
-                },
-              ),
+          // Adjustments Data List View (REPLACED DATATABLE)
+          Expanded(
+            child: adjustmentsAsync.when(
+              data: (adjustments) {
+                if (adjustments.isEmpty) {
+                  return _buildEmptyState(hasFilters);
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: adjustments.length,
+                  itemBuilder: (context, index) {
+                    final adj = adjustments[index];
+                    return AdjustmentTile(adjustment: adj);
+                  },
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) {
+                final msg = error.toString().toLowerCase();
+                if (msg.contains('401') ||
+                    msg.contains('unauthorized') ||
+                    msg.contains('token') ||
+                    msg.contains('expired')) {
+                  return TokenErrorWidget(ref: ref);
+                }
+                return Center(child: Text('Error: ${error.toString()}'));
+              },
             ),
-            const SizedBox(height: 16),
+          ),
 
-            // Pagination
-            Row(
+          // Pagination
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 ElevatedButton(
@@ -387,13 +330,12 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  // 🚨 NEW: Build quick date filters widget
   Widget _buildQuickDateFilters() {
     const filters = [
       QuickDateFilter.today,
@@ -415,10 +357,8 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
               selected: isSelected,
               onSelected: (selected) {
                 if (selected) {
-                  // No need for setState here as _applyQuickDateFilter calls it
                   _applyQuickDateFilter(filter);
                 } else if (filter == selectedQuickFilter) {
-                  // Allow deselection to 'All'
                   _applyQuickDateFilter(QuickDateFilter.all);
                 }
               },
@@ -429,7 +369,6 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
     );
   }
 
-  // 🚨 NEW: Build empty state widget
   Widget _buildEmptyState(bool hasFilters) {
     return Center(
       child: Column(
@@ -457,6 +396,126 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
               onPressed: _clearAllFilters,
             ),
         ],
+      ),
+    );
+  }
+}
+
+// -------------------------------------------------------------------
+// 🎯 NEW WIDGET: Mobile-friendly list item for a single adjustment
+// -------------------------------------------------------------------
+
+// Note: This relies on the structure of your adjustment/item model.
+// Assuming your Adjustment model has: .amount, .createdAt, .reason, and .inventoryItem
+// And InventoryItem has: .name, .unit
+
+class AdjustmentTile extends StatelessWidget {
+  final dynamic
+  adjustment; // Replace 'dynamic' with your actual Adjustment model type
+
+  const AdjustmentTile({super.key, required this.adjustment});
+
+  @override
+  Widget build(BuildContext context) {
+    final amount = adjustment.amount as num;
+    final isIncrease = amount > 0;
+
+    final amountColor = isIncrease
+        ? Colors.green.shade700
+        : Colors.red.shade700;
+    final amountText = isIncrease
+        ? '+${amount.abs()}'
+        : amount.toString(); // Keep negative sign for decreases
+
+    final formattedDate = DateFormat(
+      'MMM dd, yyyy HH:mm',
+    ).format(DateTime.parse(adjustment.createdAt));
+
+    final reasonText = adjustment.reason?.isNotEmpty == true
+        ? adjustment.reason
+        : 'No reason provided';
+    final inventoryItem = adjustment.inventoryItem;
+
+    final itemName = inventoryItem.name;
+    final itemUnit = inventoryItem.unit;
+
+    return Card(
+      elevation: 1,
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Row 1: Item Name and Quantity
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    itemName,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: amountColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '$amountText $itemUnit',
+                    style: TextStyle(
+                      color: amountColor,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 8),
+
+            // Row 2: Date and Time
+            Row(
+              children: [
+                Icon(Icons.access_time, size: 14, color: Colors.grey.shade600),
+                const SizedBox(width: 4),
+                Text(
+                  formattedDate,
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+
+            const Divider(height: 16),
+
+            // Row 3: Reason
+            Text(
+              'Reason:',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              reasonText,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 14),
+            ),
+          ],
+        ),
       ),
     );
   }

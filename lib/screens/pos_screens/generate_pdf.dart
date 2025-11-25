@@ -1,9 +1,9 @@
+import 'dart:typed_data';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 
 import '../../models/sale_item.dart';
 
-void generateSaleReceiptPdf(SaleItem sale) async {
+Future<Uint8List> generateSaleReceiptPdf(SaleItem sale) async {
   final pdf = pw.Document();
 
   pdf.addPage(
@@ -11,7 +11,10 @@ void generateSaleReceiptPdf(SaleItem sale) async {
       build: (context) => pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Text('Receipt #${sale.id}', style: pw.TextStyle(fontSize: 18)),
+          pw.Text(
+            'Receipt #${sale.receiptNumber}',
+            style: pw.TextStyle(fontSize: 18),
+          ),
           pw.Text('Customer: ${sale.customer}'),
           pw.Text('Date: ${sale.date}'),
           pw.Text('Status: ${sale.status}'),
@@ -23,12 +26,12 @@ void generateSaleReceiptPdf(SaleItem sale) async {
             data: sale.items
                 .map(
                   (item) => [
-                item.name,
-                item.quantity.toString(),
-                item.price.toStringAsFixed(2),
-                (item.price * item.quantity).toStringAsFixed(2),
-              ],
-            )
+                    item.name,
+                    item.quantity.toString(),
+                    item.price.toStringAsFixed(2),
+                    (item.price * item.quantity).toStringAsFixed(2),
+                  ],
+                )
                 .toList(),
           ),
           pw.SizedBox(height: 12),
@@ -38,5 +41,5 @@ void generateSaleReceiptPdf(SaleItem sale) async {
     ),
   );
 
-  await Printing.layoutPdf(onLayout: (format) => pdf.save());
+  return pdf.save();
 }

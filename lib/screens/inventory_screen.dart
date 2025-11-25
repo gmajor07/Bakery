@@ -1,12 +1,67 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// NOTE: You must ensure this import path is correct for your project
 import '../provider/inventory_provider.dart';
 import '../widgets/token_error_widget.dart';
 
+// Placeholder for the screen being navigated to
+// You will need to ensure this path and class exist in your project
+import 'create_material_screen.dart';
+
+// --- Top-level Providers and Helper Functions ---
+
 final searchQueryProvider = StateProvider<String>((ref) => '');
+
+List<dynamic> _filterItems(List<dynamic> items, String searchQuery) {
+  if (searchQuery.isEmpty) return items;
+
+  final query = searchQuery.toLowerCase();
+  return items.where((item) {
+    // Assuming 'item' objects have 'name', 'unit', and 'status' properties
+    return item.name.toLowerCase().contains(query) ||
+        item.unit.toLowerCase().contains(query) ||
+        item.status.toLowerCase().contains(query);
+  }).toList();
+}
+
+Color _getStatusColor(String status) {
+  switch (status.toLowerCase()) {
+    case 'in stock':
+      return Colors.green;
+    case 'low stock':
+      return Colors.orange;
+    case 'out of stock':
+      return Colors.red;
+    default:
+      return Colors.grey;
+  }
+}
+
+Color _getQuantityColor(double currentQuantity, double minLevel) {
+  if (currentQuantity <= minLevel) return Colors.red;
+  if (currentQuantity <= minLevel * 2) return Colors.orange;
+  return Colors.green;
+}
+
+// --- InventoryScreen Widget ---
 
 class InventoryScreen extends ConsumerWidget {
   const InventoryScreen({super.key});
+
+  // Reusable navigation logic for FAB and Empty State
+  void _navigateToAddSupply(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const CreateMaterialScreen(
+          heading: "Add Supplies",
+          type: "supply",
+          screenTitle: '',
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -21,7 +76,7 @@ class InventoryScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
-          // Search and Add Section
+          // Search Section
           _buildHeaderSection(context, ref, isTablet),
 
           // Results Count
@@ -52,9 +107,17 @@ class InventoryScreen extends ConsumerWidget {
           ),
         ],
       ),
+
+      // 🚀 FIXED: Floating Action Button added here
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _navigateToAddSupply(context),
+        icon: const Icon(Icons.add),
+        label: const Text('Add Supplies'),
+      ),
     );
   }
 
+  // Helper method: MUST receive BuildContext for navigation
   Widget _buildHeaderSection(
     BuildContext context,
     WidgetRef ref,
@@ -65,12 +128,16 @@ class InventoryScreen extends ConsumerWidget {
       elevation: 2,
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: isTablet ? _buildTabletHeader(ref) : _buildMobileHeader(ref),
+        // Pass context down to both mobile and tablet headers
+        child: isTablet
+            ? _buildTabletHeader(context, ref)
+            : _buildMobileHeader(context, ref),
       ),
     );
   }
 
-  Widget _buildTabletHeader(WidgetRef ref) {
+  // Helper method: Tablet header now only contains search
+  Widget _buildTabletHeader(BuildContext context, WidgetRef ref) {
     return Row(
       children: [
         Expanded(
@@ -91,22 +158,12 @@ class InventoryScreen extends ConsumerWidget {
                 ref.read(searchQueryProvider.notifier).state = value,
           ),
         ),
-        const SizedBox(width: 12),
-        ElevatedButton.icon(
-          onPressed: () {
-            // TODO: Navigate to add supply page
-          },
-          icon: const Icon(Icons.add),
-          label: const Text('Add Supplies'),
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          ),
-        ),
       ],
     );
   }
 
-  Widget _buildMobileHeader(WidgetRef ref) {
+  // Helper method: Mobile header now only contains search
+  Widget _buildMobileHeader(BuildContext context, WidgetRef ref) {
     return Column(
       children: [
         TextField(
@@ -126,16 +183,6 @@ class InventoryScreen extends ConsumerWidget {
               ref.read(searchQueryProvider.notifier).state = value,
         ),
         const SizedBox(height: 12),
-        ElevatedButton.icon(
-          onPressed: () {
-            // TODO: Navigate to add supply page
-          },
-          icon: const Icon(Icons.add),
-          label: const Text('Add Supplies'),
-          style: ElevatedButton.styleFrom(
-            minimumSize: const Size(double.infinity, 48),
-          ),
-        ),
       ],
     );
   }
@@ -173,6 +220,7 @@ class InventoryScreen extends ConsumerWidget {
   ) {
     final filtered = _filterItems(items, searchQuery);
 
+    // Pass context to _buildEmptyState
     if (filtered.isEmpty) {
       return _buildEmptyState(context, searchQuery, ref);
     }
@@ -354,6 +402,10 @@ class InventoryScreen extends ConsumerWidget {
                     _buildDetailItem(
                       'Quantity',
                       item.currentQuantity.toString(),
+                      valueColor: _getQuantityColor(
+                        item.currentQuantity,
+                        item.minLevel,
+                      ),
                     ),
                     _buildDetailItem('Min Level', item.minLevel.toString()),
                     _buildDetailItem(
@@ -394,7 +446,8 @@ class InventoryScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildDetailItem(String label, String value) {
+  // Updated to accept optional valueColor
+  Widget _buildDetailItem(String label, String value, {Color? valueColor}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -402,12 +455,17 @@ class InventoryScreen extends ConsumerWidget {
         const SizedBox(height: 2),
         Text(
           value,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: valueColor, // Apply the color here
+          ),
         ),
       ],
     );
   }
 
+  // Helper method: MUST receive BuildContext for navigation
   Widget _buildEmptyState(
     BuildContext context,
     String searchQuery,
@@ -435,42 +493,11 @@ class InventoryScreen extends ConsumerWidget {
             ElevatedButton.icon(
               icon: const Icon(Icons.add),
               label: const Text('Add Supply'),
-              onPressed: () {
-                // TODO: Navigate to add supply page
-              },
+              onPressed: () =>
+                  _navigateToAddSupply(context), // Use reusable method
             ),
         ],
       ),
     );
-  }
-
-  List<dynamic> _filterItems(List<dynamic> items, String searchQuery) {
-    if (searchQuery.isEmpty) return items;
-
-    final query = searchQuery.toLowerCase();
-    return items.where((item) {
-      return item.name.toLowerCase().contains(query) ||
-          item.unit.toLowerCase().contains(query) ||
-          item.status.toLowerCase().contains(query);
-    }).toList();
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'in stock':
-        return Colors.green;
-      case 'low stock':
-        return Colors.orange;
-      case 'out of stock':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  Color _getQuantityColor(double currentQuantity, double minLevel) {
-    if (currentQuantity <= minLevel) return Colors.red;
-    if (currentQuantity <= minLevel * 2) return Colors.orange;
-    return Colors.green;
   }
 }

@@ -14,9 +14,9 @@ import 'sale_detail_screen.dart';
 // ----------------------------------------------------------------------
 
 final salesPaginationProvider =
-StateNotifierProvider<SalesPaginationNotifier, SalesPaginationState>(
+    StateNotifierProvider<SalesPaginationNotifier, SalesPaginationState>(
       (ref) => SalesPaginationNotifier(),
-);
+    );
 
 class SalesPaginationState {
   final int currentPage;
@@ -150,20 +150,29 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
       case QuickDateFilter.all:
         return null;
       case QuickDateFilter.today:
-      // 🚨 FIX: Ensure today's range covers the entire day
+        // 🚨 FIX: Ensure today's range covers the entire day
         return DateTimeRange(
-            start: today,
-            end: tomorrow.subtract(const Duration(seconds: 1))
+          start: today,
+          end: tomorrow.subtract(const Duration(seconds: 1)),
         );
       case QuickDateFilter.yesterday:
         final yesterday = today.subtract(const Duration(days: 1));
-        return DateTimeRange(start: yesterday, end: today.subtract(const Duration(seconds: 1)));
+        return DateTimeRange(
+          start: yesterday,
+          end: today.subtract(const Duration(seconds: 1)),
+        );
       case QuickDateFilter.last7Days:
         final lastWeek = today.subtract(const Duration(days: 6));
-        return DateTimeRange(start: lastWeek, end: tomorrow.subtract(const Duration(seconds: 1)));
+        return DateTimeRange(
+          start: lastWeek,
+          end: tomorrow.subtract(const Duration(seconds: 1)),
+        );
       case QuickDateFilter.thisMonth:
         final startOfMonth = DateTime(now.year, now.month, 1);
-        return DateTimeRange(start: startOfMonth, end: tomorrow.subtract(const Duration(seconds: 1)));
+        return DateTimeRange(
+          start: startOfMonth,
+          end: tomorrow.subtract(const Duration(seconds: 1)),
+        );
       case QuickDateFilter.lastMonth:
         final lastMonthEnd = DateTime(now.year, now.month, 0);
         final lastMonthStart = DateTime(
@@ -271,13 +280,13 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: searchQuery.isNotEmpty
                     ? IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() => searchQuery = '');
-                    ref.read(salesPaginationProvider.notifier).reset();
-                  },
-                )
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => searchQuery = '');
+                          ref.read(salesPaginationProvider.notifier).reset();
+                        },
+                      )
                     : null,
                 border: const OutlineInputBorder(),
               ),
@@ -322,7 +331,7 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
                           59,
                         );
                         setState(
-                              () => selectedRange = DateTimeRange(
+                          () => selectedRange = DateTimeRange(
                             start: picked.start,
                             end: end,
                           ),
@@ -335,7 +344,8 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
                 const SizedBox(width: 12),
                 if (selectedRange != null &&
                     selectedQuickFilter ==
-                        QuickDateFilter.all) // Only show clear button for custom range
+                        QuickDateFilter
+                            .all) // Only show clear button for custom range
                   IconButton(
                     icon: const Icon(Icons.clear),
                     onPressed: _clearAllFilters,
@@ -417,7 +427,7 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
       // Search by customer or receipt number
       final matchesSearch =
           sale.receiptNumber.toString().toLowerCase().contains(searchQuery) ||
-              sale.customer.toLowerCase().contains(searchQuery);
+          sale.customer.toLowerCase().contains(searchQuery);
 
       // If no date range is selected, return based on search only
       if (selectedRange == null) {
@@ -428,30 +438,39 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
       final saleDate = DateTime.parse(sale.date);
 
       // Normalize dates to compare only year, month, day (ignore time)
-      final saleDateNormalized = DateTime(saleDate.year, saleDate.month, saleDate.day);
+      final saleDateNormalized = DateTime(
+        saleDate.year,
+        saleDate.month,
+        saleDate.day,
+      );
       final startNormalized = DateTime(
-          selectedRange!.start.year,
-          selectedRange!.start.month,
-          selectedRange!.start.day
+        selectedRange!.start.year,
+        selectedRange!.start.month,
+        selectedRange!.start.day,
       );
       final endNormalized = DateTime(
-          selectedRange!.end.year,
-          selectedRange!.end.month,
-          selectedRange!.end.day
+        selectedRange!.end.year,
+        selectedRange!.end.month,
+        selectedRange!.end.day,
       );
 
       // Check if sale date is within the selected range (inclusive)
-      final matchesDate = (saleDateNormalized.isAfter(startNormalized.subtract(const Duration(days: 1))) &&
-          saleDateNormalized.isBefore(endNormalized.add(const Duration(days: 1))));
+      final matchesDate =
+          (saleDateNormalized.isAfter(
+            startNormalized.subtract(const Duration(days: 1)),
+          ) &&
+          saleDateNormalized.isBefore(
+            endNormalized.add(const Duration(days: 1)),
+          ));
 
       return matchesSearch && matchesDate;
     }).toList();
   }
 
   List<SaleItem> _applyPagination(
-      List<SaleItem> sales,
-      SalesPaginationState pagination,
-      ) {
+    List<SaleItem> sales,
+    SalesPaginationState pagination,
+  ) {
     final startIndex = (pagination.currentPage - 1) * pagination.itemsPerPage;
     final endIndex = startIndex + pagination.itemsPerPage;
 
@@ -469,10 +488,10 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   }
 
   Widget _buildSalesList(
-      List<SaleItem> sales,
-      int totalFiltered,
-      SalesPaginationState pagination,
-      ) {
+    List<SaleItem> sales,
+    int totalFiltered,
+    SalesPaginationState pagination,
+  ) {
     if (sales.isEmpty) {
       final hasFilters = selectedRange != null || searchQuery.isNotEmpty;
       return _buildEmptyState(hasFilters);
@@ -518,9 +537,9 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   }
 
   Widget _buildPaginationInfo(
-      int totalFiltered,
-      SalesPaginationState pagination,
-      ) {
+    int totalFiltered,
+    SalesPaginationState pagination,
+  ) {
     final startItem =
         (pagination.currentPage - 1) * pagination.itemsPerPage + 1;
     final endItem = pagination.currentPage * pagination.itemsPerPage;
@@ -583,7 +602,9 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   }
 }
 
-/// Sale Card Widget (Kept as is)
+// ----------------------------------------------------------------
+
+/// Modernized Sale Card Widget
 class SaleCard extends StatelessWidget {
   final SaleItem sale;
   final VoidCallback onViewDetails;
@@ -596,84 +617,6 @@ class SaleCard extends StatelessWidget {
     required this.onPrint,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    final formattedDate = DateFormat.yMMMd().add_Hm().format(
-      DateTime.parse(sale.date),
-    );
-    final formattedAmount = 'TSh ${sale.amount.toStringAsFixed(0)}';
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Theme.of(context).primaryColor.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(Icons.receipt, color: Theme.of(context).primaryColor),
-        ),
-        title: Text(
-          'Receipt #${sale.receiptNumber}',
-          style: const TextStyle(fontWeight: FontWeight.w500),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              sale.customer,
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-              style: const TextStyle(fontWeight: FontWeight.w500),
-            ),
-            Text(formattedDate),
-            Text(
-              formattedAmount,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).primaryColor,
-                fontSize: 16,
-              ),
-            ),
-            if (sale.status != null)
-              Container(
-                margin: const EdgeInsets.only(top: 4),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: _getStatusColor(sale.status!).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  sale.status!,
-                  style: TextStyle(
-                    color: _getStatusColor(sale.status!),
-                    fontWeight: FontWeight.w500,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-          ],
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.visibility_outlined),
-              onPressed: onViewDetails,
-              tooltip: 'View Details',
-            ),
-            IconButton(
-              icon: const Icon(Icons.print_outlined),
-              onPressed: onPrint,
-              tooltip: 'Print Receipt',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'completed':
@@ -685,5 +628,172 @@ class SaleCard extends StatelessWidget {
       default:
         return Colors.grey;
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final formattedDate = DateFormat('MMM dd, yyyy - HH:mm').format(
+      DateTime.parse(sale.date),
+    );
+    // Use NumberFormat for better localization/currency display
+    final numberFormat = NumberFormat.currency(
+      locale: 'en_TZ', // Example locale for Tanzania
+      symbol: 'TSh',
+      decimalDigits: 0,
+    );
+    final formattedAmount = numberFormat.format(sale.amount);
+
+    return InkWell(
+      onTap: onViewDetails, // ⭐ tap anywhere = open details
+      borderRadius: BorderRadius.circular(12), // Larger radius for modern look
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.cardColor, // Use card color for distinction
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: theme.dividerColor.withOpacity(0.5), // Subtle border
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: theme.shadowColor.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // --- Icon/Receipt Number Section (Left) ---
+            Icon(
+              Icons.receipt_long, // Modern icon
+              color: theme.primaryColor,
+              size: 28,
+            ),
+            const SizedBox(width: 16),
+
+            // --- Details Section (Center) ---
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Receipt Number
+                  Text(
+                    '#${sale.receiptNumber}',
+                    style: theme.textTheme.titleMedium!.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Customer Name
+                  Text(
+                    sale.customer,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: theme.textTheme.bodyMedium!.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  // Date
+                  Text(
+                    formattedDate,
+                    style: theme.textTheme.bodySmall!.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                    ),
+                  ),
+
+                  // Status Badge
+                  if (sale.status != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: _StatusBadge(
+                        status: sale.status!,
+                        color: _getStatusColor(sale.status!),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            // --- Amount & Actions Section (Right) ---
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Amount
+                Text(
+                  formattedAmount,
+                  style: theme.textTheme.titleLarge!.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.primaryColor,
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // Actions
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Print Button
+                    IconButton(
+                      icon: Icon(
+                        Icons.print_outlined,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      onPressed: (sale.status?.toLowerCase() == 'completed') ? onPrint : null, // Disable if not completed
+                      tooltip: 'Print Receipt',
+                    ),
+                    const SizedBox(width: 4),
+                    // View Details Indicator
+                    Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 16,
+                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Helper Widget for Status Badge
+class _StatusBadge extends StatelessWidget {
+  final String status;
+  final Color color;
+
+  const _StatusBadge({required this.status, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(20), // Pill shape
+      ),
+      child: Text(
+        status.toUpperCase(),
+        style: Theme.of(context).textTheme.bodySmall!.copyWith(
+          color: color,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.5,
+          fontSize: 10,
+        ),
+      ),
+    );
   }
 }

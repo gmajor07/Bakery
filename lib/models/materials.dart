@@ -2,7 +2,7 @@ class MaterialItem {
   final int id;
   final String name;
   final String unit;
-  final double quantity;
+  final double quantity; // This should now be correct (e.g., 33.0)
   final int minLevel;
   final double cost;
   final String status;
@@ -26,16 +26,24 @@ class MaterialItem {
       return int.tryParse(val.toString()) ?? 0;
     }
 
-    double parseDouble(dynamic val, [double multiplier = 1]) {
+    // Simplified parseDouble, removing the unused 'multiplier' parameter for cleaner logic
+    double parseDouble(dynamic val) {
       if (val == null) return 0.0;
-      if (val is num) return val.toDouble() * multiplier;
-      return (double.tryParse(val.toString()) ?? 0.0) * multiplier;
+      if (val is num) return val.toDouble();
+      return (double.tryParse(val.toString()) ?? 0.0);
     }
 
-    final qty = parseDouble(json['currentQuantity']); // ×1000
-    final minLvl = parseInt(json['minLevel']);
-    final cost = parseDouble(json['cost'], 1000);
+    // 🎯 FIX: Divide the incoming quantity by 1000 to correct the value.
+    // Assuming the back-end sends 33000 for a quantity of 33.
+    final rawQty = parseDouble(json['currentQuantity']);
+    final qty = rawQty / 1000;
 
+    // The cost parsing still applies the multiplier if needed by the backend structure.
+    final cost = parseDouble(json['cost']) * 1000;
+
+    final minLvl = parseInt(json['minLevel']);
+
+    // Check low stock and status against the CORRECTED quantity (qty)
     final isLow = qty > 0 && qty < minLvl;
     final status = qty <= 0 ? 'Out of stock' : 'In-stock';
 
@@ -43,7 +51,7 @@ class MaterialItem {
       id: parseInt(json['id']),
       name: json['name']?.toString() ?? '',
       unit: json['unit']?.toString() ?? '',
-      quantity: qty,
+      quantity: qty, // Use the corrected value
       minLevel: minLvl,
       cost: cost,
       status: status,
@@ -51,3 +59,4 @@ class MaterialItem {
     );
   }
 }
+// The rest of the MaterialsScreen implementation remains the same.
