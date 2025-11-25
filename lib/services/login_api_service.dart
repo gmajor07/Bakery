@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../auth/auth_provider.dart';
+import '../widgets/refresh_token.dart';
 
 class LoginApiService {
   final WidgetRef ref;
@@ -15,6 +16,8 @@ class LoginApiService {
     );
   }
 
+
+
   /// Login and print everything for debugging
   Future<Map<String, dynamic>> login(String email, String code) async {
     try {
@@ -23,32 +26,27 @@ class LoginApiService {
         data: {'email': email, 'loginCode': code},
       );
 
-      print("🔹 Raw login response: ${response.data}");
-
       final access = response.data['token'];
       final refresh = response.data['refreshToken'];
-
-      print("🔹 Access token: $access");
-      print("🔹 Refresh token: $refresh");
-
-      if (access == null || access.isEmpty) {
-        throw Exception("Access token is null");
-      }
 
       await ref.read(authProvider.notifier).saveTokens(access, refresh);
 
       return response.data;
     } on DioException catch (e) {
-      print("❌ DioException type: ${e.type}");
-      print("❌ DioException message: ${e.message}");
-      print("❌ DioException response: ${e.response?.data}");
-      print("❌ DioException status: ${e.response?.statusCode}");
-      print("❌ DioException during login: ${e.response?.data}");
-      throw e; // rethrow for widget to catch
-    } catch (e, stack) {
-      print("❌ Other login error: $e");
-      print(stack);
-      rethrow;
+      throw e;
     }
   }
+  final dioProvider = Provider<Dio>((ref) {
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: "https://pastry-pros-backend.vercel.app/api",
+        headers: {"Accept": "application/json"},
+      ),
+    );
+
+    dio.interceptors.add(TokenInterceptor(ref));
+
+    return dio;
+  });
+
 }

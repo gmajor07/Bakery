@@ -129,7 +129,7 @@ class SaleDetailScreen extends ConsumerWidget {
     if (errorMsg.contains('token') ||
         errorMsg.contains('unauthorized') ||
         errorMsg.contains('401')) {
-      return TokenErrorWidget(ref: ref);
+      return const TokenErrorWidget();
     }
 
     return Center(

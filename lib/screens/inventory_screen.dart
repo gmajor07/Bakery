@@ -99,7 +99,7 @@ class InventoryScreen extends ConsumerWidget {
                     msg.contains('unauthorized') ||
                     msg.contains('token') ||
                     msg.contains('expired')) {
-                  return TokenErrorWidget(ref: ref);
+                  return const TokenErrorWidget();
                 }
                 return Center(child: Text('Error: $error'));
               },

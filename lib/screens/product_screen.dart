@@ -303,7 +303,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               msg.contains('unauthorized') ||
               msg.contains('token') ||
               msg.contains('expired')) {
-            return TokenErrorWidget(ref: ref);
+            return TokenErrorWidget();
           }
           return Center(child: Text('Error: $error'));
         },

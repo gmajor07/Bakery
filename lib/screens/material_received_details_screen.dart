@@ -371,7 +371,7 @@ class MaterialDetailsScreen extends ConsumerWidget {
         msg.contains('unauthorized') ||
         msg.contains('token') ||
         msg.contains('expired')) {
-      return TokenErrorWidget(ref: ref);
+      return TokenErrorWidget();
     }
 
     return Center(

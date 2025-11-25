@@ -290,7 +290,7 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
                     msg.contains('unauthorized') ||
                     msg.contains('token') ||
                     msg.contains('expired')) {
-                  return TokenErrorWidget(ref: ref);
+                  return TokenErrorWidget();
                 }
                 return Center(child: Text('Error: ${error.toString()}'));
               },

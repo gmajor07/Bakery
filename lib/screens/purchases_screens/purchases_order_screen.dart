@@ -393,7 +393,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                   error: (err, _) {
                     final msg = err.toString().toLowerCase();
                     if (msg.contains("token") || msg.contains("unauthorized")) {
-                      return TokenErrorWidget(ref: ref);
+                      return TokenErrorWidget();
                     }
                     return Center(child: Text("Error: $err"));
                   },

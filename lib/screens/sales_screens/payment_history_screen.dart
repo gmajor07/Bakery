@@ -577,7 +577,7 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
     if (msg.contains('token') ||
         msg.contains('401') ||
         msg.contains('unauthorized')) {
-      return TokenErrorWidget(ref: ref);
+      return TokenErrorWidget();
     }
 
     return Center(
