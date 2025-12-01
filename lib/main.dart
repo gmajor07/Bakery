@@ -29,11 +29,11 @@ class MyApp extends ConsumerWidget {
       title: 'Pastry Pros',
       theme: AppTheme.lightTheme,
       routes: {
-        '/home': (_) => HomeScreen(),
+        '/home': (_) => BakeryHomeScreen(),
         '/products': (_) => PosScreen(),
         '/login': (_) => const LoginScreen(),
       },
-      home: authState.isAuthenticated ? HomeScreen() : const LoginScreen(),
+      home: authState.isAuthenticated ? BakeryHomeScreen() : const LoginScreen(),
     );
   }
 }

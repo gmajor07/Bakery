@@ -86,4 +86,32 @@ class ApiService {
     }
   }
 
+  // ✅ NEW METHOD: Create Customer
+  Future<Customer> createCustomer({
+    required Map<String, dynamic> customerData,
+    required String token,
+  }) async {
+    // NOTE: This assumes you have a way to retrieve the 'token' in the UI.
+    // Replace 'your_auth_token_here' with the actual token retrieval logic
+    final headers = {'Authorization': 'Bearer $token'};
+
+    try {
+      final response = await _dio.post(
+        '/customers',
+        data: customerData,
+        options: Options(headers: headers),
+      );
+
+      // The API returns the newly created customer object (Status: 201 Created)
+      return Customer.fromJson(response.data);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        throw InvalidTokenException(); // Assuming you have this custom exception
+      }
+      throw Exception(
+        e.response?.data?['message'] ?? 'Failed to create customer',
+      );
+    }
+  }
+
 }

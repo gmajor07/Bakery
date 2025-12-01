@@ -3,6 +3,13 @@ import 'inventory_screen.dart';
 import 'material_action_screen.dart';
 import 'product_screen.dart';
 
+// Define colors locally for consistency
+const Color primaryColor = Color(0xFFC8A2C8);
+const Color textDark = Color(0xFF3C3C3C);
+const Color creamBackground = Color(0xFFFAF7F0);
+const Color cardOne = Color(0xFF85C1E9); // Light Blue
+const Color cardTwo = Color(0xFFF5B7B1); // Light Pink
+
 class InventoryActionsScreen extends StatelessWidget {
   const InventoryActionsScreen({super.key});
 
@@ -11,183 +18,201 @@ class InventoryActionsScreen extends StatelessWidget {
     final isTablet = MediaQuery.of(context).size.width >= 768;
 
     return Scaffold(
+      backgroundColor: creamBackground,
       appBar: AppBar(
-        title: const Text('Inventory Management'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: const Text(
+          'Inventory Management',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: primaryColor,
         centerTitle: true,
+        elevation: 0,
       ),
-      body: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Theme.of(context).colorScheme.primaryContainer.withOpacity(0.1),
-              Theme.of(context).colorScheme.secondaryContainer.withOpacity(0.1),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(left: 16, right: 16, top: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Section
+              Padding(
+                padding: const EdgeInsets.only(bottom: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Stock Control',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        color: textDark,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Manage finished goods, raw ingredients, and supplies.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Action Cards - Replaced fixed card height with consistent grid/list
+              Expanded(
+                child: isTablet
+                    ? _buildTabletLayout(context)
+                    : _buildMobileLayout(context),
+              ),
             ],
           ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header Section
-            const Padding(
-              padding: EdgeInsets.only(bottom: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-
-                  SizedBox(height: 4),
-                  Text(
-                    'Manage your inventory items',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Action Cards - Using ListView for better overflow handling
-            Expanded(
-              child: isTablet ? _buildTabletLayout(context) : _buildMobileLayout(context),
-            ),
-          ],
         ),
       ),
     );
   }
 
+  // --- Layout Builders ---
+
   Widget _buildTabletLayout(BuildContext context) {
+    // Using the enlarged _ActionCard consistent with dashboard
     return GridView.count(
       crossAxisCount: 3,
       crossAxisSpacing: 16,
       mainAxisSpacing: 16,
-      childAspectRatio: 1.2, // Taller cards for tablet
+      childAspectRatio: 1.2, // Consistent card aspect ratio
       children: _buildAllCards(context),
     );
   }
 
   Widget _buildMobileLayout(BuildContext context) {
+    // Mobile layout now uses the full-width _ActionCard
     return ListView(
+      padding: const EdgeInsets.only(bottom: 16), // Padding for end of list
       children: _buildAllCards(context)
           .map((card) => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.only(bottom: 16),
         child: card,
       ))
           .toList(),
     );
   }
 
+  // --- Card Definitions ---
+
   List<Widget> _buildAllCards(BuildContext context) {
     return [
-      _buildCard(
-        context,
-        'Products',
-        'Manage finished products',
-        Icons.inventory_2_outlined,
-        [Colors.green[50]!, Colors.green[100]!],
-        Colors.green,
-        const ProductsScreen(),
+      // 1. Products (Finished Goods)
+      _ActionCard(
+        color: Colors.teal, // Use strong colors for visual separation
+        label: 'Products',
+        subtitle: 'Manage finished baked goods stock levels.',
+        icon: Icons.cake_rounded, // Better bakery icon
+        onTap: () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const ProductsScreen()));
+        },
       ),
-      _buildCard(
-        context,
-        'Materials',
-        'Manage raw materials',
-        Icons.construction_outlined,
-        [Colors.blue[50]!, Colors.blue[100]!],
-        Colors.blue,
-        MaterialActionScreen(),
+
+      // 2. Materials (Raw Ingredients)
+      _ActionCard(
+        color: cardOne,
+        label: 'Raw Materials',
+        subtitle: 'Track flour, sugar, eggs, and other ingredients.',
+        icon: Icons.kitchen_rounded, // Better ingredient icon
+        onTap: () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => MaterialActionScreen()));
+        },
       ),
-      _buildCard(
-        context,
-        'Supplies',
-        'Manage supplies inventory',
-        Icons.local_shipping_outlined,
-        [Colors.orange[50]!, Colors.orange[100]!],
-        Colors.orange,
-        const InventoryScreen(),
+
+      // 3. Supplies (Non-raw items)
+      _ActionCard(
+        color: Colors.purpleAccent,
+        label: 'Supplies',
+        subtitle: 'Manage packaging, uniforms, and non-consumables.',
+        icon: Icons.format_paint_rounded,
+        onTap: () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const InventoryScreen()));
+        },
+      ),
+
+      // 4. Stock Adjustments (New Action)
+      _ActionCard(
+        color: Colors.orange,
+        label: 'Adjustments',
+        subtitle: 'Record waste, breakage, or inventory corrections.',
+        icon: Icons.edit_note_rounded,
+        onTap: () {
+          // Placeholder for a dedicated screen
+        },
       ),
     ];
   }
+}
 
-  Widget _buildCard(
-      BuildContext context,
-      String title,
-      String subtitle,
-      IconData icon,
-      List<Color> gradientColors,
-      Color iconColor,
-      Widget screen,
-      ) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
-      },
-      child: Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          height: 120, // Fixed height to prevent overflow
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: gradientColors,
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                // Icon section
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
-                    shape: BoxShape.circle,
+// Reusing the modern _ActionCard structure, adapted for Inventory
+class _ActionCard extends StatelessWidget {
+  final Color color;
+  final String label;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _ActionCard({
+    required this.color,
+    required this.label,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      elevation: 4,
+      shadowColor: color.withOpacity(0.2),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Icon section
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: Colors.white, size: 28),
+              ),
+              // Text section
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                      color: textDark,
+                    ),
                   ),
-                  child: Icon(icon, size: 28, color: iconColor),
-                ),
-                const SizedBox(width: 12),
-                // Text section
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blueGrey,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.blueGrey.withOpacity(0.7),
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                    ),
                   ),
-                ),
-                // Arrow icon
-                Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 16,
-                  color: iconColor,
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

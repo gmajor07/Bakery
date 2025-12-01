@@ -1,349 +1,501 @@
+// lib/screens/bakery_home_screen.dart
+import 'package:bak/screens/customer_list_screen.dart';
+import 'package:bak/screens/pos_screens/pos_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../app_drawer.dart';
 import '../auth/auth_provider.dart';
+import '../provider/user_provider.dart'; // Ensure this file exists and exports userProvider
 import 'sales_screens/sales_actions_screen.dart';
 import 'production_screen.dart';
 import 'purchases_screens/purchases_actions_screen.dart';
 import 'inventory_actions_screen.dart';
+import 'sales_screens/sales_history_screen.dart';
 
-class HomeScreen extends ConsumerWidget {
-  const HomeScreen({super.key});
+class BakeryHomeScreen extends ConsumerStatefulWidget {
+  const BakeryHomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ConsumerStatefulWidget> createState() =>
+      _BakeryHomeScreenState();
+}
+
+class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
+  int _selectedIndex = 0;
+
+  // Modern Bakery Theme Colors
+  static const Color primaryColor = Color(0xFFC8A2C8); // Soft Lavender/Lilac
+  static const Color secondaryColor = Color(0xFFF0E68C); // Khaki/Beige for Accent
+  static const Color creamBackground = Color(0xFFFAF7F0); // Off-White/Cream
+
+  final List<Widget> _pages = [
+    const _DashboardBody(), // 0: Home (Dashboard)
+    const SalesActionsScreen(), // 1: Sales
+    const PurchasesActionsScreen(), // 2: Purchases
+    const SizedBox.shrink(), // 3: POS (handled separately by FAB)
+    const InventoryActionsScreen(), // 4: Inventory
+    const ProductionScreen(), // 5: Production/More
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+
     ref.listen(authProvider, (previous, next) {
       if (!next.isAuthenticated) {
+        // Redirect if not authenticated
         Navigator.of(context).pushReplacementNamed('/login');
       }
     });
 
-    final authState = ref.watch(authProvider);
-
     if (authState.isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Loading Dashboard...'),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (!authState.isAuthenticated) {
-      return const Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, size: 64, color: Colors.red),
-              SizedBox(height: 16),
-              Text('Please log in to continue'),
-            ],
-          ),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
+      backgroundColor: creamBackground,
       appBar: AppBar(
+        elevation: 0,
+        backgroundColor: primaryColor,
         title: const Text(
-          'Dashboard',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          'APOTEk Bakery',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              // Refresh any dashboard data if needed
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Dashboard refreshed')),
-              );
-            },
-            tooltip: 'Refresh',
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => _showLogoutDialog(context, ref),
-            tooltip: 'Logout',
-          ),
-        ],
+        centerTitle: true,
       ),
-      drawer: const AppDrawer(),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Theme.of(context).primaryColor.withOpacity(0.05),
-              Theme.of(context).primaryColor.withOpacity(0.02),
+
+      // Floating POS centered
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: SizedBox(
+        height: 72,
+        width: 72,
+        child: FittedBox(
+          child: FloatingActionButton(
+            backgroundColor: primaryColor,
+            elevation: 8,
+            onPressed: () => _openPos(context),
+            tooltip: 'Open POS',
+            child: const Icon(Icons.shopping_cart, size: 30, color: Colors.white),
+          ),
+        ),
+      ),
+
+      // Custom Floating Round Card Bottom Navigation Bar
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.only(
+          left: 16,
+          right: 16,
+          bottom: 16, // Adds space below the navigation bar
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(30), // Increased radius for rounder card
+            boxShadow: [
+              BoxShadow(
+                color: primaryColor.withOpacity(0.3), // Shadow matches primary color
+                blurRadius: 15,
+                spreadRadius: 2,
+                offset: const Offset(0, 8), // Lift the card higher
+              ),
             ],
           ),
-        ),
-        child: Column(
-          children: [
-            // Welcome Header
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor.withOpacity(0.1),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(20),
-                  bottomRight: Radius.circular(20),
-                ),
-              ),
-              child: Column(
-                children: [
-                  const SizedBox(height: 8),
-                  Text(
-                    'Manage your business operations',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Main Actions Grid
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: GridView.count(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
+          child: ClipRRect(
+            // Clip the content to match the rounded container
+            borderRadius: BorderRadius.circular(30),
+            child: BottomAppBar(
+              color: Colors.transparent,
+              elevation: 0,
+              shape: const CircularNotchedRectangle(),
+              notchMargin: 8,
+              // Adjusted height to prevent overflow
+              child: SizedBox(
+                height: 56,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildActionCard(
-                      context: context,
-                      title: 'Sales',
-                      subtitle: 'Manage sales & payments',
-                      icon: Icons.shopping_bag,
-                      iconColor: Colors.green,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const SalesActionsScreen(),
-                          ),
-                        );
-                      },
+                    // 0: Home
+                    _buildNavItem(
+                      icon: Icons.bakery_dining_rounded,
+                      label: 'Home',
+                      index: 0,
                     ),
-                    _buildActionCard(
-                      context: context,
-                      title: 'Purchases',
-                      subtitle: 'Manage suppliers & orders',
-                      icon: Icons.shopping_cart,
-                      iconColor: Colors.blue,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const PurchasesActionsScreen(),
-                          ),
-                        );
-                      },
+                    // 1: Sales (New Icon)
+                    _buildNavItem(
+                      icon: Icons.trending_up_rounded,
+                      label: 'Sales',
+                      index: 1,
                     ),
-                    _buildActionCard(
-                      context: context,
-                      title: 'Production',
-                      subtitle: 'Manufacturing & batches',
-                      icon: Icons.factory,
-                      iconColor: Colors.orange,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ProductionScreen(),
-                          ),
-                        );
-                      },
+                    // Spacer for FAB
+                    const SizedBox(width: 48),
+                    // 2: Purchases (New Link)
+                    _buildNavItem(
+                      icon: Icons.local_shipping_rounded,
+                      label: 'Purchases',
+                      index: 2,
                     ),
-                    _buildActionCard(
-                      context: context,
-                      title: 'Inventory',
-                      subtitle: 'Stock & products',
-                      icon: Icons.inventory,
-                      iconColor: Colors.purple,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => InventoryActionsScreen(),
-                          ),
-                        );
-                      },
+                    // 4: Inventory (New Index/Icon)
+                    _buildNavItem(
+                      icon: Icons.storage_rounded,
+                      label: 'Stock',
+                      index: 4,
                     ),
                   ],
                 ),
               ),
             ),
-          ],
+          ),
         ),
       ),
+
+      // The selected index logic adjusts to skip the placeholder index (3) for POS
+      body: _pages[_selectedIndex > 2 ? _selectedIndex + 1 : _selectedIndex],
     );
   }
 
-  Widget _buildActionCard({
-    required BuildContext context,
-    required String title,
-    required String subtitle,
+  Widget _buildNavItem({
     required IconData icon,
-    required Color iconColor,
-    required VoidCallback onTap,
+    required String label,
+    required int index,
   }) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    final bool isSelected = _selectedIndex == index;
+    return Material(
+      color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [iconColor.withOpacity(0.1), iconColor.withOpacity(0.05)],
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16), // Reduced padding
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12), // Reduced padding
-                  decoration: BoxDecoration(
-                    color: iconColor.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, size: 28, color: iconColor), // Smaller icon
-                ),
-                const SizedBox(height: 8), // Reduced spacing
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14, // Smaller font
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 1, // Prevent text overflow
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4), // Reduced spacing
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 11, // Smaller font
-                    color: Colors.grey[600],
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2, // Limit to 2 lines
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatCard(
-    BuildContext context,
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, size: 20, color: color),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showLogoutDialog(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Logout'),
-          content: const Text('Are you sure you want to logout?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                ref.read(authProvider.notifier).logout();
-              },
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Logout'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // Original simple card method (if you prefer the simpler version)
-  Widget _buildCard(
-    BuildContext context,
-    String title,
-    IconData icon,
-    VoidCallback onTap,
-  ) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Center(
+        onTap: () {
+          setState(() => _selectedIndex = index);
+        },
+        child: SizedBox( // Use SizedBox instead of Padding for better control, preventing overflow
+          width: 60,
+          height: 56, // Match the BottomAppBar height
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 48, color: Theme.of(context).primaryColor),
-              const SizedBox(height: 8),
+              Icon(
+                icon,
+                color: isSelected ? primaryColor : Colors.grey[600],
+                size: 24,
+              ),
+              const SizedBox(height: 2), // Reduced spacing
               Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isSelected ? primaryColor : Colors.grey[600],
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openPos(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PosScreen()),
+    );
+  }
+}
+
+/// Dashboard body with enhanced UI and layout
+class _DashboardBody extends ConsumerWidget {
+  const _DashboardBody();
+
+  // Define colors within this scope for access and consistency
+  static const Color primaryColor = Color(0xFFC8A2C8);
+  static const Color creamBackground = Color(0xFFFAF7F0);
+  static const Color textDark = Color(0xFF3C3C3C);
+  static const Color cardOne = Color(0xFF85C1E9);
+  static const Color cardTwo = Color(0xFFF5B7B1);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final textTheme = Theme.of(context).textTheme;
+    // WATCH THE USER PROVIDER STATE HERE
+    final userState = ref.watch(userProvider);
+
+    String greeting = 'Hi, Baker!';
+    if (userState.user != null) {
+      // ACCESS USERNAME FROM THE USER STATE
+      greeting = 'Hi, ${userState.user!.name.split(' ').first}!';
+    } else if (userState.isLoading) {
+      greeting = 'Loading...';
+    } else if (userState.error != null) {
+      greeting = 'Welcome!';
+    }
+
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Rounded top header with greeting and search
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            decoration: const BoxDecoration(
+              color: primaryColor,
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(35),
+                bottomRight: Radius.circular(35),
+              ),
+            ),
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            greeting, // DISPLAY THE GREETING WITH USERNAME
+                            style: textTheme.headlineMedium?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _formattedDate(),
+                            style: textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  // Search bar (Enhanced)
+
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Quick Actions Grid (Enhanced/Enlarged)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Quick Access',
+                  style: textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: textDark,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                GridView.count(
+                  physics: const NeverScrollableScrollPhysics(),
+                  shrinkWrap: true,
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 1.2,
+                  children: [
+                    // 1. New Sale
+                    _ActionCard(
+                      color: primaryColor,
+                      label: 'New Sale',
+                      subtitle: 'Start a transaction',
+                      icon: Icons.shopping_cart_checkout,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const PosScreen()),
+                        );
+                      },
+                    ),
+                    // 3. Sales History
+                    _ActionCard(
+                      color: cardTwo,
+                      label: 'Sales History',
+                      subtitle: 'Review past transactions',
+                      icon: Icons.history_rounded,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const SalesHistoryScreen()),
+                        );
+                      },
+                    ),
+                    // 2. Inventory
+                    _ActionCard(
+                      color: Colors.amber[700]!,
+                      label: 'Inventory',
+                      subtitle: 'Manage stock levels',
+                      icon: Icons.inventory_2_rounded,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const InventoryActionsScreen()),
+                        );
+                      },
+                    ),
+
+                    // 4. Purchase Orders
+                    _ActionCard(
+                      color: cardOne,
+                      label: 'Purchases',
+                      subtitle: 'Order raw materials',
+                      icon: Icons.list_alt_rounded,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const PurchasesActionsScreen()),
+                        );
+                      },
+                    ),
+                    // 5. Production
+                    _ActionCard(
+                      color: Colors.pinkAccent[200]!,
+                      label: 'Production',
+                      subtitle: 'Plan & track baking',
+                      icon: Icons.microwave_rounded,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => ProductionScreen()),
+                        );
+                      },
+                    ),
+                    // 6. Settings/Reports
+                    _ActionCard(
+                      color: Colors.blueGrey,
+                      label: 'Customer',
+                      subtitle: 'create and View customer',
+                      icon: Icons.person_3,
+                      onTap: () {
+                        // Navigate to a dedicated reports screen or a settings screen
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => CustomerListScreen()),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 30),
+        ],
+      ),
+    );
+  }
+
+  static String _formattedDate() {
+    final now = DateTime.now();
+    final dayOfWeek = _dayShort(now.weekday);
+    final month = _monthShort(now.month);
+    return '$dayOfWeek, ${now.day} $month ${now.year}';
+  }
+
+  static String _monthShort(int m) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return months[m - 1];
+  }
+
+  static String _dayShort(int d) {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return days[d - 1];
+  }
+}
+
+// Action card widget (retains textDark definition fix)
+class _ActionCard extends StatelessWidget {
+  final Color color;
+  final String label;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _ActionCard({
+    required this.color,
+    required this.label,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const Color textDark = Color(0xFF3C3C3C);
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      elevation: 4,
+      shadowColor: color.withOpacity(0.2),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: Colors.white, size: 28),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                      color: textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
