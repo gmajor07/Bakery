@@ -263,7 +263,7 @@ class MaterialDetailsScreen extends ConsumerWidget {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
-        headingRowColor: MaterialStateColor.resolveWith(
+        headingRowColor: WidgetStateColor.resolveWith(
               (states) => Colors.grey[50]!,
         ),
         columns: const [
@@ -408,7 +408,7 @@ class MaterialDetailsScreen extends ConsumerWidget {
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'completed':
-        return Colors.green;
+        return Colors.brown;
       case 'pending':
         return Colors.orange;
       case 'cancelled':

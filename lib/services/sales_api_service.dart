@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../auth/auth_provider.dart';
 import '../models/sale_item.dart';
@@ -131,13 +132,18 @@ class SalesApiService {
     required List<Map<String, dynamic>> items,
     required String accessToken,
     int? dueDays, // Only for credit
+    required double vatAmount, // ✅ Added vatAmount
+    required double subtotal, // 💡 Added subtotal
   }) async {
     try {
       final payload = {
         "customerId": customerId,
         "isCredit": isCredit,
-        "total": total,
+        "subtotal": subtotal, // 💡 Pass subtotal
+        "vat": vatAmount,      // ✅ Pass the calculated VAT AMOUNT
+         "total": total,
         "items": items
+
             .map(
               (item) => {
                 "productId": item["product_id"],
@@ -154,8 +160,12 @@ class SalesApiService {
       }
 
       // 🔹 Print the request payload
-      print("📤 Sending sale request body:");
-      print(payload);
+      if (kDebugMode) {
+        print("📤 Sending sale request body:");
+      }
+      if (kDebugMode) {
+        print(payload);
+      }
 
       final response = await _dio.post(
         '/sales',
@@ -169,17 +179,23 @@ class SalesApiService {
       );
 
       // 🔹 Print raw response
-      print("💰 Sale created response (raw): ${response.data}");
+      if (kDebugMode) {
+        print("💰 Sale created response (raw): ${response.data}");
+      }
 
       final sale = response.data["sale"];
       if (sale != null) {
-        print("🟢 Sale created: $sale");
+        if (kDebugMode) {
+          print("🟢 Sale created: $sale");
+        }
       }
 
       // ⚠️ Do NOT record payment automatically
       return sale ?? response.data;
     } on DioException catch (e) {
-      print("❌ Create sale error: ${e.response?.data}");
+      if (kDebugMode) {
+        print("❌ Create sale error: ${e.response?.data}");
+      }
       // The original was already good here, but we will make it cleaner
       final message = _getFriendlyError(
         e,
@@ -187,8 +203,12 @@ class SalesApiService {
       );
       throw Exception(message);
     } catch (e, stack) {
-      print("❌ Unexpected error: $e");
-      print(stack);
+      if (kDebugMode) {
+        print("❌ Unexpected error: $e");
+      }
+      if (kDebugMode) {
+        print(stack);
+      }
       throw Exception('An unexpected error occurred during sale creation.');
     }
   }
@@ -215,8 +235,12 @@ class SalesApiService {
       }
 
       // 🔹 Print payment payload
-      print("💵 Recording payment with payload:");
-      print(payload);
+      if (kDebugMode) {
+        print("💵 Recording payment with payload:");
+      }
+      if (kDebugMode) {
+        print(payload);
+      }
 
       await _dio.post(
         '/sales/$saleId/payments',
@@ -229,17 +253,25 @@ class SalesApiService {
         ),
       );
 
-      print("✅ Payment recorded.");
+      if (kDebugMode) {
+        print("✅ Payment recorded.");
+      }
     } on DioException catch (e) {
-      print("❌ Payment error: ${e.response?.data}");
+      if (kDebugMode) {
+        print("❌ Payment error: ${e.response?.data}");
+      }
       final message = _getFriendlyError(
         e,
         'Failed to record payment. Please check inputs.',
       );
       throw Exception(message);
     } catch (e, stack) {
-      print("❌ Unexpected payment error: $e");
-      print(stack);
+      if (kDebugMode) {
+        print("❌ Unexpected payment error: $e");
+      }
+      if (kDebugMode) {
+        print(stack);
+      }
       throw Exception('An unexpected error occurred while recording payment.');
     }
   }

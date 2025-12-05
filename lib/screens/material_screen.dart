@@ -448,7 +448,7 @@ class MaterialsScreen extends ConsumerWidget {
   Color _getStatusColor(String status, bool lowStock) {
     if (status == 'Out of stock') return Colors.red;
     if (lowStock) return Colors.orange;
-    return Colors.green;
+    return Colors.brown;
   }
 
   void _navigateToCreateScreen(BuildContext context, WidgetRef ref) async {

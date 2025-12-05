@@ -1,8 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>(
-      (ref) => AuthNotifier(ref),
+  (ref) => AuthNotifier(ref),
 );
 
 class AuthState {
@@ -48,7 +49,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final refresh = await _storage.read(key: 'refreshToken');
 
     if (access != null && access.isNotEmpty) {
-      print("✅ Loaded saved tokens: Access=$access, Refresh=$refresh");
+      if (kDebugMode) {
+        print("✅ Loaded saved tokens: Access=$access, Refresh=$refresh");
+      }
       state = AuthState(
         isAuthenticated: true,
         accessToken: access,
@@ -66,7 +69,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _storage.write(key: 'refreshToken', value: refresh);
     }
 
-    print("💾 Tokens saved: Access=$access, Refresh=$refresh");
+    if (kDebugMode) {
+      print("💾 Tokens saved: Access=$access, Refresh=$refresh");
+    }
 
     state = state.copyWith(
       isAuthenticated: true,
@@ -76,14 +81,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
-    await _storage.delete(key: 'accessToken');
-    await _storage.delete(key: 'refreshToken');
-    print("🚪 Logged out");
-    state = const AuthState(isAuthenticated: false, isLoading: false);
+    try {
+      await _storage.delete(key: 'accessToken');
+      await _storage.delete(key: 'refreshToken');
+      if (kDebugMode) {
+        print("🚪 Logged out successfully");
+      }
+      state = const AuthState(isAuthenticated: false, isLoading: false);
+    } catch (e) {
+      if (kDebugMode) {
+        print("❌ Error during logout: $e");
+      }
+      // Still update state even if storage deletion fails
+      state = const AuthState(isAuthenticated: false, isLoading: false);
+    }
   }
 
   Future<String?> getAccessToken() async => _storage.read(key: 'accessToken');
   Future<String?> getRefreshToken() async => _storage.read(key: 'refreshToken');
-
-
 }

@@ -15,8 +15,10 @@ class SaleDetailScreen extends ConsumerWidget {
 
   // 💡 Helper to format currency with TSh and commas
   String _formatCurrency(double amount) {
+    // Ensure we are working with non-negative numbers for formatting
+    final absoluteAmount = amount.abs();
     final formatter = NumberFormat('#,##0', 'en_US');
-    return 'TSh ${formatter.format(amount)}';
+    return 'TSh ${formatter.format(absoluteAmount)}';
   }
 
   // Helper to format date
@@ -34,6 +36,7 @@ class SaleDetailScreen extends ConsumerWidget {
     final bytes = await generateSaleReceiptPdf(sale);
     if (bytes != null) {
       // Trigger printing with the generated PDF bytes
+      // Note: Printing requires you to pass Uint8List bytes
       await Printing.layoutPdf(onLayout: (format) => bytes);
       ScaffoldMessenger.of(
         context,
@@ -47,7 +50,6 @@ class SaleDetailScreen extends ConsumerWidget {
 
   // 2. ✅ IMPLEMENTED: Share functionality
   void _shareReceipt(SaleItem sale, BuildContext context) async {
-    // 💡 Add await here to resolve the Future and get the Uint8List bytes
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Generating receipt for sharing...')),
     );
@@ -66,7 +68,7 @@ class SaleDetailScreen extends ConsumerWidget {
       await Share.shareXFiles(
         [file],
         text:
-            'Please find the receipt for Sale #${sale.receiptNumber} attached.',
+        'Please find the receipt for Sale #${sale.receiptNumber} attached.',
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -108,7 +110,7 @@ class SaleDetailScreen extends ConsumerWidget {
     );
   }
 
-  // --- Widget Builders ---
+  // --- Widget Builders (Loading/Error States) ---
 
   Widget _buildLoadingState(BuildContext context) {
     return const Center(
@@ -166,7 +168,7 @@ class SaleDetailScreen extends ConsumerWidget {
     final formattedAmount = _formatCurrency(sale.amount);
     final totalItems = sale.items.fold<int>(
       0,
-      (sum, item) => sum + item.quantity,
+          (sum, item) => sum + item.quantity,
     );
 
     return SingleChildScrollView(
@@ -258,17 +260,19 @@ class SaleDetailScreen extends ConsumerWidget {
     );
   }
 
+  // ⭐️ MODIFIED: _buildInfoGrid for responsiveness
   Widget _buildInfoGrid(
-    SaleItem sale,
-    String formattedDate,
-    String formattedAmount,
-    int totalItems,
-  ) {
+      SaleItem sale,
+      String formattedDate,
+      String formattedAmount,
+      int totalItems,
+      ) {
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
-      childAspectRatio: 3,
+      // ⭐️ CHANGE: Reduced childAspectRatio from 3 to 2.8 for more vertical space per item
+      childAspectRatio: 2.8,
       crossAxisSpacing: 8,
       mainAxisSpacing: 8,
       children: [
@@ -284,6 +288,7 @@ class SaleDetailScreen extends ConsumerWidget {
     );
   }
 
+  // ⭐️ MODIFIED: _buildInfoItem for responsiveness
   Widget _buildInfoItem(String label, String value, IconData icon) {
     return Container(
       decoration: BoxDecoration(
@@ -291,24 +296,29 @@ class SaleDetailScreen extends ConsumerWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(8),
+        // ⭐️ CHANGE: Reduced padding from 8 to 6
+        padding: const EdgeInsets.all(6),
         child: Row(
           children: [
-            Icon(icon, size: 16, color: Colors.grey[600]),
-            const SizedBox(width: 8),
+            // ⭐️ CHANGE: Reduced icon size from 16 to 14
+            Icon(icon, size: 14, color: Colors.grey[600]),
+            // ⭐️ CHANGE: Reduced spacing from 8 to 6
+            const SizedBox(width: 6),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  // ⭐️ CHANGE: Reduced font size from 12 to 10
                   Text(
                     label,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 10, color: Colors.grey[600]),
                   ),
+                  // ⭐️ CHANGE: Reduced font size from 14 to 12
                   Text(
                     value,
                     style: const TextStyle(
-                      fontSize: 14,
+                      fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -375,6 +385,7 @@ class SaleDetailScreen extends ConsumerWidget {
     );
   }
 
+  // ⭐️ MODIFIED: _buildItemRow for responsiveness
   Widget _buildItemRow(SaleProduct item) {
     final itemTotal = item.price * item.quantity;
 
@@ -390,7 +401,8 @@ class SaleDetailScreen extends ConsumerWidget {
             flex: 3,
             child: Text(
               item.name,
-              style: const TextStyle(fontSize: 14),
+              // ⭐️ CHANGE: Reduced font size from 14 to 12
+              style: const TextStyle(fontSize: 12),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -399,7 +411,8 @@ class SaleDetailScreen extends ConsumerWidget {
             child: Text(
               item.quantity.toString(),
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14),
+              // ⭐️ CHANGE: Reduced font size from 14 to 12
+              style: const TextStyle(fontSize: 12),
             ),
           ),
           Expanded(
@@ -408,7 +421,8 @@ class SaleDetailScreen extends ConsumerWidget {
             child: Text(
               formattedPrice,
               textAlign: TextAlign.right,
-              style: const TextStyle(fontSize: 14),
+              // ⭐️ CHANGE: Reduced font size from 14 to 12
+              style: const TextStyle(fontSize: 12),
             ),
           ),
           Expanded(
@@ -417,7 +431,8 @@ class SaleDetailScreen extends ConsumerWidget {
             child: Text(
               formattedTotal,
               textAlign: TextAlign.right,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              // ⭐️ CHANGE: Reduced font size from 14 to 12
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
             ),
           ),
         ],
@@ -428,10 +443,24 @@ class SaleDetailScreen extends ConsumerWidget {
   Widget _buildPaymentSummary(SaleItem sale, BuildContext context) {
     final subtotal = sale.items.fold<double>(
       0,
-      (sum, item) => sum + (item.price * item.quantity),
+          (sum, item) => sum + (item.price * item.quantity),
     );
-    const tax = 0.0; // You can add tax calculation if available
-    final total = sale.amount;
+
+    // 1. 🔄 MODIFIED: Calculate VAT based on the sale type/total amount.
+    final bool isCreditSale = sale.paymentMethod?.toLowerCase() == 'credit';
+
+    double tax = 0.0;
+    if (isCreditSale) {
+      // Assuming sale.amount is the Grand Total (Subtotal + VAT)
+      tax = (sale.amount - subtotal).clamp(0.0, double.infinity);
+    }
+
+    // Fallback: If tax calculation based on difference is extremely small, treat as 0
+    if (tax < 0.01) {
+      tax = 0.0;
+    }
+
+    final total = sale.amount; // Should match subtotal + tax
 
     return Card(
       elevation: 2,
@@ -448,7 +477,10 @@ class SaleDetailScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             _buildSummaryRow('Subtotal', subtotal),
-            _buildSummaryRow('Tax', tax),
+            // 2. 🔄 MODIFIED: Show Tax/VAT only if it's a Credit Sale and tax is non-zero
+            if (isCreditSale && tax > 0)
+              _buildSummaryRow('VAT (18%)', tax),
+
             const Divider(),
             _buildSummaryRow('Total Amount', total, isTotal: true),
           ],
@@ -460,6 +492,7 @@ class SaleDetailScreen extends ConsumerWidget {
   Widget _buildSummaryRow(String label, double amount, {bool isTotal = false}) {
     // 💡 Apply comma formatting here
     final formattedAmount = _formatCurrency(amount);
+
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),

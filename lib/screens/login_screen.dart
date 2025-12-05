@@ -109,7 +109,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                       // Subtitle
                       Text(
-                        'Enter your credentials to access your account',
+                        'Enter your email and password to continue',
 
                         style: Theme.of(
                           context,

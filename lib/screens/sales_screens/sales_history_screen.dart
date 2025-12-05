@@ -14,9 +14,9 @@ import 'sale_detail_screen.dart';
 // ----------------------------------------------------------------------
 
 final salesPaginationProvider =
-    StateNotifierProvider<SalesPaginationNotifier, SalesPaginationState>(
+StateNotifierProvider<SalesPaginationNotifier, SalesPaginationState>(
       (ref) => SalesPaginationNotifier(),
-    );
+);
 
 class SalesPaginationState {
   final int currentPage;
@@ -70,6 +70,9 @@ class SalesPaginationNotifier extends StateNotifier<SalesPaginationState> {
 
 // 🚨 NEW: Date filter options enum
 enum QuickDateFilter { all, today, yesterday, last7Days, thisMonth, lastMonth }
+
+// ⭐️ NEW CONSTANT: Define the light brown color
+const Color lightBrownBackground = Color(0xFFEEE3D7);
 
 class SalesHistoryScreen extends ConsumerStatefulWidget {
   const SalesHistoryScreen({super.key});
@@ -150,7 +153,7 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
       case QuickDateFilter.all:
         return null;
       case QuickDateFilter.today:
-        // 🚨 FIX: Ensure today's range covers the entire day
+      // 🚨 FIX: Ensure today's range covers the entire day
         return DateTimeRange(
           start: today,
           end: tomorrow.subtract(const Duration(seconds: 1)),
@@ -248,7 +251,7 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
                       msg.contains('unauthorized') ||
                       msg.contains('token') ||
                       msg.contains('expired')) {
-                    return TokenErrorWidget();
+                    return const TokenErrorWidget();
                   }
                   return Center(child: Text('Error: $error'));
                 },
@@ -280,13 +283,13 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: searchQuery.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => searchQuery = '');
-                          ref.read(salesPaginationProvider.notifier).reset();
-                        },
-                      )
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => searchQuery = '');
+                    ref.read(salesPaginationProvider.notifier).reset();
+                  },
+                )
                     : null,
                 border: const OutlineInputBorder(),
               ),
@@ -331,7 +334,7 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
                           59,
                         );
                         setState(
-                          () => selectedRange = DateTimeRange(
+                              () => selectedRange = DateTimeRange(
                             start: picked.start,
                             end: end,
                           ),
@@ -368,6 +371,9 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
       QuickDateFilter.lastMonth,
     ];
 
+    // Get the primary color for the text when selected
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -378,6 +384,20 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
             child: FilterChip(
               label: Text(_getFilterName(filter)),
               selected: isSelected,
+              // ⭐️ CHANGE 1: Set the selected background color to light brown
+              selectedColor: lightBrownBackground,
+
+              // ⭐️ CHANGE 2: Set the color of the checkmark and the text when selected
+              labelStyle: isSelected
+                  ? TextStyle(
+                color: primaryColor, // Use your app's primary color for contrast
+                fontWeight: FontWeight.bold,
+              )
+                  : null,
+
+              // ⭐️ CHANGE 3: Ensure the checkmark is visible against the light brown
+              checkmarkColor: primaryColor,
+
               onSelected: (selected) {
                 if (selected) {
                   setState(() {
@@ -427,7 +447,7 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
       // Search by customer or receipt number
       final matchesSearch =
           sale.receiptNumber.toString().toLowerCase().contains(searchQuery) ||
-          sale.customer.toLowerCase().contains(searchQuery);
+              sale.customer.toLowerCase().contains(searchQuery);
 
       // If no date range is selected, return based on search only
       if (selectedRange == null) {
@@ -456,9 +476,9 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
 
       // Check if sale date is within the selected range (inclusive)
       final matchesDate =
-          (saleDateNormalized.isAfter(
-            startNormalized.subtract(const Duration(days: 1)),
-          ) &&
+      (saleDateNormalized.isAfter(
+        startNormalized.subtract(const Duration(days: 1)),
+      ) &&
           saleDateNormalized.isBefore(
             endNormalized.add(const Duration(days: 1)),
           ));
@@ -468,9 +488,9 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   }
 
   List<SaleItem> _applyPagination(
-    List<SaleItem> sales,
-    SalesPaginationState pagination,
-  ) {
+      List<SaleItem> sales,
+      SalesPaginationState pagination,
+      ) {
     final startIndex = (pagination.currentPage - 1) * pagination.itemsPerPage;
     final endIndex = startIndex + pagination.itemsPerPage;
 
@@ -488,10 +508,10 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   }
 
   Widget _buildSalesList(
-    List<SaleItem> sales,
-    int totalFiltered,
-    SalesPaginationState pagination,
-  ) {
+      List<SaleItem> sales,
+      int totalFiltered,
+      SalesPaginationState pagination,
+      ) {
     if (sales.isEmpty) {
       final hasFilters = selectedRange != null || searchQuery.isNotEmpty;
       return _buildEmptyState(hasFilters);
@@ -537,9 +557,9 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   }
 
   Widget _buildPaginationInfo(
-    int totalFiltered,
-    SalesPaginationState pagination,
-  ) {
+      int totalFiltered,
+      SalesPaginationState pagination,
+      ) {
     final startItem =
         (pagination.currentPage - 1) * pagination.itemsPerPage + 1;
     final endItem = pagination.currentPage * pagination.itemsPerPage;
@@ -620,7 +640,7 @@ class SaleCard extends StatelessWidget {
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'completed':
-        return Colors.green;
+        return Colors.brown;
       case 'pending':
         return Colors.orange;
       case 'cancelled':
@@ -743,16 +763,6 @@ class SaleCard extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Print Button
-                    IconButton(
-                      icon: Icon(
-                        Icons.print_outlined,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      onPressed: (sale.status?.toLowerCase() == 'completed') ? onPrint : null, // Disable if not completed
-                      tooltip: 'Print Receipt',
-                    ),
-                    const SizedBox(width: 4),
                     // View Details Indicator
                     Icon(
                       Icons.arrow_forward_ios_rounded,

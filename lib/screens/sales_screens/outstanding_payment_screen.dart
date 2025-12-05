@@ -8,6 +8,11 @@ import '../../provider/payment_provider.dart';
 import '../../widgets/token_error_widget.dart';
 import 'outstanding_payment_details_screen.dart'; // New page
 
+// ----------------------------------------------------------------------
+// 1. DATE FILTER DEFINITIONS
+// ----------------------------------------------------------------------
+enum QuickDateFilter { all, today, last7Days, thisMonth, custom }
+
 class OutstandingPaymentsScreen extends ConsumerStatefulWidget {
   const OutstandingPaymentsScreen({super.key});
 
@@ -18,47 +23,121 @@ class OutstandingPaymentsScreen extends ConsumerStatefulWidget {
 
 class _OutstandingPaymentsScreenState
     extends ConsumerState<OutstandingPaymentsScreen> {
-  final ScrollController _scrollController = ScrollController();
+  // Removed _scrollController for button-based pagination
   final TextEditingController _searchController = TextEditingController();
   String searchQuery = '';
+
+  // ⭐️ NEW STATE for Quick Date Filter
+  QuickDateFilter selectedQuickFilter = QuickDateFilter.all;
   DateTimeRange? selectedRange;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_scrollListener);
+    // Removed scroll listener
     _searchController.addListener(_onSearchChanged);
+
+    // Set initial filter on load
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _applyQuickFilter(QuickDateFilter.all);
+    });
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    // Removed _scrollController.dispose()
     _searchController.dispose();
     super.dispose();
   }
 
-  void _scrollListener() {
-    if (_scrollController.position.pixels ==
-        _scrollController.position.maxScrollExtent) {
-      final paginationState = ref.read(outstandingPaginationProvider);
-      if (paginationState.hasMore) {
-        ref.read(outstandingPaginationProvider.notifier).nextPage();
-      }
-    }
-  }
+  // Removed _scrollListener()
 
   void _onSearchChanged() {
     setState(() => searchQuery = _searchController.text.toLowerCase());
     ref.read(outstandingPaginationProvider.notifier).reset();
   }
 
+  // ⭐️ NEW: Date Filter Logic
+  void _applyQuickFilter(QuickDateFilter filter, [DateTimeRange? customRange]) {
+    final newRange = filter == QuickDateFilter.custom ? customRange : _getDateRange(filter);
+
+    setState(() {
+      selectedQuickFilter = filter;
+      // Normalizing the end date for filtering purposes: setting time to 23:59:59
+      if (newRange != null) {
+        selectedRange = DateTimeRange(
+          start: DateTime(newRange.start.year, newRange.start.month, newRange.start.day),
+          end: DateTime(newRange.end.year, newRange.end.month, newRange.end.day)
+              .add(const Duration(days: 1))
+              .subtract(const Duration(seconds: 1)),
+        );
+      } else {
+        selectedRange = null;
+      }
+    });
+    ref.read(outstandingPaginationProvider.notifier).reset();
+  }
+
+  DateTimeRange? _getDateRange(QuickDateFilter filter) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    switch (filter) {
+      case QuickDateFilter.all:
+        return null;
+      case QuickDateFilter.today:
+        return DateTimeRange(start: today, end: today);
+      case QuickDateFilter.last7Days:
+        final lastWeek = today.subtract(const Duration(days: 6));
+        return DateTimeRange(start: lastWeek, end: today);
+      case QuickDateFilter.thisMonth:
+        final startOfMonth = DateTime(now.year, now.month, 1);
+        return DateTimeRange(start: startOfMonth, end: today);
+      case QuickDateFilter.custom:
+        return selectedRange;
+    }
+  }
+
+  String _getFilterName(QuickDateFilter filter) {
+    switch (filter) {
+      case QuickDateFilter.all:
+        return 'All Time';
+      case QuickDateFilter.today:
+        return 'Due Today';
+      case QuickDateFilter.last7Days:
+        return 'Next 7 Days';
+      case QuickDateFilter.thisMonth:
+        return 'This Month';
+      case QuickDateFilter.custom:
+        if (selectedRange != null) {
+          final start = DateFormat('MMM d').format(selectedRange!.start);
+          final end = DateFormat('MMM d').format(selectedRange!.end);
+          return '$start - $end';
+        }
+        return 'Custom Range';
+    }
+  }
+
+  Future<void> _selectCustomDateRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 1),
+      initialDateRange: selectedRange,
+    );
+    if (picked != null) {
+      _applyQuickFilter(QuickDateFilter.custom, picked);
+    }
+  }
+
   void _clearFilters() {
     setState(() {
-      selectedRange = null;
       _searchController.clear();
       searchQuery = '';
     });
-    ref.read(outstandingPaginationProvider.notifier).reset();
+    _applyQuickFilter(QuickDateFilter.all);
+    // Pagination reset is handled by _applyQuickFilter
   }
 
   void _navigateToPaymentDetails(OutstandingPayment payment) {
@@ -103,7 +182,7 @@ class _OutstandingPaymentsScreenState
           child: Column(
             children: [
               // Filters Section
-              _buildFiltersSection(),
+              _buildFiltersSection(), // ⭐️ MODIFIED
               const SizedBox(height: 16),
 
               // Summary Cards
@@ -130,7 +209,7 @@ class _OutstandingPaymentsScreenState
                     );
                   },
                   loading: () =>
-                      const Center(child: CircularProgressIndicator()),
+                  const Center(child: CircularProgressIndicator()),
                   error: (err, _) => _buildErrorState(err, context),
                 ),
               ),
@@ -141,6 +220,7 @@ class _OutstandingPaymentsScreenState
     );
   }
 
+  // ⭐️ MODIFIED: Filter Section for Search and Date Chips
   Widget _buildFiltersSection() {
     return Card(
       elevation: 2,
@@ -155,69 +235,101 @@ class _OutstandingPaymentsScreenState
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: searchQuery.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => searchQuery = '');
-                          ref
-                              .read(outstandingPaginationProvider.notifier)
-                              .reset();
-                        },
-                      )
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => searchQuery = '');
+                    ref
+                        .read(outstandingPaginationProvider.notifier)
+                        .reset();
+                  },
+                )
                     : null,
                 border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.date_range),
-                    label: Text(
-                      selectedRange == null
-                          ? 'Filter by due date'
-                          : '${DateFormat('MMM dd').format(selectedRange!.start)} - ${DateFormat('MMM dd, yyyy').format(selectedRange!.end)}',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    onPressed: () async {
-                      final now = DateTime.now();
-                      final picked = await showDateRangePicker(
-                        context: context,
-                        firstDate: DateTime(now.year - 1),
-                        lastDate: DateTime(now.year + 1),
-                        initialDateRange: selectedRange,
-                      );
-                      if (picked != null) {
-                        setState(() => selectedRange = picked);
-                        ref
-                            .read(outstandingPaginationProvider.notifier)
-                            .reset();
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                if (selectedRange != null)
-                  IconButton(
-                    icon: const Icon(Icons.clear),
-                    onPressed: () {
-                      setState(() => selectedRange = null);
-                      ref.read(outstandingPaginationProvider.notifier).reset();
-                    },
-                    tooltip: 'Clear date filter',
-                  ),
-              ],
-            ),
+            _buildQuickDateFilters(), // ⭐️ NEW: Date Chips
           ],
         ),
       ),
     );
   }
 
+  // ⭐️ NEW: Quick Date Filter Chips
+  Widget _buildQuickDateFilters() {
+    const filters = [
+      QuickDateFilter.all,
+      QuickDateFilter.today,
+      QuickDateFilter.last7Days,
+      QuickDateFilter.thisMonth,
+      QuickDateFilter.custom,
+    ];
+
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final navBarContainerColor = Theme.of(context).colorScheme.brightness == Brightness.dark
+        ? Theme.of(context).colorScheme.surfaceContainerHighest
+        : const Color(0xFFEEE3D7);
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          // ⭐️ Custom Date Range Picker Button
+          SizedBox(
+            width: 50,
+            height: 40,
+            child: ElevatedButton(
+              onPressed: _selectCustomDateRange,
+              style: ElevatedButton.styleFrom(
+                padding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+              ),
+              child: const Icon(Icons.date_range),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // ⭐️ Filter Chips
+          ...filters.map((filter) {
+            final isSelected = filter == selectedQuickFilter;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: FilterChip(
+                label: Text(_getFilterName(filter)),
+                selected: isSelected,
+                selectedColor: navBarContainerColor,
+                checkmarkColor: primaryColor,
+                labelStyle: TextStyle(
+                  color: isSelected ? primaryColor : Theme.of(context).colorScheme.onSurface,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+                onSelected: (selected) {
+                  if (filter == QuickDateFilter.custom) {
+                    // Open picker if custom is selected but not currently active
+                    if (!isSelected) {
+                      _selectCustomDateRange();
+                    }
+                  } else if (selected) {
+                    _applyQuickFilter(filter);
+                  } else if (filter == selectedQuickFilter) {
+                    // Allow deselection back to 'All'
+                    _applyQuickFilter(QuickDateFilter.all);
+                  }
+                },
+              ),
+            );
+          }).toList(),
+        ],
+      ),
+    );
+  }
+
+
   Widget _buildSummaryCards(
-    AsyncValue<List<OutstandingPayment>> outstandingAsync,
-  ) {
+      AsyncValue<List<OutstandingPayment>> outstandingAsync,
+      ) {
     return outstandingAsync.when(
       data: (payments) {
         // Filter out paid payments first, then apply other filters
@@ -227,7 +339,7 @@ class _OutstandingPaymentsScreenState
         final filtered = _applyFilters(unpaidPayments);
         final totalOutstanding = filtered.fold<double>(
           0,
-          (sum, payment) => sum + payment.balance,
+              (sum, payment) => sum + payment.balance,
         );
         final totalCustomers = <String>{};
         final overduePayments = filtered
@@ -275,11 +387,11 @@ class _OutstandingPaymentsScreenState
   }
 
   Widget _buildSummaryCard(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
+      String title,
+      String value,
+      IconData icon,
+      Color color,
+      ) {
     return Card(
       elevation: 2,
       child: Padding(
@@ -294,7 +406,7 @@ class _OutstandingPaymentsScreenState
                 Flexible(
                   child: Text(
                     title,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -316,31 +428,34 @@ class _OutstandingPaymentsScreenState
     return payments.where((payment) {
       final matchesSearch =
           payment.receiptNumber.toString().contains(searchQuery) ||
-          payment.customer.toLowerCase().contains(searchQuery);
+              payment.customer.toLowerCase().contains(searchQuery);
 
-      final matchesDate =
-          selectedRange == null ||
-          (payment.dueDate.isAfter(
-                selectedRange!.start.subtract(const Duration(days: 1)),
-              ) &&
-              payment.dueDate.isBefore(
-                selectedRange!.end.add(const Duration(days: 1)),
-              ));
+      // Filter by due date
+      bool matchesDate = true;
+      if (selectedRange != null) {
+        final startOfRange = selectedRange!.start;
+        final endOfRange = selectedRange!.end;
+
+        // Match payments whose due date is within the selected range (inclusive)
+        matchesDate =
+            (payment.dueDate.isAtSameMomentAs(startOfRange) || payment.dueDate.isAfter(startOfRange)) &&
+                (payment.dueDate.isAtSameMomentAs(endOfRange) || payment.dueDate.isBefore(endOfRange));
+      }
 
       return matchesSearch && matchesDate;
     }).toList();
   }
 
   List<OutstandingPayment> _applyPagination(
-    List<OutstandingPayment> payments,
-    OutstandingPaginationState pagination,
-  ) {
+      List<OutstandingPayment> payments,
+      OutstandingPaginationState pagination,
+      ) {
     final startIndex = (pagination.currentPage - 1) * pagination.itemsPerPage;
     final endIndex = startIndex + pagination.itemsPerPage;
 
     final hasMore = endIndex < payments.length;
     if (hasMore != pagination.hasMore) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.microtask(() {
         ref.read(outstandingPaginationProvider.notifier).setHasMore(hasMore);
       });
     }
@@ -351,11 +466,12 @@ class _OutstandingPaymentsScreenState
     );
   }
 
+  // ⭐️ MODIFIED: Build list for button-based pagination
   Widget _buildOutstandingList(
-    List<OutstandingPayment> payments,
-    int totalFiltered,
-    OutstandingPaginationState pagination,
-  ) {
+      List<OutstandingPayment> payments,
+      int totalFiltered,
+      OutstandingPaginationState pagination,
+      ) {
     if (payments.isEmpty) {
       return const Center(
         child: Column(
@@ -365,7 +481,7 @@ class _OutstandingPaymentsScreenState
             SizedBox(height: 16),
             Text('No outstanding payments', style: TextStyle(fontSize: 16)),
             Text(
-              'All payments are settled',
+              'Try adjusting filters or checking due dates',
               style: TextStyle(color: Colors.grey),
             ),
           ],
@@ -379,29 +495,16 @@ class _OutstandingPaymentsScreenState
         const SizedBox(height: 12),
         Expanded(
           child: ListView.builder(
-            controller: _scrollController,
-            itemCount: payments.length + (pagination.hasMore ? 1 : 0),
+            // Removed controller
+            itemCount: payments.length,
             itemBuilder: (context, index) {
-              if (index == payments.length) {
-                return const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(child: CircularProgressIndicator()),
-                );
-              }
-
               final payment = payments[index];
               return _buildOutstandingCard(payment);
             },
           ),
         ),
-        if (totalFiltered > pagination.itemsPerPage)
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: Colors.grey[300]!)),
-            ),
-            child: _buildPaginationControls(totalFiltered, pagination),
-          ),
+        // ⭐️ ADDED: Pagination controls are now displayed here
+        _buildPaginationControls(totalFiltered, pagination),
       ],
     );
   }
@@ -438,7 +541,7 @@ class _OutstandingPaymentsScreenState
             const SizedBox(height: 4),
             LinearProgressIndicator(
               value: progress,
-              backgroundColor: Colors.grey[300],
+              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
               color: Colors.orange,
             ),
             const SizedBox(height: 4),
@@ -446,12 +549,12 @@ class _OutstandingPaymentsScreenState
               children: [
                 Text(
                   'Paid: TSh ${NumberFormat('#,##0').format(payment.paidAmount)}',
-                  style: TextStyle(fontSize: 12, color: Colors.green[600]),
+                  style: TextStyle(fontSize: 12, color: Colors.brown[600]),
                 ),
                 const Spacer(),
                 Text(
                   'Total: TSh ${NumberFormat('#,##0').format(payment.totalAmount)}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
                 ),
               ],
             ),
@@ -471,13 +574,13 @@ class _OutstandingPaymentsScreenState
             Text(
               DateFormat('MMM dd').format(payment.dueDate),
               style: TextStyle(
-                color: isOverdue ? Colors.red : Colors.grey[600],
+                color: isOverdue ? Colors.red : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                 fontSize: 12,
                 fontWeight: isOverdue ? FontWeight.bold : FontWeight.normal,
               ),
             ),
             if (isOverdue)
-              Text(
+              const Text(
                 'OVERDUE',
                 style: TextStyle(
                   color: Colors.red,
@@ -493,56 +596,73 @@ class _OutstandingPaymentsScreenState
   }
 
   Widget _buildPaginationInfo(
-    int totalFiltered,
-    OutstandingPaginationState pagination,
-  ) {
+      int totalFiltered,
+      OutstandingPaginationState pagination,
+      ) {
     final startItem =
         (pagination.currentPage - 1) * pagination.itemsPerPage + 1;
     final endItem = pagination.currentPage * pagination.itemsPerPage;
     final displayedEnd = endItem > totalFiltered ? totalFiltered : endItem;
 
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      mainAxisAlignment: MainAxisAlignment.start, // Align left for better flow
       children: [
         Text(
           'Showing $startItem-$displayedEnd of $totalFiltered payments',
           style: TextStyle(color: Colors.grey[600]),
         ),
-        if (totalFiltered > pagination.itemsPerPage)
-          Text(
-            'Page ${pagination.currentPage} of ${(totalFiltered / pagination.itemsPerPage).ceil()}',
-            style: TextStyle(color: Colors.grey[600]),
-          ),
+        // Removed second page display
       ],
     );
   }
 
+  // ⭐️ MODIFIED: Next/Previous buttons
   Widget _buildPaginationControls(
-    int totalFiltered,
-    OutstandingPaginationState pagination,
-  ) {
+      int totalFiltered,
+      OutstandingPaginationState pagination,
+      ) {
     final totalPages = (totalFiltered / pagination.itemsPerPage).ceil();
+    final isFirstPage = pagination.currentPage == 1;
+    final isLastPage = pagination.currentPage >= totalPages;
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        IconButton(
-          icon: const Icon(Icons.chevron_left),
-          onPressed: pagination.currentPage > 1
-              ? () => ref
-                    .read(outstandingPaginationProvider.notifier)
-                    .previousPage()
-              : null,
-        ),
-        Text('Page ${pagination.currentPage} of $totalPages'),
-        IconButton(
-          icon: const Icon(Icons.chevron_right),
-          onPressed: pagination.hasMore
-              ? () =>
-                    ref.read(outstandingPaginationProvider.notifier).nextPage()
-              : null,
-        ),
-      ],
+    if (totalFiltered <= pagination.itemsPerPage) {
+      return const SizedBox.shrink(); // Hide controls if only one page
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          OutlinedButton.icon(
+            icon: const Icon(Icons.arrow_back_ios, size: 16),
+            label: const Text('Previous'),
+            onPressed: isFirstPage
+                ? null
+                : () => ref
+                .read(outstandingPaginationProvider.notifier)
+                .previousPage(),
+          ),
+          const SizedBox(width: 16),
+          Text(
+            'Page ${pagination.currentPage} of $totalPages',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            ),
+          ),
+          const SizedBox(width: 16),
+          OutlinedButton.icon(
+            label: const Text('Next'),
+            icon: const Icon(Icons.arrow_forward_ios, size: 16),
+            // Use isLastPage check
+            onPressed: isLastPage
+                ? null
+                : () => ref
+                .read(outstandingPaginationProvider.notifier)
+                .nextPage(),
+          ),
+        ],
+      ),
     );
   }
 
@@ -551,7 +671,7 @@ class _OutstandingPaymentsScreenState
     if (msg.contains('token') ||
         msg.contains('401') ||
         msg.contains('unauthorized')) {
-      return TokenErrorWidget();
+      return const TokenErrorWidget();
     }
 
     return Center(

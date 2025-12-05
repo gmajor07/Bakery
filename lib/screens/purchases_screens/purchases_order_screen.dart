@@ -13,7 +13,15 @@ import 'purchase_order_detail_screen.dart';
 // ----------------------------------------------------------------------
 // 🚨 NEW: Quick Date Filter Definitions
 // ----------------------------------------------------------------------
-enum QuickDateFilter { all, today, yesterday, last7Days, thisMonth, lastMonth }
+enum QuickDateFilter {
+  all,
+  today,
+  yesterday,
+  last7Days,
+  thisMonth,
+  lastMonth,
+  custom,
+} // ⭐️ ADDED: custom
 
 class PurchaseOrdersScreen extends ConsumerStatefulWidget {
   const PurchaseOrdersScreen({super.key});
@@ -31,6 +39,12 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
   String searchQuery = '';
   // Local state for quick filter (used to control the chips)
   QuickDateFilter selectedQuickFilter = QuickDateFilter.today;
+
+  // ⭐️ ADDED: Custom date range state for DateRangePicker
+  DateTimeRange? customDateRange;
+
+  // ⭐️ ADDED: Color for selected state in chips
+  final Color lightBrownBackground = const Color(0xFFEEE3D7);
 
   @override
   void initState() {
@@ -83,6 +97,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
     setState(() {
       searchQuery = '';
       selectedQuickFilter = QuickDateFilter.all;
+      customDateRange = null; // ⭐️ CLEARED: Custom range
     });
 
     // Clear Riverpod states
@@ -96,31 +111,66 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
   // Helper methods for Quick Filters
   // ----------------------------------------------------------------------
 
-  void _applyQuickFilter(QuickDateFilter filter) {
+  void _applyQuickFilter(QuickDateFilter filter, [DateTimeRange? customRange]) {
     setState(() {
       selectedQuickFilter = filter;
+      if (filter == QuickDateFilter.custom) {
+        customDateRange = customRange;
+      } else {
+        customDateRange = null;
+      }
     });
+
     // This updates the Riverpod state
-    ref.read(selectedPurchaseDateRangeProvider.notifier).state = _getDateRange(
-      filter,
-    );
+    ref.read(selectedPurchaseDateRangeProvider.notifier).state =
+        filter == QuickDateFilter.custom ? customRange : _getDateRange(filter);
+
     ref.read(purchasePaginationProvider.notifier).reset();
+  }
+
+  // ⭐️ ADDED: Date Range Picker Logic
+  Future<void> _selectDateRange(BuildContext context) async {
+    final DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      initialDateRange:
+          customDateRange ?? _getDateRange(QuickDateFilter.last7Days),
+      helpText: 'Select Purchase Date Range',
+      saveText: 'Apply',
+    );
+
+    if (picked != null) {
+      // ⭐️ FIX: Normalize picked range to full day range (start of start day to end of end day)
+      final normalizedRange = DateTimeRange(
+        start: DateTime(
+          picked.start.year,
+          picked.start.month,
+          picked.start.day,
+        ),
+        end: DateTime(
+          picked.end.year,
+          picked.end.month,
+          picked.end.day,
+        ).add(const Duration(days: 1)).subtract(const Duration(seconds: 1)),
+      );
+      _applyQuickFilter(QuickDateFilter.custom, normalizedRange);
+    }
   }
 
   DateTimeRange? _getDateRange(QuickDateFilter filter) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
+    // End of today (23:59:59)
+    final endOfToday = today
+        .add(const Duration(days: 1))
+        .subtract(const Duration(seconds: 1));
 
     switch (filter) {
       case QuickDateFilter.all:
         return null;
       case QuickDateFilter.today:
-        return DateTimeRange(
-          start: today,
-          end: today
-              .add(const Duration(days: 1))
-              .subtract(const Duration(seconds: 1)),
-        );
+        return DateTimeRange(start: today, end: endOfToday);
       case QuickDateFilter.yesterday:
         final yesterday = today.subtract(const Duration(days: 1));
         return DateTimeRange(
@@ -129,20 +179,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
         );
       case QuickDateFilter.last7Days:
         final lastWeek = today.subtract(const Duration(days: 6));
-        return DateTimeRange(
-          start: lastWeek,
-          end: today
-              .add(const Duration(days: 1))
-              .subtract(const Duration(seconds: 1)),
-        );
+        return DateTimeRange(start: lastWeek, end: endOfToday);
       case QuickDateFilter.thisMonth:
         final startOfMonth = DateTime(now.year, now.month, 1);
-        return DateTimeRange(
-          start: startOfMonth,
-          end: today
-              .add(const Duration(days: 1))
-              .subtract(const Duration(seconds: 1)),
-        );
+        return DateTimeRange(start: startOfMonth, end: endOfToday);
       case QuickDateFilter.lastMonth:
         final firstDayThisMonth = DateTime(now.year, now.month, 1);
         final lastDayLastMonth = firstDayThisMonth.subtract(
@@ -159,6 +199,8 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
               .add(const Duration(days: 1))
               .subtract(const Duration(seconds: 1)),
         );
+      case QuickDateFilter.custom:
+        return customDateRange;
     }
   }
 
@@ -176,21 +218,32 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
         return 'This Month';
       case QuickDateFilter.lastMonth:
         return 'Last Month';
+      case QuickDateFilter.custom:
+        if (customDateRange != null) {
+          final start = DateFormat('MMM d').format(customDateRange!.start);
+          final end = DateFormat('MMM d').format(customDateRange!.end);
+          return '$start - $end';
+        }
+        return 'Custom Range';
     }
   }
 
   // ----------------------------------------------------------------------
-  // Filtering and Pagination Methods - UPDATED
+  // Filtering and Pagination Methods - UNCHANGED
   // ----------------------------------------------------------------------
   List<PurchaseOrder> _applyFilters(List<PurchaseOrder> orders) {
     final selectedStatus = ref.watch(selectedPurchaseStatusProvider);
     final selectedRange = ref.watch(selectedPurchaseDateRangeProvider);
 
     // Debug: Print current filter state
-    print(
-      "🔄 Applying filters - Status: '$selectedStatus', Search: '$searchQuery', Date Range: $selectedRange",
-    );
-    print("📊 Total orders before filtering: ${orders.length}");
+    if (kDebugMode) {
+      print(
+        "🔄 Applying filters - Status: '$selectedStatus', Search: '$searchQuery', Date Range: $selectedRange",
+      );
+    }
+    if (kDebugMode) {
+      print("📊 Total orders before filtering: ${orders.length}");
+    }
 
     return orders.where((order) {
       // 1. Search Filter - FIXED: Check if search query matches
@@ -210,21 +263,15 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
       bool matchesDate = true;
       if (selectedRange != null) {
         final orderDate = DateTime.parse(order.createdAt);
+        // Normalize order date to start of the day for accurate comparison
         final startOfOrderDay = DateTime(
           orderDate.year,
           orderDate.month,
           orderDate.day,
         );
-        final startOfRangeDay = DateTime(
-          selectedRange.start.year,
-          selectedRange.start.month,
-          selectedRange.start.day,
-        );
-        final endOfRangeDay = DateTime(
-          selectedRange.end.year,
-          selectedRange.end.month,
-          selectedRange.end.day,
-        );
+        // The selectedRange is already normalized (start of day to end of day)
+        final startOfRangeDay = selectedRange.start;
+        final endOfRangeDay = selectedRange.end;
 
         matchesDate =
             (startOfOrderDay.isAtSameMomentAs(startOfRangeDay) ||
@@ -287,7 +334,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'completed':
-        return Colors.green;
+        return Colors.brown;
       case 'pending':
         return Colors.orange;
       case 'cancelled':
@@ -295,7 +342,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
       case 'approved':
         return Colors.blue;
       case 'received':
-        return Colors.green.shade800;
+        return Colors.brown.shade800;
       default:
         return Colors.grey;
     }
@@ -332,9 +379,11 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
 
     // Debug current state
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      print(
-        "🎯 CURRENT FILTERS - Status: '$selectedStatus', Search: '$searchQuery', Date Range: $selectedRange",
-      );
+      if (kDebugMode) {
+        print(
+          "🎯 CURRENT FILTERS - Status: '$selectedStatus', Search: '$searchQuery', Date Range: $selectedRange",
+        );
+      }
     });
 
     final hasFilters =
@@ -346,11 +395,6 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
       appBar: AppBar(
         title: const Text("Purchase Orders"),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
-            onPressed: _refreshData,
-          ),
           if (hasFilters)
             IconButton(
               icon: const Icon(Icons.clear_all),
@@ -366,7 +410,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // --- Filters Section ---
-              _buildFiltersSection(context, selectedStatus, selectedRange),
+              _buildFiltersSection(context, selectedStatus),
               const SizedBox(height: 16),
 
               // --- Orders List Data ---
@@ -393,7 +437,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                   error: (err, _) {
                     final msg = err.toString().toLowerCase();
                     if (msg.contains("token") || msg.contains("unauthorized")) {
-                      return TokenErrorWidget();
+                      return const TokenErrorWidget();
                     }
                     return Center(child: Text("Error: $err"));
                   },
@@ -425,11 +469,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
   // UI: Filters Section
   // ----------------------------------------------------------------------
 
-  Widget _buildFiltersSection(
-    BuildContext context,
-    String? selectedStatus,
-    DateTimeRange? selectedRange,
-  ) {
+  Widget _buildFiltersSection(BuildContext context, String? selectedStatus) {
     return Card(
       elevation: 2,
       child: Padding(
@@ -460,24 +500,49 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
             ),
             const SizedBox(height: 12),
 
+            // ⭐️ ADDED/MODIFIED: Row for Date and Status Filters
+            Row(
+              children: [
+                // Status Filter
+                Expanded(child: _buildStatusFilter(selectedStatus)),
+                const SizedBox(width: 8),
+
+                // Date Picker Button
+                SizedBox(
+                  width: 50,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: () => _selectDateRange(context),
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4.0),
+                      ),
+                    ),
+                    child: const Icon(Icons.date_range),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
             // Quick Date Filter Chips/Buttons
             _buildQuickDateFilters(),
-
-         
           ],
         ),
       ),
     );
   }
 
+  // ⭐️ MODIFIED: Status Filter
   Widget _buildStatusFilter(String? selected) {
     const statuses = [
       null,
-      "Pending",
-      "Approved",
-      "Cancelled",
-      "Completed",
-      "Received",
+      "pending",
+      "approved",
+      "cancelled",
+      "completed",
+      "received",
     ];
 
     return DropdownButtonFormField<String?>(
@@ -485,7 +550,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
       decoration: const InputDecoration(
         labelText: "Status",
         border: OutlineInputBorder(),
-        contentPadding: EdgeInsets.symmetric(horizontal: 10),
+        // contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 0), // Removed vertical padding fix height issue
       ),
       isExpanded: true,
       items: statuses
@@ -494,7 +559,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
           )
           .toList(),
       onChanged: (value) {
-        print("🎯 Status dropdown changed from '$selected' to '$value'");
+        if (kDebugMode) {
+          print("🎯 Status dropdown changed from '$selected' to '$value'");
+        }
         ref.read(selectedPurchaseStatusProvider.notifier).state = value;
         ref.read(purchasePaginationProvider.notifier).reset();
 
@@ -504,14 +571,19 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
     );
   }
 
+  // ⭐️ MODIFIED: Date Filter Chips (with new selection logic and color)
   Widget _buildQuickDateFilters() {
     const filters = [
+      QuickDateFilter.all,
       QuickDateFilter.today,
       QuickDateFilter.yesterday,
       QuickDateFilter.last7Days,
       QuickDateFilter.thisMonth,
       QuickDateFilter.lastMonth,
+      QuickDateFilter.custom, // Include custom range chip
     ];
+
+    final primaryColor = Theme.of(context).colorScheme.primary;
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -523,11 +595,20 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
             child: FilterChip(
               label: Text(_getFilterName(filter)),
               selected: isSelected,
+              // ⭐️ FIX: Use primaryColor/onPrimary for selected chip color
+              selectedColor: lightBrownBackground,
+              checkmarkColor: primaryColor,
+              labelStyle: TextStyle(
+                color: isSelected ? primaryColor : Colors.grey[700],
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              ),
               onSelected: (selected) {
-                if (selected) {
+                if (filter == QuickDateFilter.custom) {
+                  _selectDateRange(context);
+                } else if (selected) {
                   _applyQuickFilter(filter);
                 } else if (filter == selectedQuickFilter) {
-                  // Allow deselection to 'All'
+                  // Allow deselection back to 'All'
                   _applyQuickFilter(QuickDateFilter.all);
                 }
               },
@@ -577,17 +658,14 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                 final order = orders[index];
                 return PurchaseOrderCard(
                   order: order,
-                  onViewDetails: () {
+                  // ⭐️ MODIFIED: onTap now handles navigation
+                  onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => PurchaseOrderDetailScreen(order: order),
                       ),
                     );
-                  },
-                  onReceive: () async {
-                    // Optional: Add receive goods functionality here
-                    print("Receive goods for order ${order.id}");
                   },
                   getStatusColor: _getStatusColor,
                   getStatusBackgroundColor: _getStatusBackgroundColor,
@@ -696,16 +774,16 @@ typedef GetStatusColor = Color Function(String status);
 
 class PurchaseOrderCard extends StatelessWidget {
   final PurchaseOrder order;
-  final VoidCallback onViewDetails;
-  final VoidCallback onReceive;
+  // ⭐️ MODIFIED: Renamed onViewDetails to onTap
+  final VoidCallback onTap;
   final GetStatusColor getStatusColor;
   final GetStatusColor getStatusBackgroundColor;
 
   const PurchaseOrderCard({
     super.key,
     required this.order,
-    required this.onViewDetails,
-    required this.onReceive,
+    // ⭐️ MODIFIED: Renamed onViewDetails to onTap
+    required this.onTap,
     required this.getStatusColor,
     required this.getStatusBackgroundColor,
   });
@@ -715,86 +793,96 @@ class PurchaseOrderCard extends StatelessWidget {
     final formattedDate = DateFormat.yMMMd().add_Hm().format(
       DateTime.parse(order.createdAt),
     );
-    final formattedAmount = 'TSh ${order.totalCost.toStringAsFixed(0)}';
-    final isPending = order.status.toLowerCase() == 'pending';
-    final isApproved = order.status.toLowerCase() == 'approved';
+    final formattedAmount =
+        'TSh ${NumberFormat('#,##0').format(order.totalCost)}'; // Use proper formatting
+    // final isPending = order.status.toLowerCase() == 'pending';
+    // final isApproved = order.status.toLowerCase() == 'approved';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Theme.of(context).primaryColor.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            Icons.shopping_cart_checkout,
-            color: Theme.of(context).primaryColor,
-          ),
-        ),
-        title: Text(
-          'Order #${order.id}',
-          style: const TextStyle(fontWeight: FontWeight.w500),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              order.supplier.name,
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-              style: const TextStyle(fontWeight: FontWeight.w500),
-            ),
-            Text(formattedDate),
-            Text(
-              formattedAmount,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).primaryColor,
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Status Badge
-            Container(
-              margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: getStatusBackgroundColor(order.status),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: getStatusColor(order.status),
-                  width: 1,
+      // ⭐️ MODIFIED: Use InkWell/GestureDetector on the Card for full tap
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Leading Icon
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.shopping_cart_checkout,
+                  color: Theme.of(context).primaryColor,
                 ),
               ),
-              child: Text(
-                order.status,
-                style: TextStyle(
-                  color: getStatusColor(order.status),
-                  fontWeight: FontWeight.w500,
-                  fontSize: 12,
+              const SizedBox(width: 12),
+
+              // Title and Subtitle (Expanded to take available space)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Order #${order.id}',
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                    Text(
+                      order.supplier.name,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      formattedDate,
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      formattedAmount,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).primaryColor,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            // View Details Button
-            IconButton(
-              icon: const Icon(Icons.visibility_outlined),
-              onPressed: onViewDetails,
-              tooltip: 'View Details',
-            ),
-            // Receive Goods Button (if status is Approved or Pending)
-            if (isApproved || isPending)
-              IconButton(
-                icon: const Icon(Icons.move_to_inbox, color: Colors.purple),
-                onPressed: onReceive,
-                tooltip: 'Receive Goods',
+
+              // Trailing Status Badge
+              Container(
+                margin: const EdgeInsets.only(left: 8, top: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: getStatusBackgroundColor(order.status),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: getStatusColor(order.status),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  order.status,
+                  style: TextStyle(
+                    color: getStatusColor(order.status),
+                    fontWeight: FontWeight.w500,
+                    fontSize: 12,
+                  ),
+                ),
               ),
-          ],
+              // ⭐️ REMOVED: Redundant IconButton for View Details and Receive Goods (Use onTap)
+            ],
+          ),
         ),
       ),
     );

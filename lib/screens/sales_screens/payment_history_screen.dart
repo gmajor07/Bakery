@@ -5,10 +5,18 @@ import '../../models/payment_record.dart';
 import '../../provider/payment_provider.dart';
 import '../../widgets/token_error_widget.dart';
 
+// ----------------------------------------------------------------------
+// 1. DATE FILTER DEFINITIONS
+// ----------------------------------------------------------------------
+enum QuickDateFilter { all, today, yesterday, last7Days, thisMonth, custom }
+
+// ----------------------------------------------------------------------
+// 2. PAGINATION PROVIDER (NO CHANGES NEEDED HERE)
+// ----------------------------------------------------------------------
 final paymentPaginationProvider =
-    StateNotifierProvider<PaymentPaginationNotifier, PaymentPaginationState>(
+StateNotifierProvider<PaymentPaginationNotifier, PaymentPaginationState>(
       (ref) => PaymentPaginationNotifier(),
-    );
+);
 
 class PaymentPaginationState {
   final int currentPage;
@@ -56,6 +64,9 @@ class PaymentPaginationNotifier extends StateNotifier<PaymentPaginationState> {
   }
 }
 
+// ----------------------------------------------------------------------
+// 3. WIDGET STATE AND METHODS
+// ----------------------------------------------------------------------
 class PaymentHistoryScreen extends ConsumerStatefulWidget {
   const PaymentHistoryScreen({super.key});
 
@@ -65,45 +76,108 @@ class PaymentHistoryScreen extends ConsumerStatefulWidget {
 }
 
 class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
-  final ScrollController _scrollController = ScrollController();
+  // Removed _scrollController and _scrollListener for button-based pagination
   final TextEditingController _searchController = TextEditingController();
   String searchQuery = '';
+
+  // ⭐️ NEW STATE for Quick Date Filter
+  QuickDateFilter selectedQuickFilter = QuickDateFilter.all;
   DateTimeRange? selectedRange;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_scrollListener);
+    // Removed scroll listener
     _searchController.addListener(() {
       setState(() => searchQuery = _searchController.text.toLowerCase());
       ref.read(paymentPaginationProvider.notifier).reset();
+    });
+
+    // Set initial filter on load
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _applyQuickFilter(QuickDateFilter.all);
     });
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
-  void _scrollListener() {
-    if (_scrollController.position.pixels ==
-        _scrollController.position.maxScrollExtent) {
-      final paginationState = ref.read(paymentPaginationProvider);
-      if (paginationState.hasMore) {
-        ref.read(paymentPaginationProvider.notifier).nextPage();
+  // ⭐️ NEW: Date Filter Logic (Similar to ProductionScreen)
+  void _applyQuickFilter(QuickDateFilter filter, [DateTimeRange? customRange]) {
+    final newRange = filter == QuickDateFilter.custom ? customRange : _getDateRange(filter);
+
+    setState(() {
+      selectedQuickFilter = filter;
+      // Normalizing the end date for filtering purposes: setting time to 23:59:59
+      if (newRange != null) {
+        selectedRange = DateTimeRange(
+          start: DateTime(newRange.start.year, newRange.start.month, newRange.start.day),
+          end: DateTime(newRange.end.year, newRange.end.month, newRange.end.day)
+              .add(const Duration(days: 1))
+              .subtract(const Duration(seconds: 1)),
+        );
+      } else {
+        selectedRange = null;
       }
+    });
+    ref.read(paymentPaginationProvider.notifier).reset();
+  }
+
+  DateTimeRange? _getDateRange(QuickDateFilter filter) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    switch (filter) {
+      case QuickDateFilter.all:
+        return null;
+      case QuickDateFilter.today:
+        return DateTimeRange(start: today, end: today);
+      case QuickDateFilter.yesterday:
+        final yesterday = today.subtract(const Duration(days: 1));
+        return DateTimeRange(start: yesterday, end: yesterday);
+      case QuickDateFilter.last7Days:
+        final lastWeek = today.subtract(const Duration(days: 6));
+        return DateTimeRange(start: lastWeek, end: today);
+      case QuickDateFilter.thisMonth:
+        final startOfMonth = DateTime(now.year, now.month, 1);
+        return DateTimeRange(start: startOfMonth, end: today);
+      case QuickDateFilter.custom:
+        return selectedRange;
+    }
+  }
+
+  String _getFilterName(QuickDateFilter filter) {
+    switch (filter) {
+      case QuickDateFilter.all:
+        return 'All Time';
+      case QuickDateFilter.today:
+        return 'Today';
+      case QuickDateFilter.yesterday:
+        return 'Yesterday';
+      case QuickDateFilter.last7Days:
+        return 'Last 7 Days';
+      case QuickDateFilter.thisMonth:
+        return 'This Month';
+      case QuickDateFilter.custom:
+        if (selectedRange != null) {
+          final start = DateFormat('MMM d').format(selectedRange!.start);
+          final end = DateFormat('MMM d').format(selectedRange!.end);
+          return '$start - $end';
+        }
+        return 'Custom Range';
     }
   }
 
   void _clearFilters() {
     setState(() {
-      selectedRange = null;
       _searchController.clear();
       searchQuery = '';
     });
-    ref.read(paymentPaginationProvider.notifier).reset();
+    _applyQuickFilter(QuickDateFilter.all);
+    // Pagination reset is handled by _applyQuickFilter
   }
 
   @override
@@ -127,7 +201,7 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            _buildFiltersSection(),
+            _buildFiltersSection(), // ⭐️ MODIFIED
             const SizedBox(height: 16),
             _buildSummaryCards(historyAsync, context),
             const SizedBox(height: 16),
@@ -156,6 +230,7 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
     );
   }
 
+  // ⭐️ MODIFIED: Filter Section for Date Chips and Date Picker
   Widget _buildFiltersSection() {
     return Card(
       elevation: 2,
@@ -170,72 +245,132 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: searchQuery.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => searchQuery = '');
-                          ref.read(paymentPaginationProvider.notifier).reset();
-                        },
-                      )
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => searchQuery = '');
+                    ref.read(paymentPaginationProvider.notifier).reset();
+                  },
+                )
                     : null,
                 border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.date_range),
-                    label: Text(
-                      selectedRange == null
-                          ? 'Select date range'
-                          : '${DateFormat('MMM dd').format(selectedRange!.start)} - ${DateFormat('MMM dd, yyyy').format(selectedRange!.end)}',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    onPressed: () async {
-                      final now = DateTime.now();
-                      final picked = await showDateRangePicker(
-                        context: context,
-                        firstDate: DateTime(now.year - 5),
-                        lastDate: DateTime(now.year + 1),
-                        initialDateRange: selectedRange,
-                      );
-                      if (picked != null) {
-                        setState(() => selectedRange = picked);
-                        ref.read(paymentPaginationProvider.notifier).reset();
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                if (selectedRange != null)
-                  IconButton(
-                    icon: const Icon(Icons.clear),
-                    onPressed: () {
-                      setState(() => selectedRange = null);
-                      ref.read(paymentPaginationProvider.notifier).reset();
-                    },
-                    tooltip: 'Clear date filter',
-                  ),
-              ],
-            ),
+            _buildQuickDateFilters(),
           ],
         ),
       ),
     );
   }
 
+  // ⭐️ NEW: Quick Date Filter Chips
+  Widget _buildQuickDateFilters() {
+    const filters = [
+      QuickDateFilter.all,
+      QuickDateFilter.today,
+      QuickDateFilter.yesterday,
+      QuickDateFilter.last7Days,
+      QuickDateFilter.thisMonth,
+      QuickDateFilter.custom,
+    ];
+
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final navBarContainerColor = Theme.of(context).colorScheme.brightness == Brightness.dark
+        ? Theme.of(context).colorScheme.surfaceContainerHighest
+        : const Color(0xFFEEE3D7);
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          // ⭐️ Custom Date Range Picker Button
+          SizedBox(
+            width: 50,
+            height: 40,
+            child: ElevatedButton(
+              onPressed: () async {
+                final now = DateTime.now();
+                final picked = await showDateRangePicker(
+                  context: context,
+                  firstDate: DateTime(now.year - 5),
+                  lastDate: DateTime(now.year + 1),
+                  initialDateRange: selectedRange,
+                );
+                if (picked != null) {
+                  _applyQuickFilter(QuickDateFilter.custom, picked);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                padding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+              ),
+              child: const Icon(Icons.date_range),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // ⭐️ Filter Chips
+          ...filters.map((filter) {
+            final isSelected = filter == selectedQuickFilter;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: FilterChip(
+                label: Text(_getFilterName(filter)),
+                selected: isSelected,
+                selectedColor: navBarContainerColor,
+                checkmarkColor: primaryColor,
+                labelStyle: TextStyle(
+                  color: isSelected ? primaryColor : Theme.of(context).colorScheme.onSurface,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+                onSelected: (selected) {
+                  if (filter == QuickDateFilter.custom) {
+                    // Open picker if custom is selected but not currently active
+                    if (!isSelected) {
+                      _selectCustomDateRange();
+                    }
+                  } else if (selected) {
+                    _applyQuickFilter(filter);
+                  } else if (filter == selectedQuickFilter) {
+                    // Allow deselection back to 'All'
+                    _applyQuickFilter(QuickDateFilter.all);
+                  }
+                },
+              ),
+            );
+          }).toList(),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _selectCustomDateRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 1),
+      initialDateRange: selectedRange,
+    );
+    if (picked != null) {
+      _applyQuickFilter(QuickDateFilter.custom, picked);
+    }
+  }
+
+
   Widget _buildSummaryCards(
-    AsyncValue<List<PaymentRecord>> historyAsync,
-    BuildContext context,
-  ) {
+      AsyncValue<List<PaymentRecord>> historyAsync,
+      BuildContext context,
+      ) {
+    // ... (Summary card logic remains the same)
     return historyAsync.when(
       data: (payments) {
         final filtered = _applyFilters(payments);
         final totalAmount = filtered.fold<double>(
           0,
-          (sum, payment) => sum + payment.amount,
+              (sum, payment) => sum + payment.amount,
         );
         final averageAmount = filtered.isEmpty
             ? 0
@@ -255,7 +390,7 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
             'Total Amount',
             'TSh ${NumberFormat('#,##0').format(totalAmount)}',
             Icons.attach_money,
-            Colors.green,
+            Colors.brown,
           ),
           _buildSummaryCard(
             'Average',
@@ -267,27 +402,27 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
 
         return isTablet
             ? GridView.count(
-                shrinkWrap: true,
-                crossAxisCount: 3,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 2.5,
-                physics: const NeverScrollableScrollPhysics(),
-                children: cards,
-              )
+          shrinkWrap: true,
+          crossAxisCount: 3,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 2.5,
+          physics: const NeverScrollableScrollPhysics(),
+          children: cards,
+        )
             : SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: cards
-                      .map(
-                        (c) => Padding(
-                          padding: const EdgeInsets.only(right: 12),
-                          child: SizedBox(width: 180, child: c),
-                        ),
-                      )
-                      .toList(),
-                ),
-              );
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: cards
+                .map(
+                  (c) => Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: SizedBox(width: 180, child: c),
+              ),
+            )
+                .toList(),
+          ),
+        );
       },
       loading: () => const LinearProgressIndicator(),
       error: (_, __) => const SizedBox(),
@@ -295,11 +430,11 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
   }
 
   Widget _buildSummaryCard(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
+      String title,
+      String value,
+      IconData icon,
+      Color color,
+      ) {
     return Card(
       elevation: 2,
       child: Padding(
@@ -315,7 +450,7 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
                 Flexible(
                   child: Text(
                     title,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -339,30 +474,28 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
           payment.receiptNumber.toString().toLowerCase().contains(
             searchQuery,
           ) ||
-          payment.customerName.toLowerCase().contains(searchQuery);
+              payment.customerName.toLowerCase().contains(searchQuery);
 
       final matchesDate =
           selectedRange == null ||
-          (payment.paymentDate.isAfter(
-                selectedRange!.start.subtract(const Duration(days: 1)),
-              ) &&
-              payment.paymentDate.isBefore(
-                selectedRange!.end.add(const Duration(days: 1)),
-              ));
+              (payment.paymentDate.isAfter(selectedRange!.start) &&
+                  payment.paymentDate.isBefore(selectedRange!.end));
+
       return matchesSearch && matchesDate;
     }).toList();
   }
 
   List<PaymentRecord> _applyPagination(
-    List<PaymentRecord> payments,
-    PaymentPaginationState pagination,
-  ) {
+      List<PaymentRecord> payments,
+      PaymentPaginationState pagination,
+      ) {
     final startIndex = (pagination.currentPage - 1) * pagination.itemsPerPage;
     final endIndex = startIndex + pagination.itemsPerPage;
 
     final hasMore = endIndex < payments.length;
     if (hasMore != pagination.hasMore) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Use Future.microtask to avoid calling setState during build/layout
+      Future.microtask(() {
         ref.read(paymentPaginationProvider.notifier).setHasMore(hasMore);
       });
     }
@@ -373,11 +506,12 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
     );
   }
 
+  // ⭐️ MODIFIED: Build list without scroll listener
   Widget _buildPaymentList(
-    List<PaymentRecord> payments,
-    int totalFiltered,
-    PaymentPaginationState pagination,
-  ) {
+      List<PaymentRecord> payments,
+      int totalFiltered,
+      PaymentPaginationState pagination,
+      ) {
     if (payments.isEmpty) {
       return const Center(
         child: Column(
@@ -401,28 +535,64 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
         const SizedBox(height: 12),
         Expanded(
           child: ListView.builder(
-            controller: _scrollController,
-            itemCount: payments.length + (pagination.hasMore ? 1 : 0),
+            // Removed controller
+            itemCount: payments.length,
             itemBuilder: (context, index) {
-              if (index == payments.length) {
-                return const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(child: CircularProgressIndicator()),
-                );
-              }
               final payment = payments[index];
               return _buildPaymentCard(payment);
             },
           ),
         ),
+        _buildPaginationControls(totalFiltered, pagination), // ⭐️ NEW CONTROLS
       ],
     );
   }
 
+  // ⭐️ NEW: Pagination Controls (Next/Previous Buttons)
+  Widget _buildPaginationControls(
+      int totalFiltered,
+      PaymentPaginationState pagination,
+      ) {
+    final totalPages = (totalFiltered / pagination.itemsPerPage).ceil();
+    final isFirstPage = pagination.currentPage == 1;
+    final isLastPage = pagination.currentPage >= totalPages;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          OutlinedButton.icon(
+            icon: const Icon(Icons.arrow_back_ios, size: 16),
+            label: const Text('Previous'),
+            onPressed: isFirstPage
+                ? null
+                : () => ref.read(paymentPaginationProvider.notifier).previousPage(),
+          ),
+          const SizedBox(width: 16),
+          Text(
+            'Page ${pagination.currentPage} of $totalPages',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            ),
+          ),
+          const SizedBox(width: 16),
+          OutlinedButton.icon(
+            icon: const Text('Next'),
+            label: const Icon(Icons.arrow_forward_ios, size: 16),
+            onPressed: isLastPage || totalPages == 0
+                ? null
+                : () => ref.read(paymentPaginationProvider.notifier).nextPage(),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPaginationInfo(
-    int totalFiltered,
-    PaymentPaginationState pagination,
-  ) {
+      int totalFiltered,
+      PaymentPaginationState pagination,
+      ) {
     final startItem =
         (pagination.currentPage - 1) * pagination.itemsPerPage + 1;
     final endItem = pagination.currentPage * pagination.itemsPerPage;
@@ -435,16 +605,13 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
           'Showing $startItem-$displayedEnd of $totalFiltered payments',
           style: TextStyle(color: Colors.grey[600]),
         ),
-        if (totalFiltered > pagination.itemsPerPage)
-          Text(
-            'Page ${pagination.currentPage} of ${(totalFiltered / pagination.itemsPerPage).ceil()}',
-            style: TextStyle(color: Colors.grey[600]),
-          ),
+        // Removed second page display, as it's now in the controls
       ],
     );
   }
 
   Widget _buildPaymentCard(PaymentRecord payment) {
+    // ... (Payment card logic remains the same)
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       elevation: 1,
@@ -452,10 +619,10 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.brown.withOpacity(0.1),
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
-          child: const Icon(Icons.payment, color: Colors.brown, size: 20),
+          child: Icon(Icons.payment, color: Theme.of(context).colorScheme.primary, size: 20),
         ),
         title: Text(
           'Receipt #${payment.receiptNumber}',
@@ -494,7 +661,7 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
                 'TSh ${NumberFormat('#,##0').format(payment.amount)}',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: Colors.green,
+                  color: Colors.brown,
                   fontSize: 13,
                 ),
                 textAlign: TextAlign.right,
@@ -515,6 +682,7 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
   }
 
   void _showPaymentDetails(BuildContext context, PaymentRecord payment) {
+    // ... (Detail dialog logic remains the same)
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -553,6 +721,7 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
   }
 
   Widget _buildDetailRow(String label, String value) {
+    // ... (Detail row logic remains the same)
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -573,11 +742,12 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
   }
 
   Widget _buildErrorState(Object error, BuildContext context) {
+    // ... (Error state logic remains the same)
     final msg = error.toString().toLowerCase();
     if (msg.contains('token') ||
         msg.contains('401') ||
         msg.contains('unauthorized')) {
-      return TokenErrorWidget();
+      return const TokenErrorWidget();
     }
 
     return Center(

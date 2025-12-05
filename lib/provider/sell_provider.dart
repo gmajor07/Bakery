@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/sales_api_service.dart';
 import '../auth/auth_provider.dart';
@@ -13,36 +14,58 @@ class SalesNotifier extends StateNotifier<bool> {
   SalesNotifier(this.ref) : super(false);
 
   /// 🔹 Create a sale
-  /// ⚠️ This will only create the sale in the backend.
-  /// No payment will be recorded automatically.
   Future<Map<String, dynamic>> createSale({
     int? customerId,
     required bool isCredit,
-    required double total,
+    required double total, // This is the Grand Total
     required List<Map<String, dynamic>> items,
     int? dueDays,
+    required double subtotal,
+    required double vatAmount,
   }) async {
     state = true; // show loading
+
+    // 1. Calculate Subtotal from items
+    final subtotal = items.fold<double>(0.0, (sum, item) {
+      final price = item['price'] as double;
+      final quantity = item['quantity'] as int;
+      return sum + (price * quantity);
+    });
+
+    // 2. Calculate VAT amount
+    // This logic must match the CheckoutScreen: 18% applied only if it's a credit sale.
+    const vatRate = 0.18;
+    final vatAmount = isCredit ? subtotal * vatRate : 0.0;
+
+    // 3. Optional Sanity Check: Ensure the calculated total matches the passed total
+    double calculatedTotal = subtotal + vatAmount;
+    if ((total - calculatedTotal).abs() > 0.01) {
+      // Handle error if totals don't match due to floating point or client/server mismatch
+      if (kDebugMode) print("Warning: Passed total ($total) does not match calculated total ($calculatedTotal)");
+    }
+
     try {
       final token = await ref.read(authProvider.notifier).getAccessToken();
       if (token == null) throw Exception("No token found");
 
       final api = SalesApiService(ref);
 
-      // ✅ Create the sale only
+      // ✅ Pass the newly calculated subtotal and vatAmount to the API
       final sale = await api.createSale(
         accessToken: token,
         customerId: customerId,
         isCredit: isCredit,
+        subtotal: subtotal,    // ⬅️ NEW: Pass subtotal
+        vatAmount: vatAmount,  // ⬅️ NEW: Pass VAT amount
         total: total,
         items: items,
         dueDays: dueDays,
       );
 
-      // ⚠️ DO NOT call recordPayment() here for credit sales
-      // This prevents the sale from being auto-marked as cash/paid
-
       return sale;
+    } catch (e) {
+      // Re-throw the error after logging or specific handling
+      rethrow;
     } finally {
       state = false; // hide loading
     }

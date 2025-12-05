@@ -1,22 +1,80 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter/foundation.dart';
 
 class TokenStorage {
   static const _storage = FlutterSecureStorage();
 
-  static Future<void> saveTokens(String accessToken, String refreshToken) async {
-    await _storage.write(key: 'access_token', value: accessToken);
-    await _storage.write(key: 'refresh_token', value: refreshToken);
+  // Use consistent keys with auth_provider
+  static const String _accessTokenKey = 'accessToken';
+  static const String _refreshTokenKey = 'refreshToken';
+
+  static Future<void> saveTokens(
+    String accessToken,
+    String refreshToken,
+  ) async {
+    try {
+      await _storage.write(key: _accessTokenKey, value: accessToken);
+      await _storage.write(key: _refreshTokenKey, value: refreshToken);
+      if (kDebugMode) {
+        print("💾 TokenStorage: Tokens saved successfully");
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("❌ TokenStorage: Failed to save tokens: $e");
+      }
+      rethrow;
+    }
   }
 
   static Future<String?> getAccessToken() async {
-    return _storage.read(key: 'access_token');
+    try {
+      final token = await _storage.read(key: _accessTokenKey);
+      if (kDebugMode && token != null) {
+        print("🔑 TokenStorage: Access token retrieved");
+      }
+      return token;
+    } catch (e) {
+      if (kDebugMode) {
+        print("❌ TokenStorage: Failed to get access token: $e");
+      }
+      return null;
+    }
   }
 
   static Future<String?> getRefreshToken() async {
-    return _storage.read(key: 'refresh_token');
+    try {
+      final token = await _storage.read(key: _refreshTokenKey);
+      if (kDebugMode && token != null) {
+        print("🔑 TokenStorage: Refresh token retrieved");
+      }
+      return token;
+    } catch (e) {
+      if (kDebugMode) {
+        print("❌ TokenStorage: Failed to get refresh token: $e");
+      }
+      return null;
+    }
   }
 
   static Future<void> clear() async {
-    await _storage.deleteAll();
+    try {
+      await _storage.delete(key: _accessTokenKey);
+      await _storage.delete(key: _refreshTokenKey);
+      if (kDebugMode) {
+        print("🗑️ TokenStorage: Tokens cleared");
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("❌ TokenStorage: Failed to clear tokens: $e");
+      }
+      rethrow;
+    }
+  }
+
+  /// Check if tokens exist
+  static Future<bool> hasTokens() async {
+    final accessToken = await getAccessToken();
+    final refreshToken = await getRefreshToken();
+    return accessToken != null && refreshToken != null;
   }
 }

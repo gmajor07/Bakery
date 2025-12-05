@@ -8,8 +8,8 @@ class SaleItem {
   final String status;
   final String paymentStatus;
   final List<SaleProduct> items;
-  final bool isCredit; // ✅ Added to track credit sales
-  final double outstandingBalance; // ✅ Added to track remaining balance
+  final bool isCredit;
+  final double outstandingBalance;
 
   int get receiptNumber => id;
 
@@ -21,8 +21,8 @@ class SaleItem {
     required this.status,
     required this.paymentStatus,
     required this.items,
-    required this.isCredit, // ✅ Added
-    required this.outstandingBalance, // ✅ Added
+    required this.isCredit,
+    required this.outstandingBalance,
   });
 
   factory SaleItem.fromJson(Map<String, dynamic> json) {
@@ -38,24 +38,27 @@ class SaleItem {
       items: (json['items'] as List<dynamic>? ?? [])
           .map((item) => SaleProduct.fromJson(item))
           .toList(),
-      isCredit: json['isCredit'] ?? false, // ✅ Added this line
+      isCredit: json['isCredit'] ?? false,
       outstandingBalance:
-          double.tryParse(json['outstandingBalance']?.toString() ?? '0') ??
-          0.0, // ✅ Added this line
+      double.tryParse(json['outstandingBalance']?.toString() ?? '0') ??
+          0.0,
     );
   }
 
-  // ✅ Helper method to get proper status display
+  // 💡 NEW GETTER: Provides the payment method type as a string
+  String get paymentMethod {
+    return isCredit ? 'Credit' : 'Cash';
+  }
+
+  // Helper method to get proper status display (Unchanged)
   String get displayStatus {
     if (isCredit) {
-      // Credit sale logic
       if (outstandingBalance <= 0) {
         return 'Credit Paid';
       } else {
         return 'Credit Unpaid';
       }
     } else {
-      // Cash sale logic
       if (outstandingBalance <= 0) {
         return 'Paid';
       } else {
@@ -64,10 +67,10 @@ class SaleItem {
     }
   }
 
-  // ✅ Helper method to check if fully paid
+  // Helper method to check if fully paid (Unchanged)
   bool get isFullyPaid => outstandingBalance <= 0;
 
-  // ✅ Helper method to get status color
+  // Helper method to get status color (Unchanged)
   Color get statusColor {
     if (isCredit) {
       return outstandingBalance <= 0 ? Colors.green : Colors.orange;

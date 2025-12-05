@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/product.dart';
 import '../../provider/products_provider.dart';
 import '../../provider/pos_provider.dart';
 import '../../widgets/token_error_widget.dart';
-import 'cart_screen.dart';
+import 'cart_screen.dart' hide formatCurrency;
 import '../../auth/auth_provider.dart';
+// ⬅️ NEW: Import the currency formatter utility
+import '../../utils/formatters.dart';
 
 class PosScreen extends ConsumerStatefulWidget {
   const PosScreen({super.key});
@@ -15,6 +18,16 @@ class PosScreen extends ConsumerStatefulWidget {
 
 class _PosScreenState extends ConsumerState<PosScreen> {
   String searchQuery = '';
+  // Map to hold controllers for quantity TextFields
+  final Map<int, TextEditingController> _qtyControllers = {};
+
+  @override
+  void dispose() {
+    for (var controller in _qtyControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
 
   Future<void> _refreshProducts() async {
     final token = ref.read(authProvider).accessToken;
@@ -26,6 +39,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final colorScheme = Theme.of(context).colorScheme;
 
     if (authState.isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -43,88 +57,88 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final cart = ref.watch(cartProvider);
     final totalItems = cart.values.fold<int>(
       0,
-      (sum, item) => sum + item.quantity,
+          (sum, item) => sum + item.quantity,
     );
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('POS - Point of Sale'),
+        title: const Text(
+          'Point of Sale',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: colorScheme.surface,
+        elevation: 0,
+        centerTitle: true,
         actions: [
           // Cart Button at the top right
-          if (totalItems > 0) ...[
+          if (totalItems > 0)
             Padding(
-              padding: const EdgeInsets.only(right: 8.0),
-              child: ElevatedButton.icon(
-                onPressed: () async {
-                  final result = await Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const CartScreen()),
-                  );
-                  // Refresh automatically if sale was completed
-                  if (result == true) {
-                    await _refreshProducts();
-                  }
-                },
-                icon: const Icon(Icons.shopping_cart_checkout),
-                label: Text('$totalItems'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+              padding: const EdgeInsets.only(right: 16.0),
+              child: Badge.count( // ⬅️ NEW: Use Badge for the item count
+                count: totalItems,
+                backgroundColor: colorScheme.error,
+                textColor: colorScheme.onError,
+                child: IconButton(
+                  onPressed: () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const CartScreen()),
+                    );
+                    // Refresh automatically if sale was completed
+                    if (result == true) {
+                      await _refreshProducts();
+                    }
+                  },
+                  icon: const Icon(Icons.shopping_cart_checkout),
+                  color: colorScheme.primary,
+                  tooltip: 'View Cart',
                 ),
               ),
             ),
-          ],
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _refreshProducts,
             tooltip: 'Refresh Products',
+            color: colorScheme.onSurface,
           ),
         ],
       ),
       body: Column(
         children: [
-          // Header Section
+          // Header & Search Section (Combined for flow)
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
-            color: Theme.of(context).primaryColor.withOpacity(0.1),
+            color: colorScheme.surface, // Use surface for clean look
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Products',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                // Search Section
+                TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Search products by name...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16), // Larger radius
+                      borderSide: BorderSide.none,
+                    ),
+                    filled: true,
+                    fillColor: colorScheme.surfaceVariant.withOpacity(0.5),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  onChanged: (value) => setState(() => searchQuery = value),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
+                // Muted info text, moved below search
                 Text(
                   'Total items in cart: $totalItems',
                   style: TextStyle(
-                    fontSize: 16,
-                    color: Theme.of(context).primaryColor,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
-            ),
-          ),
-
-          // Search Section
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              decoration: InputDecoration(
-                labelText: 'Search products...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                fillColor: Colors.grey[50],
-              ),
-              onChanged: (value) => setState(() => searchQuery = value),
             ),
           ),
 
@@ -132,14 +146,15 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           Expanded(
             child: RefreshIndicator(
               onRefresh: _refreshProducts,
+              color: colorScheme.primary,
               child: productsAsync.when(
                 data: (products) {
                   final filtered = products
                       .where(
                         (p) => p.name.toLowerCase().contains(
-                          searchQuery.toLowerCase(),
-                        ),
-                      )
+                      searchQuery.toLowerCase(),
+                    ),
+                  )
                       .toList();
 
                   if (filtered.isEmpty) {
@@ -150,7 +165,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                           Icon(
                             Icons.search_off,
                             size: 64,
-                            color: Colors.grey[400],
+                            color: colorScheme.onSurfaceVariant,
                           ),
                           const SizedBox(height: 16),
                           Text(
@@ -159,7 +174,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                 : 'No products found for "$searchQuery"',
                             style: TextStyle(
                               fontSize: 16,
-                              color: Colors.grey[600],
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ],
@@ -177,202 +192,23 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                       final cartItem = cart[product.id];
                       final quantity = cartItem?.quantity ?? 0;
 
-                      // Controller for quantity input
-                      final qtyController = TextEditingController(
-                        text: quantity.toString(),
+                      // Get or create controller for the product
+                      final qtyController = _qtyControllers.putIfAbsent(
+                        product.id,
+                            () => TextEditingController(),
                       );
+                      // Update controller text if quantity changes externally
+                      if (qtyController.text != quantity.toString()) {
+                        qtyController.text = quantity.toString();
+                      }
 
-                      return Card(
-                        margin: const EdgeInsets.symmetric(vertical: 6),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 2,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              // Product Info
-                              Expanded(
-                                flex: 4,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      product.name,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Stock: ${product.quantity}',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: product.quantity == 0
-                                            ? Colors.red
-                                            : Colors.grey[600],
-                                        fontWeight: product.quantity == 0
-                                            ? FontWeight.bold
-                                            : FontWeight.normal,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              // Price and Quantity Controls
-                              Expanded(
-                                flex: 3,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(
-                                      'TSh ${product.price.toStringAsFixed(0)}',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color.fromARGB(255, 9, 33, 10),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-
-                                    if (quantity > 0) ...[
-                                      // Quantity controls
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.end,
-                                        children: [
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.remove,
-                                              size: 20,
-                                            ),
-                                            onPressed: () => ref
-                                                .read(cartProvider.notifier)
-                                                .removeProduct(product.id),
-                                            style: IconButton.styleFrom(
-                                              backgroundColor: Colors.grey[200],
-                                              padding: const EdgeInsets.all(4),
-                                            ),
-                                          ),
-                                          // Manual quantity input
-                                          SizedBox(
-                                            width: 50,
-                                            child: TextField(
-                                              controller: qtyController,
-                                              keyboardType:
-                                                  TextInputType.number,
-                                              textAlign: TextAlign.center,
-                                              onSubmitted: (value) {
-                                                final intQty =
-                                                    int.tryParse(value) ??
-                                                    quantity;
-
-                                                if (intQty <= 0) {
-                                                  ref
-                                                      .read(
-                                                        cartProvider.notifier,
-                                                      )
-                                                      .removeProduct(
-                                                        product.id,
-                                                      );
-                                                } else if (intQty <=
-                                                    product.quantity) {
-                                                  ref
-                                                      .read(
-                                                        cartProvider.notifier,
-                                                      )
-                                                      .updateProductQuantity(
-                                                        product.id,
-                                                        intQty,
-                                                      );
-                                                } else {
-                                                  // Reset to max stock if exceeded
-                                                  qtyController.text = product
-                                                      .quantity
-                                                      .toString();
-                                                  ref
-                                                      .read(
-                                                        cartProvider.notifier,
-                                                      )
-                                                      .updateProductQuantity(
-                                                        product.id,
-                                                        product.quantity,
-                                                      );
-                                                }
-                                              },
-                                              decoration: const InputDecoration(
-                                                border: OutlineInputBorder(),
-                                                isDense: true,
-                                                contentPadding:
-                                                    EdgeInsets.symmetric(
-                                                      vertical: 4,
-                                                      horizontal: 4,
-                                                    ),
-                                              ),
-                                            ),
-                                          ),
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.add,
-                                              size: 20,
-                                            ),
-                                            onPressed:
-                                                product.quantity <= quantity
-                                                ? null
-                                                : () => ref
-                                                      .read(
-                                                        cartProvider.notifier,
-                                                      )
-                                                      .addProduct(product),
-                                            style: IconButton.styleFrom(
-                                              backgroundColor: Theme.of(
-                                                context,
-                                              ).primaryColor,
-                                              foregroundColor: Colors.white,
-                                              padding: const EdgeInsets.all(4),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ] else ...[
-                                      // Add button when item not in cart
-                                      FilledButton.icon(
-                                        onPressed: product.quantity == 0
-                                            ? null
-                                            : () => ref
-                                                  .read(cartProvider.notifier)
-                                                  .addProduct(product),
-                                        icon: const Icon(Icons.add),
-                                        label: const Text('Add to Cart'),
-                                        style: FilledButton.styleFrom(
-                                          backgroundColor: Theme.of(
-                                            context,
-                                          ).primaryColor,
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 8,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                      return _buildProductCard(
+                        context,
+                        ref,
+                        product,
+                        quantity,
+                        qtyController,
+                        colorScheme,
                       );
                     },
                   );
@@ -384,16 +220,19 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                       msg.contains('unauthorized') ||
                       msg.contains('token') ||
                       msg.contains('expired')) {
-                    return TokenErrorWidget();
+                    // Check if mounted before returning widget
+                    if (context.mounted) {
+                      return TokenErrorWidget();
+                    }
                   }
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.error_outline,
                           size: 64,
-                          color: Colors.red,
+                          color: colorScheme.error,
                         ),
                         const SizedBox(height: 16),
                         const Text(
@@ -415,5 +254,195 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         ],
       ),
     );
+  }
+
+  // Extracted widget for better readability and maintainability
+  Widget _buildProductCard(
+      BuildContext context,
+      WidgetRef ref,
+      Product product,
+      int quantity,
+      TextEditingController qtyController,
+      ColorScheme colorScheme,
+      ) {
+    final isOutOfStock = product.quantity == 0;
+    final canIncrement = product.quantity > quantity;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colorScheme.outlineVariant),
+      ),
+      elevation: 0, // Flat cards
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Product Info
+            Expanded(
+              flex: 3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.name,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.onSurface,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  // ⬅️ PRICE FORMATTING APPLIED HERE
+                  Text(
+                    formatCurrency(product.price),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Stock: ${product.quantity}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isOutOfStock
+                          ? colorScheme.error
+                          : colorScheme.onSurfaceVariant,
+                      fontWeight: isOutOfStock ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(width: 16),
+
+            // Quantity Controls / Add Button
+            Expanded(
+              flex: 2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (quantity > 0) ...[
+                    // Quantity controls (Remove/Input/Add)
+                    Container(
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceVariant,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.remove, size: 20),
+                            onPressed: () => ref
+                                .read(cartProvider.notifier)
+                                .removeProduct(product.id),
+                            color: colorScheme.primary,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          // Manual quantity input
+                          SizedBox(
+                            width: 40,
+                            child: TextField(
+                              controller: qtyController,
+                              keyboardType: TextInputType.number,
+                              textAlign: TextAlign.center,
+                              onSubmitted: (value) {
+                                final intQty = int.tryParse(value) ?? quantity;
+                                _handleQuantityUpdate(
+                                  ref,
+                                  product,
+                                  intQty,
+                                  qtyController,
+                                );
+                              },
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.onSurface),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add, size: 20),
+                            onPressed: canIncrement
+                                ? () => ref
+                                .read(cartProvider.notifier)
+                                .addProduct(product)
+                                : null,
+                            color: canIncrement ? colorScheme.primary : colorScheme.onSurfaceVariant.withOpacity(0.5),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else ...[
+                    // Add button when item not in cart
+                    FilledButton.icon(
+                      onPressed: isOutOfStock
+                          ? null
+                          : () => ref
+                          .read(cartProvider.notifier)
+                          .addProduct(product),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: colorScheme.primary,
+                        foregroundColor: colorScheme.onPrimary,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        textStyle: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper to handle quantity updates and stock checks
+  void _handleQuantityUpdate(
+      WidgetRef ref,
+      Product product,
+      int intQty,
+      TextEditingController controller,
+      ) {
+    if (intQty <= 0) {
+      ref.read(cartProvider.notifier).removeProduct(product.id);
+    } else if (intQty <= product.quantity) {
+      ref
+          .read(cartProvider.notifier)
+          .updateProductQuantity(
+        product.id,
+        intQty,
+      );
+    } else {
+      // Reset to max stock if exceeded
+      controller.text = product.quantity.toString();
+      ref
+          .read(cartProvider.notifier)
+          .updateProductQuantity(
+        product.id,
+        product.quantity,
+      );
+    }
   }
 }

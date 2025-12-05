@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -5,8 +6,6 @@ import 'package:intl/intl.dart';
 import '../../models/purchase_order.dart';
 import '../../models/purchase_inventory_item.dart';
 import '../../provider/purchase_orders_provider.dart';
-// Assuming PurchaseOrdersApiService is accessed via purchaseOrdersApiServiceProvider
-// and inventoryItemsProvider exists
 
 class PurchaseOrderDetailScreen extends ConsumerStatefulWidget {
   final PurchaseOrder order;
@@ -33,9 +32,9 @@ class _PurchaseOrderDetailScreenState
   static Color _statusColor(String status) {
     switch (status.toLowerCase()) {
       case 'completed':
-        return Colors.green;
+        return Colors.brown;
       case 'received':
-        return Colors.green.shade700;
+        return Colors.brown.shade700;
       case 'pending':
         return Colors.orange;
       case 'cancelled':
@@ -49,7 +48,7 @@ class _PurchaseOrderDetailScreenState
 
   // Helper function to determine the background color based on status
   static Color _statusBackgroundColor(String status) {
-    return _statusColor(status).withOpacity(0.1);
+    return _statusColor(status).withValues();
   }
 
   // --------------------- UI BUILDERS ------------------------
@@ -343,7 +342,7 @@ class _PurchaseOrderDetailScreenState
                       )
                     : const Text('Approve Order'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue.shade700,
+                  backgroundColor: Colors.brown.shade700,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
@@ -515,8 +514,12 @@ class _PurchaseOrderDetailScreenState
           .read(purchaseOrdersApiServiceProvider)
           .receiveGoods(payload: payload);
 
-      print("✅ Goods received and order updated: ${updatedOrder.id}");
-      print("✅ New order status: ${updatedOrder.status}");
+      if (kDebugMode) {
+        print("✅ Goods received and order updated: ${updatedOrder.id}");
+      }
+      if (kDebugMode) {
+        print("✅ New order status: ${updatedOrder.status}");
+      }
 
       // Update the local state with the returned updated order
       setState(() => _order = updatedOrder);
@@ -526,7 +529,9 @@ class _PurchaseOrderDetailScreenState
         context,
       ).showSnackBar(SnackBar(content: Text('Goods received successfully!')));
     } catch (e) {
-      print("❌ Goods receipt failed: $e");
+      if (kDebugMode) {
+        print("❌ Goods receipt failed: $e");
+      }
 
       // Show error message to user
       ScaffoldMessenger.of(
@@ -534,7 +539,9 @@ class _PurchaseOrderDetailScreenState
       ).showSnackBar(SnackBar(content: Text('Failed to receive goods: $e')));
     } finally {
       setState(() => _isSubmitting = false);
-      print("🔄 ======== HANDLE RECEIVE GOODS END ========");
+      if (kDebugMode) {
+        print("🔄 ======== HANDLE RECEIVE GOODS END ========");
+      }
     }
   }
 }

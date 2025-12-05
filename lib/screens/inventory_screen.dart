@@ -5,8 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../provider/inventory_provider.dart';
 import '../widgets/token_error_widget.dart';
 
-// Placeholder for the screen being navigated to
-// You will need to ensure this path and class exist in your project
+
 import 'create_material_screen.dart';
 
 // --- Top-level Providers and Helper Functions ---
@@ -28,7 +27,7 @@ List<dynamic> _filterItems(List<dynamic> items, String searchQuery) {
 Color _getStatusColor(String status) {
   switch (status.toLowerCase()) {
     case 'in stock':
-      return Colors.green;
+      return Colors.brown;
     case 'low stock':
       return Colors.orange;
     case 'out of stock':
@@ -41,7 +40,7 @@ Color _getStatusColor(String status) {
 Color _getQuantityColor(double currentQuantity, double minLevel) {
   if (currentQuantity <= minLevel) return Colors.red;
   if (currentQuantity <= minLevel * 2) return Colors.orange;
-  return Colors.green;
+  return Colors.brown;
 }
 
 // --- InventoryScreen Widget ---

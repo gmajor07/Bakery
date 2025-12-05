@@ -4,6 +4,14 @@ import '../models/material_received.dart';
 import '../auth/auth_provider.dart';
 import 'base_api_service.dart';
 
+// ⭐️ Define a model for the API response to handle pagination metadata
+class MaterialReceiptResponse {
+  final List<MaterialReceipt> receipts;
+  final int totalRecords;
+
+  MaterialReceiptResponse({required this.receipts, required this.totalRecords});
+}
+
 class MaterialApiService {
   final Ref ref;
   late final Dio _dio;
@@ -13,9 +21,10 @@ class MaterialApiService {
   }
 
   /// Fetch paginated goods receipts
-  Future<List<MaterialReceipt>> fetchReceipts({
+  // ⭐️ MODIFIED: Return type changed to MaterialReceiptResponse
+  Future<MaterialReceiptResponse> fetchReceipts({
     int page = 1,
-    int limit = 10,
+    int limit = 15, // ⭐️ Changed default to 15 (matching screen assumption)
     String? status,
     String? startDate,
     String? endDate,
@@ -40,10 +49,17 @@ class MaterialApiService {
 
       final raw = response.data;
       List<dynamic> list = [];
+      int totalRecords = 0; // ⭐️ Initialize totalRecords
 
       if (raw is List) {
         list = raw;
+        // If API returns only a list, we can't get totalRecords, so we guess.
+        // It's crucial the API returns metadata for proper pagination.
+        totalRecords = list.length;
       } else if (raw is Map<String, dynamic>) {
+        // ⭐️ ASSUME: API returns metadata like this:
+        totalRecords = raw['totalCount'] ?? raw['totalRecords'] ?? 0;
+
         if (raw['goodsReceipts'] is List) {
           list = raw['goodsReceipts'];
         } else if (raw['data'] is List) {
@@ -51,7 +67,13 @@ class MaterialApiService {
         }
       }
 
-      return list.map((e) => MaterialReceipt.fromJson(e)).toList();
+      final receipts = list.map((e) => MaterialReceipt.fromJson(e)).toList();
+
+      // ⭐️ RETURN: Use the new response model
+      return MaterialReceiptResponse(
+        receipts: receipts,
+        totalRecords: totalRecords,
+      );
     } on DioException catch (e) {
       final msg = e.response?.data?['message'] ?? 'Failed to fetch receipts';
       throw Exception(msg);
@@ -82,12 +104,12 @@ class MaterialApiService {
       data['items'] = (data['items'] as List)
           .map(
             (item) => {
-              'name': item['name'] ?? '',
-              'quantity': item['quantity'] ?? 0,
-              'cost': item['cost'] ?? 0,
-              'total': item['total'] ?? 0,
-            },
-          )
+          'name': item['name'] ?? '',
+          'quantity': item['quantity'] ?? 0,
+          'cost': item['cost'] ?? 0,
+          'total': item['total'] ?? 0,
+        },
+      )
           .toList();
 
       return MaterialReceipt.fromJson(data);

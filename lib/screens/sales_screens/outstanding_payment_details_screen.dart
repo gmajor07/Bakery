@@ -54,10 +54,10 @@ class OutstandingPaymentDetailsScreen extends ConsumerWidget {
                           ? Icons.warning
                           : Icons.pending,
                       color: isFullyPaid
-                          ? Colors.green
+                          ? Colors.brown
                           : isOverdue
                           ? Colors.red
-                          : Colors.orange,
+                          : Colors.white,
                       size: 40,
                     ),
                     const SizedBox(width: 16),
@@ -74,10 +74,10 @@ class OutstandingPaymentDetailsScreen extends ConsumerWidget {
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: isFullyPaid
-                                  ? Colors.green
+                                  ? Colors.brown
                                   : isOverdue
                                   ? Colors.red
-                                  : Colors.orange,
+                                  : Colors.white,
                               fontSize: 16,
                             ),
                           ),
@@ -88,7 +88,7 @@ class OutstandingPaymentDetailsScreen extends ConsumerWidget {
                                 : 'Due: ${DateFormat('MMM dd, yyyy').format(payment.dueDate)}',
                             style: TextStyle(
                               color: isFullyPaid
-                                  ? Colors.green
+                                  ? Colors.brown
                                   : isOverdue
                                   ? Colors.red
                                   : Colors.grey[600],
@@ -123,7 +123,7 @@ class OutstandingPaymentDetailsScreen extends ConsumerWidget {
                     LinearProgressIndicator(
                       value: progress,
                       backgroundColor: Colors.grey[300],
-                      color: isFullyPaid ? Colors.green : Colors.orange,
+                      color: isFullyPaid ? Colors.brown : Colors.orange,
                       minHeight: 8,
                     ),
                     const SizedBox(height: 8),
@@ -175,14 +175,14 @@ class OutstandingPaymentDetailsScreen extends ConsumerWidget {
                     _buildDetailRow(
                       'Outstanding Balance',
                       'TSh ${NumberFormat('#,##0').format(payment.balance)}',
-                      valueColor: isFullyPaid ? Colors.green : Colors.orange,
+                      valueColor: isFullyPaid ? Colors.brown : Colors.orange,
                       isBold: true,
                     ),
                     _buildDetailRow(
                       isFullyPaid ? 'Payment Date' : 'Due Date',
                       DateFormat('MMM dd, yyyy').format(payment.dueDate),
                       valueColor: isFullyPaid
-                          ? Colors.green
+                          ? Colors.brown
                           : isOverdue
                           ? Colors.red
                           : null,
@@ -217,13 +217,13 @@ class OutstandingPaymentDetailsScreen extends ConsumerWidget {
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
-                      Icon(Icons.check_circle, color: Colors.green, size: 24),
+                      Icon(Icons.check_circle, color: Colors.brown, size: 24),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           'Payment completed successfully!',
                           style: TextStyle(
-                            color: Colors.green[700],
+                            color: Colors.brown[700],
                             fontWeight: FontWeight.bold,
                           ),
                         ),

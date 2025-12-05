@@ -1,59 +1,63 @@
 import 'package:bak/screens/purchases_screens/purchases_order_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../materials_received_screen.dart';
-
-// Define colors locally for consistency
-const Color primaryColor = Color(0xFFC8A2C8);
-const Color textDark = Color(0xFF3C3C3C);
-const Color creamBackground = Color(0xFFFAF7F0);
-const Color cardOne = Color(0xFF85C1E9); // Light Blue
 
 class PurchasesActionsScreen extends StatelessWidget {
   const PurchasesActionsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: creamBackground, // Use the cream background
-      appBar: AppBar(
-        backgroundColor: primaryColor,
-        elevation: 0,
-        title: const Text(
-          'Purchases',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
-      ),
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
+    final primaryColor = colorScheme.primary;
+    final backgroundColor = colorScheme.background;
+    final onPrimary = colorScheme.onPrimary;
+
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      appBar: AppBar(
+        title: Text(
+          'Purchases',
+          style: TextStyle(color: onPrimary, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: primaryColor,
+        centerTitle: true,
+        elevation: 0,
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: GridView.count(
+            // The GridView setup remains the same, forcing the responsiveness into the card
             crossAxisCount: 2,
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
-            childAspectRatio: 1.2, // Consistent card size
+            childAspectRatio: 1.2,
             children: [
-              // 1. Purchase Orders (Create/Manage)
+              // 1. Purchase Orders
               _ActionCard(
                 color: primaryColor,
                 label: 'Purchase Orders',
                 subtitle: 'Manage new orders to suppliers',
-                icon: Icons.receipt_long_rounded,
+                icon: LucideIcons.receipt,
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const PurchaseOrdersScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const PurchaseOrdersScreen(),
+                    ),
                   );
                 },
               ),
 
-              // 2. Material Receiving (Check-in stock)
+              // 2. Material Receiving
               _ActionCard(
-                color: Colors.green,
+                color: primaryColor,
                 label: 'Material Receiving',
                 subtitle: 'Confirm items and update',
-                icon: Icons.check_box_rounded,
+                icon: LucideIcons.flaskConical,
                 onTap: () {
                   Navigator.push(
                     context,
@@ -64,17 +68,13 @@ class PurchasesActionsScreen extends StatelessWidget {
                 },
               ),
 
-
-              // 4. Supplier Management (Example Placeholder)
+              // 3. Suppliers
               _ActionCard(
-                color: Colors.amber[700]!,
+                color: primaryColor,
                 label: 'Suppliers',
                 subtitle: 'Manage vendor details and contacts',
-                icon: Icons.groups_rounded,
-                onTap: () {
-                  // Placeholder for a dedicated screen
-                  // Navigator.push(...);
-                },
+                icon: LucideIcons.box,
+                onTap: () {},
               ),
             ],
           ),
@@ -83,8 +83,6 @@ class PurchasesActionsScreen extends StatelessWidget {
     );
   }
 }
-
-// Reusing the modern _ActionCard structure from BakeryHomeScreen
 class _ActionCard extends StatelessWidget {
   final Color color;
   final String label;
@@ -102,8 +100,14 @@ class _ActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    final cardSurfaceColor = colorScheme.surface;
+    final textBodyColor = textTheme.bodyMedium?.color;
+
     return Material(
-      color: Colors.white,
+      color: cardSurfaceColor,
       borderRadius: BorderRadius.circular(20),
       elevation: 4,
       shadowColor: color.withOpacity(0.2),
@@ -111,37 +115,47 @@ class _ActionCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          // ⭐️ FIX 1: Reduced overall padding to save vertical space
+          padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.9),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: Colors.white, size: 28),
+                child: Icon(
+                  icon,
+                  color: colorScheme.onPrimary,
+                  size: 24,
+                ),
               ),
+              const SizedBox(height: 12),
+
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w900,
-                      fontSize: 16,
-                      color: textDark,
+                      fontSize: 14,
+                      color: textBodyColor,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  // ⭐️ FIX 2: Reduced spacing between label and subtitle
+                  const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: textBodyColor?.withOpacity(0.6),
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),

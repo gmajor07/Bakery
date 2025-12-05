@@ -5,11 +5,8 @@ import '../provider/adjustment_provider.dart';
 import '../widgets/token_error_widget.dart';
 import 'new_adjustment.dart';
 
-// Assuming you have an Adjustment model defined elsewhere that is similar to:
-// class Adjustment { final int id; final num amount; final String reason; final String createdAt; final InventoryItem inventoryItem; }
-// class InventoryItem { final String name; final String unit; }
-
-enum QuickDateFilter { all, today, yesterday, last7Days, thisMonth, lastMonth }
+// ⭐️ ADDED: 'custom' to the enum
+enum QuickDateFilter { all, today, yesterday, last7Days, thisMonth, lastMonth, custom }
 
 class AdjustmentsScreen extends ConsumerStatefulWidget {
   const AdjustmentsScreen({super.key});
@@ -20,7 +17,8 @@ class AdjustmentsScreen extends ConsumerStatefulWidget {
 
 class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
   final TextEditingController _searchController = TextEditingController();
-  QuickDateFilter selectedQuickFilter = QuickDateFilter.today;
+  // ⭐️ MODIFIED: Default to 'all' or determine based on existing filters
+  QuickDateFilter selectedQuickFilter = QuickDateFilter.all;
 
   @override
   void initState() {
@@ -29,55 +27,77 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
     final filters = ref.read(adjustmentFiltersProvider);
     _searchController.text = filters.search ?? '';
 
+    // Determine initial quick filter based on loaded dates
+    _updateQuickFilterState(filters.startDate, filters.endDate);
+
     // FIX: Delay the provider modification until after the first frame.
+    // Ensure 'Today' is applied if no filters are present.
     if (filters.startDate == null && filters.endDate == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        // Apply a default filter if none is set
         _applyQuickDateFilter(QuickDateFilter.today);
       });
     }
   }
 
-  void _applyQuickDateFilter(QuickDateFilter filter) {
+  // ⭐️ NEW: Logic to determine the active quick filter state
+  void _updateQuickFilterState(String? startDateStr, String? endDateStr) {
+    if (startDateStr == null || endDateStr == null) {
+      selectedQuickFilter = QuickDateFilter.all;
+    } else {
+      // For simplicity, if dates are set, we label it as 'custom'
+      selectedQuickFilter = QuickDateFilter.custom;
+    }
+  }
+
+  // ⭐️ MODIFIED: Now handles 'custom' and sets the filter state
+  void _applyQuickDateFilter(QuickDateFilter filter, [DateTimeRange? customRange]) {
+    final newRange = filter == QuickDateFilter.custom ? customRange : _getDateRange(filter);
+
     setState(() => selectedQuickFilter = filter);
 
+    if (newRange == null) {
+      ref.read(adjustmentFiltersProvider.notifier).update(
+            (s) => s.copyWith(startDate: null, endDate: null, page: 1),
+      );
+    } else {
+      // Normalize dates: start time 00:00:00, end time 23:59:59
+      final start = DateTime(newRange.start.year, newRange.start.month, newRange.start.day);
+      final end = DateTime(newRange.end.year, newRange.end.month, newRange.end.day)
+          .add(const Duration(days: 1))
+          .subtract(const Duration(seconds: 1));
+
+      ref
+          .read(adjustmentFiltersProvider.notifier)
+          .update(
+            (s) => s.copyWith(
+          startDate: start.toIso8601String(),
+          endDate: end.toIso8601String(),
+          page: 1,
+        ),
+      );
+    }
+  }
+
+  // ⭐️ NEW: Helper to get DateTimeRange for quick filters
+  DateTimeRange? _getDateRange(QuickDateFilter filter) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final tomorrow = today.add(const Duration(days: 1));
-
-    String? startDate;
-    String? endDate;
 
     switch (filter) {
       case QuickDateFilter.all:
-        startDate = null;
-        endDate = null;
-        break;
+        return null;
       case QuickDateFilter.today:
-        startDate = today.toIso8601String();
-        // Ensure the end date is inclusive of the entire day
-        endDate = tomorrow
-            .subtract(const Duration(seconds: 1))
-            .toIso8601String();
-        break;
+        return DateTimeRange(start: today, end: today);
       case QuickDateFilter.yesterday:
         final yesterday = today.subtract(const Duration(days: 1));
-        startDate = yesterday.toIso8601String();
-        endDate = today.subtract(const Duration(seconds: 1)).toIso8601String();
-        break;
+        return DateTimeRange(start: yesterday, end: yesterday);
       case QuickDateFilter.last7Days:
         final lastWeek = today.subtract(const Duration(days: 6));
-        startDate = lastWeek.toIso8601String();
-        endDate = tomorrow
-            .subtract(const Duration(seconds: 1))
-            .toIso8601String();
-        break;
+        return DateTimeRange(start: lastWeek, end: today);
       case QuickDateFilter.thisMonth:
         final startOfMonth = DateTime(now.year, now.month, 1);
-        startDate = startOfMonth.toIso8601String();
-        endDate = tomorrow
-            .subtract(const Duration(seconds: 1))
-            .toIso8601String();
-        break;
+        return DateTimeRange(start: startOfMonth, end: today);
       case QuickDateFilter.lastMonth:
         final lastMonthEnd = DateTime(now.year, now.month, 0);
         final lastMonthStart = DateTime(
@@ -85,42 +105,36 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
           lastMonthEnd.month,
           1,
         );
-        startDate = lastMonthStart.toIso8601String();
-        endDate = lastMonthEnd.toIso8601String();
-        break;
+        return DateTimeRange(start: lastMonthStart, end: lastMonthEnd);
+      case QuickDateFilter.custom:
+        return null; // Handled by _pickDateRange
     }
-
-    ref
-        .read(adjustmentFiltersProvider.notifier)
-        .update(
-          (s) => s.copyWith(startDate: startDate, endDate: endDate, page: 1),
-        );
   }
 
+  // ⭐️ MODIFIED: Calls _applyQuickDateFilter with QuickDateFilter.custom
   void _pickDateRange() async {
+    final filters = ref.read(adjustmentFiltersProvider);
+    DateTimeRange? initialRange;
+
+    // Set initial range if custom dates are already set
+    if (filters.startDate != null && filters.endDate != null) {
+      initialRange = DateTimeRange(
+        start: DateTime.parse(filters.startDate!),
+        // The saved end date includes 23:59:59, so we subtract one second to get the start of the end day
+        end: DateTime.parse(filters.endDate!).subtract(const Duration(seconds: 1)),
+      );
+    }
+
     final picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(
-        const Duration(days: 1),
-      ), // Allow selecting today
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+      initialDateRange: initialRange,
     );
 
     if (picked != null) {
-      setState(() => selectedQuickFilter = QuickDateFilter.all);
-
-      ref
-          .read(adjustmentFiltersProvider.notifier)
-          .update(
-            (s) => s.copyWith(
-              // Ensure end date is inclusive of the whole day (by setting it to 23:59:59 of the end day)
-              startDate: picked.start.toIso8601String(),
-              endDate: picked.end
-                  .add(const Duration(hours: 23, minutes: 59, seconds: 59))
-                  .toIso8601String(),
-              page: 1,
-            ),
-          );
+      // Apply the result as a custom filter
+      _applyQuickDateFilter(QuickDateFilter.custom, picked);
     }
   }
 
@@ -133,8 +147,8 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
         .read(adjustmentFiltersProvider.notifier)
         .update(
           (s) =>
-              s.copyWith(search: '', startDate: null, endDate: null, page: 1),
-        );
+          s.copyWith(search: '', startDate: null, endDate: null, page: 1),
+    );
   }
 
   String _getFilterName(QuickDateFilter filter) {
@@ -151,6 +165,8 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
         return 'This Month';
       case QuickDateFilter.lastMonth:
         return 'Last Month';
+      case QuickDateFilter.custom:
+        return 'Custom Range'; // ⭐️ Added custom name
     }
   }
 
@@ -167,8 +183,8 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
 
     final hasFilters =
         filters.search?.isNotEmpty == true ||
-        filters.startDate != null ||
-        filters.endDate != null;
+            filters.startDate != null ||
+            filters.endDate != null;
 
     return Scaffold(
       appBar: AppBar(
@@ -217,16 +233,16 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
                         prefixIcon: const Icon(Icons.search),
                         suffixIcon: _searchController.text.isNotEmpty
                             ? IconButton(
-                                icon: const Icon(Icons.clear),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  ref
-                                      .read(adjustmentFiltersProvider.notifier)
-                                      .update(
-                                        (s) => s.copyWith(search: '', page: 1),
-                                      );
-                                },
-                              )
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            _searchController.clear();
+                            ref
+                                .read(adjustmentFiltersProvider.notifier)
+                                .update(
+                                  (s) => s.copyWith(search: '', page: 1),
+                            );
+                          },
+                        )
                             : null,
                         border: const OutlineInputBorder(),
                       ),
@@ -239,28 +255,7 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
                     const SizedBox(height: 12),
 
                     // Quick Date Filter Chips
-                    _buildQuickDateFilters(),
-
-                    const SizedBox(height: 12),
-
-                    // Date Range Picker
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            icon: const Icon(Icons.calendar_today),
-                            label: Text(
-                              filters.startDate == null ||
-                                      filters.endDate == null
-                                  ? 'Select Custom Range'
-                                  : '${DateFormat('MMM dd').format(DateTime.parse(filters.startDate!))} - ${DateFormat('MMM dd, yyyy').format(DateTime.parse(filters.endDate!))}',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            onPressed: _pickDateRange,
-                          ),
-                        ),
-                      ],
-                    ),
+                    _buildQuickDateFilters(filters), // ⭐️ Pass filters
                   ],
                 ),
               ),
@@ -290,7 +285,7 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
                     msg.contains('unauthorized') ||
                     msg.contains('token') ||
                     msg.contains('expired')) {
-                  return TokenErrorWidget();
+                  return const TokenErrorWidget();
                 }
                 return Center(child: Text('Error: ${error.toString()}'));
               },
@@ -306,25 +301,26 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
                 ElevatedButton(
                   onPressed: filters.page > 1
                       ? () {
-                          ref
-                              .read(adjustmentFiltersProvider.notifier)
-                              .update((s) => s.copyWith(page: s.page - 1));
-                        }
+                    ref
+                        .read(adjustmentFiltersProvider.notifier)
+                        .update((s) => s.copyWith(page: s.page - 1));
+                  }
                       : null,
                   child: const Text('Previous'),
                 ),
                 Text('Page ${filters.page}'),
                 ElevatedButton(
+                  // ⭐️ Logic improved to use maybeWhen/orElse for safer check
                   onPressed:
-                      adjustmentsAsync.maybeWhen(
-                        data: (adjustments) => adjustments.isNotEmpty,
-                        orElse: () => false,
-                      )
+                  adjustmentsAsync.maybeWhen(
+                    data: (adjustments) => adjustments.isNotEmpty,
+                    orElse: () => false,
+                  )
                       ? () {
-                          ref
-                              .read(adjustmentFiltersProvider.notifier)
-                              .update((s) => s.copyWith(page: s.page + 1));
-                        }
+                    ref
+                        .read(adjustmentFiltersProvider.notifier)
+                        .update((s) => s.copyWith(page: s.page + 1));
+                  }
                       : null,
                   child: const Text('Next'),
                 ),
@@ -336,35 +332,74 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
     );
   }
 
-  Widget _buildQuickDateFilters() {
-    const filters = [
+  // ⭐️ MODIFIED: Now includes Custom Range button/chip logic
+  Widget _buildQuickDateFilters(dynamic filters) {
+    const filterOptions = [
       QuickDateFilter.today,
       QuickDateFilter.yesterday,
       QuickDateFilter.last7Days,
       QuickDateFilter.thisMonth,
       QuickDateFilter.lastMonth,
+      QuickDateFilter.custom, // ⭐️ Added custom filter chip
     ];
+
+    final primaryColor = Theme.of(context).colorScheme.primary;
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
-        children: filters.map((filter) {
-          final isSelected = filter == selectedQuickFilter;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: FilterChip(
-              label: Text(_getFilterName(filter)),
-              selected: isSelected,
-              onSelected: (selected) {
-                if (selected) {
-                  _applyQuickDateFilter(filter);
-                } else if (filter == selectedQuickFilter) {
-                  _applyQuickDateFilter(QuickDateFilter.all);
-                }
-              },
+        children: [
+          // Custom Date Range Picker Button (retained for explicit picker access)
+          SizedBox(
+            width: 50,
+            height: 40,
+            child: ElevatedButton(
+              onPressed: _pickDateRange,
+              style: ElevatedButton.styleFrom(
+                padding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+              ),
+              child: const Icon(Icons.calendar_today),
             ),
-          );
-        }).toList(),
+          ),
+          const SizedBox(width: 8),
+
+          // Filter Chips
+          ...filterOptions.map((filter) {
+            final isSelected = filter == selectedQuickFilter;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: FilterChip(
+                label: Text(
+                  // Display selected custom range on the chip
+                  filter == QuickDateFilter.custom && filters.startDate != null
+                      ? '${DateFormat('MMM dd').format(DateTime.parse(filters.startDate!))} - ${DateFormat('MMM dd').format(DateTime.parse(filters.endDate!).subtract(const Duration(seconds: 1)))}'
+                      : _getFilterName(filter),
+                ),
+                selected: isSelected,
+                selectedColor: primaryColor.withOpacity(0.15),
+                checkmarkColor: primaryColor,
+                labelStyle: TextStyle(
+                  color: isSelected ? primaryColor : Theme.of(context).colorScheme.onSurface,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+                onSelected: (selected) {
+                  if (filter == QuickDateFilter.custom) {
+                    // Only open the picker if it's not currently selected, or if the user clicks the explicit button.
+                    if (!isSelected) _pickDateRange();
+                  } else if (selected) {
+                    _applyQuickDateFilter(filter);
+                  } else if (filter == selectedQuickFilter) {
+                    // Allows deselecting back to 'All Time'
+                    _applyQuickDateFilter(QuickDateFilter.all);
+                  }
+                },
+              ),
+            );
+          }).toList(),
+        ],
       ),
     );
   }
@@ -405,9 +440,6 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
 // 🎯 NEW WIDGET: Mobile-friendly list item for a single adjustment
 // -------------------------------------------------------------------
 
-// Note: This relies on the structure of your adjustment/item model.
-// Assuming your Adjustment model has: .amount, .createdAt, .reason, and .inventoryItem
-// And InventoryItem has: .name, .unit
 
 class AdjustmentTile extends StatelessWidget {
   final dynamic
@@ -417,15 +449,17 @@ class AdjustmentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ⚠️ WARNING: Relying on 'dynamic' for complex logic can lead to runtime errors.
+    // Ensure 'adjustment' matches the expected model structure (e.g., has .amount, .createdAt, .reason, .inventoryItem.name, etc.)
     final amount = adjustment.amount as num;
     final isIncrease = amount > 0;
 
     final amountColor = isIncrease
-        ? Colors.green.shade700
+        ? Colors.brown.shade700
         : Colors.red.shade700;
     final amountText = isIncrease
-        ? '+${amount.abs()}'
-        : amount.toString(); // Keep negative sign for decreases
+        ? '+${NumberFormat('#,##0').format(amount.abs())}'
+        : NumberFormat('#,##0').format(amount); // Format negative number
 
     final formattedDate = DateFormat(
       'MMM dd, yyyy HH:mm',

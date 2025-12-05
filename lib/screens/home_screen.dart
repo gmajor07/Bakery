@@ -3,13 +3,21 @@ import 'package:bak/screens/customer_list_screen.dart';
 import 'package:bak/screens/pos_screens/pos_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../auth/auth_provider.dart';
-import '../provider/user_provider.dart'; // Ensure this file exists and exports userProvider
+import '../provider/user_provider.dart';
+import 'product_screen.dart';
+import 'purchases_screens/purchases_order_screen.dart';
 import 'sales_screens/sales_actions_screen.dart';
 import 'production_screen.dart';
 import 'purchases_screens/purchases_actions_screen.dart';
 import 'inventory_actions_screen.dart';
 import 'sales_screens/sales_history_screen.dart';
+
+const String customHomeIconPath = 'assets/icons/bakery_icon.png';
+const Color lightBrownBackground = Color(
+  0xFFEEE3D7,
+); // A light, warm brown/beige
 
 class BakeryHomeScreen extends ConsumerStatefulWidget {
   const BakeryHomeScreen({super.key});
@@ -22,18 +30,14 @@ class BakeryHomeScreen extends ConsumerStatefulWidget {
 class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
   int _selectedIndex = 0;
 
-  // Modern Bakery Theme Colors
-  static const Color primaryColor = Color(0xFFC8A2C8); // Soft Lavender/Lilac
-  static const Color secondaryColor = Color(0xFFF0E68C); // Khaki/Beige for Accent
-  static const Color creamBackground = Color(0xFFFAF7F0); // Off-White/Cream
-
+  // The pages list remains the same
   final List<Widget> _pages = [
     const _DashboardBody(), // 0: Home (Dashboard)
     const SalesActionsScreen(), // 1: Sales
     const PurchasesActionsScreen(), // 2: Purchases
-    const SizedBox.shrink(), // 3: POS (handled separately by FAB)
-    const InventoryActionsScreen(), // 4: Inventory
-    const ProductionScreen(), // 5: Production/More
+    const SizedBox.shrink(), // 3: POS (handled separately by FAB) - NOT USED BY NAV BAR
+    const InventoryActionsScreen(), // 4: Inventory (Correct screen for nav bar index 4)
+    const ProductionScreen(), // 5: Production/More (If you had a nav bar item for this)
   ];
 
   @override
@@ -44,10 +48,11 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final colorScheme = Theme.of(context).colorScheme;
+    final primaryColor = colorScheme.primary;
 
     ref.listen(authProvider, (previous, next) {
       if (!next.isAuthenticated) {
-        // Redirect if not authenticated
         Navigator.of(context).pushReplacementNamed('/login');
       }
     });
@@ -57,18 +62,16 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
     }
 
     return Scaffold(
-      backgroundColor: creamBackground,
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
-        elevation: 0,
-        backgroundColor: primaryColor,
-        title: const Text(
+        backgroundColor: colorScheme.primary,
+        title: Text(
           'APOTEk Bakery',
-          style: TextStyle(
-            color: Colors.white,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            color: colorScheme.onPrimary,
             fontWeight: FontWeight.bold,
           ),
         ),
-        centerTitle: true,
       ),
 
       // Floating POS centered
@@ -82,116 +85,215 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
             elevation: 8,
             onPressed: () => _openPos(context),
             tooltip: 'Open POS',
-            child: const Icon(Icons.shopping_cart, size: 30, color: Colors.white),
-          ),
-        ),
-      ),
-
-      // Custom Floating Round Card Bottom Navigation Bar
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.only(
-          left: 16,
-          right: 16,
-          bottom: 16, // Adds space below the navigation bar
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(30), // Increased radius for rounder card
-            boxShadow: [
-              BoxShadow(
-                color: primaryColor.withOpacity(0.3), // Shadow matches primary color
-                blurRadius: 15,
-                spreadRadius: 2,
-                offset: const Offset(0, 8), // Lift the card higher
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            // Clip the content to match the rounded container
-            borderRadius: BorderRadius.circular(30),
-            child: BottomAppBar(
-              color: Colors.transparent,
-              elevation: 0,
-              shape: const CircularNotchedRectangle(),
-              notchMargin: 8,
-              // Adjusted height to prevent overflow
-              child: SizedBox(
-                height: 56,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    // 0: Home
-                    _buildNavItem(
-                      icon: Icons.bakery_dining_rounded,
-                      label: 'Home',
-                      index: 0,
-                    ),
-                    // 1: Sales (New Icon)
-                    _buildNavItem(
-                      icon: Icons.trending_up_rounded,
-                      label: 'Sales',
-                      index: 1,
-                    ),
-                    // Spacer for FAB
-                    const SizedBox(width: 48),
-                    // 2: Purchases (New Link)
-                    _buildNavItem(
-                      icon: Icons.local_shipping_rounded,
-                      label: 'Purchases',
-                      index: 2,
-                    ),
-                    // 4: Inventory (New Index/Icon)
-                    _buildNavItem(
-                      icon: Icons.storage_rounded,
-                      label: 'Stock',
-                      index: 4,
-                    ),
-                  ],
-                ),
-              ),
+            child: Icon(
+              Icons.credit_card_rounded,
+              size: 30,
+              color: colorScheme.onPrimary,
             ),
           ),
         ),
       ),
 
-      // The selected index logic adjusts to skip the placeholder index (3) for POS
-      body: _pages[_selectedIndex > 2 ? _selectedIndex + 1 : _selectedIndex],
+      // ----------------------------------------------------------------------
+// 🛠️ FIXED BOTTOM NAVIGATION BAR
+// ----------------------------------------------------------------------
+      bottomNavigationBar: Builder(
+        builder: (context) {
+          // Get theme colors dynamically
+          final colorScheme = Theme.of(context).colorScheme;
+          final primaryColor = colorScheme.primary;
+          final isDarkMode = colorScheme.brightness == Brightness.dark;
+
+          // Use a light background for Light mode, and surfaceDark for Dark mode
+          // (You can access surfaceDark/surfaceLight through colorScheme.surface)
+          final navBarContainerColor = isDarkMode
+              ? colorScheme.surface // Use surfaceDark from your theme
+              : const Color(0xFFEEE3D7); // Custom light brown background for light mode
+
+          return Padding(
+            // RETAINED PADDING
+            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: navBarContainerColor, // ✅ FIXED: Use dynamic color
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    // Use primary color for the shadow
+                    color: primaryColor.withOpacity(isDarkMode ? 0.3 : 0.5),
+                    blurRadius: 15,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(30),
+                child: BottomAppBar(
+                  // Use transparent color since the container handles the background
+                  color: Colors.transparent,
+                  elevation: 0,
+                  // RETAINED SHAPE AND MARGIN
+                  shape: const CircularNotchedRectangle(),
+                  notchMargin: 8,
+                  child: SizedBox(
+                    height: 56,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        // Home (custom asset) - Assuming _buildCustomNavItem uses primaryColor
+                        _buildCustomNavItem(
+                          primaryColor: primaryColor, // ✅ FIXED: Pass dynamic primaryColor
+                          label: 'Home',
+                          index: 0,
+                          imagePath: customHomeIconPath,
+                        ),
+
+                        // Sales
+                        _buildNavItem(
+                          primaryColor: primaryColor, // ✅ FIXED: Pass dynamic primaryColor
+                          icon: LucideIcons.badgeInfo,
+                          label: 'Payments',
+                          index: 1,
+                        ),
+
+                        // SLIGHTLY REDUCED SPACE FOR FAB
+                        const SizedBox(width: 40),
+
+                        // Purchases
+                        _buildNavItem(
+                          primaryColor: primaryColor, // ✅ FIXED: Pass dynamic primaryColor
+                          icon: LucideIcons.shoppingCart,
+                          label: 'Purchases',
+                          index: 2,
+                        ),
+
+                        // Inventory
+                        _buildNavItem(
+                          primaryColor: primaryColor, // ✅ FIXED: Pass dynamic primaryColor
+                          icon: LucideIcons.box,
+                          label: 'Inventory',
+                          index: 4, // Nav bar index is 4
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+      body: _pages[_selectedIndex],
     );
   }
 
+  // Helper widget for standard Material Icons (Sales, Purchases, Inventory)
   Widget _buildNavItem({
+    required Color primaryColor,
     required IconData icon,
     required String label,
     required int index,
   }) {
     final bool isSelected = _selectedIndex == index;
+    final defaultIconColor = Theme.of(context).brightness == Brightness.light
+        ? Colors.grey[600]
+        : Colors.white54;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () {
+          // This ensures that when index 4 (Inventory) is tapped, it goes to page 4
           setState(() => _selectedIndex = index);
         },
-        child: SizedBox( // Use SizedBox instead of Padding for better control, preventing overflow
-          width: 60,
-          height: 56, // Match the BottomAppBar height
+        child: SizedBox(
+          // REDUCED WIDTH FROM 60 TO 50 FOR NARROW SCREENS
+          width: 50,
+          height: 56,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 icon,
-                color: isSelected ? primaryColor : Colors.grey[600],
+                color: isSelected ? primaryColor : defaultIconColor,
                 size: 24,
               ),
-              const SizedBox(height: 2), // Reduced spacing
+              const SizedBox(height: 2),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 10,
-                  color: isSelected ? primaryColor : Colors.grey[600],
+                  // SLIGHTLY REDUCED FONT SIZE
+                  fontSize: 9,
+                  color: isSelected ? primaryColor : defaultIconColor,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
+                // ENSURE TEXT CLIPS IF TOO LONG
+                overflow: TextOverflow.clip,
+                maxLines: 1,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ⭐️ NEW Helper widget for Custom Asset Icon (Home)
+  Widget _buildCustomNavItem({
+    required Color primaryColor,
+    required String imagePath,
+    required String label,
+    required int index,
+  }) {
+    final bool isSelected = _selectedIndex == index;
+    final defaultIconColor = Theme.of(context).brightness == Brightness.light
+        ? Colors.grey[600]
+        : Colors.white54;
+
+    // Use a ColorFilter to tint the asset image for the selected state
+    final Color iconColor = isSelected ? primaryColor : defaultIconColor!;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          setState(() => _selectedIndex = index);
+        },
+        child: SizedBox(
+          // REDUCED WIDTH FROM 60 TO 50 FOR NARROW SCREENS
+          width: 50,
+          height: 56,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset(
+                imagePath,
+                color: iconColor, // Apply color tinting
+                height: 24,
+                width: 24,
+                errorBuilder: (context, error, stackTrace) {
+                  // Fallback icon if the asset is not found
+                  return Icon(
+                    Icons.bakery_dining_rounded,
+                    color: iconColor,
+                    size: 24,
+                  );
+                },
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  // SLIGHTLY REDUCED FONT SIZE
+                  fontSize: 9,
+                  color: isSelected ? primaryColor : defaultIconColor,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+                // ENSURE TEXT CLIPS IF TOO LONG
+                overflow: TextOverflow.clip,
+                maxLines: 1,
               ),
             ],
           ),
@@ -212,16 +314,18 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
 class _DashboardBody extends ConsumerWidget {
   const _DashboardBody();
 
-  // Define colors within this scope for access and consistency
-  static const Color primaryColor = Color(0xFFC8A2C8);
-  static const Color creamBackground = Color(0xFFFAF7F0);
-  static const Color textDark = Color(0xFF3C3C3C);
-  static const Color cardOne = Color(0xFF85C1E9);
-  static const Color cardTwo = Color(0xFFF5B7B1);
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final textTheme = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+    final colorScheme = theme.colorScheme;
+    // 4. Use theme colors
+    final primaryColor = colorScheme.primary;
+    final textOnPrimary = colorScheme.onPrimary;
+    final background = colorScheme.surface;
+    final textBodyColor =
+        textTheme.bodyMedium?.color; // Get body text color for contrast
+
     // WATCH THE USER PROVIDER STATE HERE
     final userState = ref.watch(userProvider);
 
@@ -242,9 +346,10 @@ class _DashboardBody extends ConsumerWidget {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
+              // 5. Use primary color
               color: primaryColor,
-              borderRadius: BorderRadius.only(
+              borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(35),
                 bottomRight: Radius.circular(35),
               ),
@@ -263,14 +368,17 @@ class _DashboardBody extends ConsumerWidget {
                           Text(
                             greeting, // DISPLAY THE GREETING WITH USERNAME
                             style: textTheme.headlineMedium?.copyWith(
-                              color: Colors.white,
+                              // 6. Use colorScheme.onPrimary for text on primary background
+                              color: textOnPrimary,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             _formattedDate(),
-                            style: textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                            style: textTheme.bodyMedium?.copyWith(
+                              color: textOnPrimary.withOpacity(0.7),
+                            ),
                           ),
                         ],
                       ),
@@ -278,7 +386,6 @@ class _DashboardBody extends ConsumerWidget {
                   ),
                   const SizedBox(height: 20),
                   // Search bar (Enhanced)
-
                 ],
               ),
             ),
@@ -296,24 +403,25 @@ class _DashboardBody extends ConsumerWidget {
                   'Quick Access',
                   style: textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: textDark,
+                    color: textBodyColor,
                   ),
                 ),
                 const SizedBox(height: 16),
+
                 GridView.count(
                   physics: const NeverScrollableScrollPhysics(),
                   shrinkWrap: true,
                   crossAxisCount: 2,
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
+                  // MAINTAIN childAspectRatio: 1.2 to keep cards slightly taller than wide
                   childAspectRatio: 1.2,
                   children: [
-                    // 1. New Sale
                     _ActionCard(
                       color: primaryColor,
                       label: 'New Sale',
                       subtitle: 'Start a transaction',
-                      icon: Icons.shopping_cart_checkout,
+                      icon: LucideIcons.creditCard,
                       onTap: () {
                         Navigator.push(
                           context,
@@ -321,55 +429,57 @@ class _DashboardBody extends ConsumerWidget {
                         );
                       },
                     ),
-                    // 3. Sales History
+
                     _ActionCard(
-                      color: cardTwo,
+                      color: primaryColor,
                       label: 'Sales History',
                       subtitle: 'Review past transactions',
-                      icon: Icons.history_rounded,
+                      icon: LucideIcons.barChart3,
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (_) => const SalesHistoryScreen()),
-                        );
-                      },
-                    ),
-                    // 2. Inventory
-                    _ActionCard(
-                      color: Colors.amber[700]!,
-                      label: 'Inventory',
-                      subtitle: 'Manage stock levels',
-                      icon: Icons.inventory_2_rounded,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const InventoryActionsScreen()),
+                            builder: (_) => const SalesHistoryScreen(),
+                          ),
                         );
                       },
                     ),
 
-                    // 4. Purchase Orders
                     _ActionCard(
-                      color: cardOne,
-                      label: 'Purchases',
-                      subtitle: 'Order raw materials',
-                      icon: Icons.list_alt_rounded,
+                      color: primaryColor,
+                      label: 'Products',
+                      subtitle: 'Manage products',
+                      icon: LucideIcons.badgeCheck,
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (_) => const PurchasesActionsScreen()),
+                            builder: (_) => const ProductsScreen(),
+                          ),
                         );
                       },
                     ),
-                    // 5. Production
+
                     _ActionCard(
-                      color: Colors.pinkAccent[200]!,
+                      color: primaryColor,
+                      label: 'Purchases',
+                      subtitle: 'Order raw materials',
+                      icon: LucideIcons.shoppingCart,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const PurchaseOrdersScreen(),
+                          ),
+                        );
+                      },
+                    ),
+
+                    _ActionCard(
+                      color: primaryColor,
                       label: 'Production',
                       subtitle: 'Plan & track baking',
-                      icon: Icons.microwave_rounded,
+                      icon: LucideIcons.factory,
                       onTap: () {
                         Navigator.push(
                           context,
@@ -377,17 +487,18 @@ class _DashboardBody extends ConsumerWidget {
                         );
                       },
                     ),
-                    // 6. Settings/Reports
+
                     _ActionCard(
-                      color: Colors.blueGrey,
+                      color: primaryColor,
                       label: 'Customer',
-                      subtitle: 'create and View customer',
-                      icon: Icons.person_3,
+                      subtitle: 'Create & view customers',
+                      icon: LucideIcons.userCircle,
                       onTap: () {
-                        // Navigate to a dedicated reports screen or a settings screen
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => CustomerListScreen()),
+                          MaterialPageRoute(
+                            builder: (_) => CustomerScreen(),
+                          ),
                         );
                       },
                     ),
@@ -434,7 +545,7 @@ class _DashboardBody extends ConsumerWidget {
   }
 }
 
-// Action card widget (retains textDark definition fix)
+// Action card widget (RESPONSIVENESS FIX APPLIED HERE)
 class _ActionCard extends StatelessWidget {
   final Color color;
   final String label;
@@ -452,10 +563,14 @@ class _ActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color textDark = Color(0xFF3C3C3C);
+    // 8. Use the theme's surface color for the card background
+    final surfaceColor = Theme.of(context).colorScheme.surface;
+    final textBodyColor = Theme.of(
+      context,
+    ).textTheme.bodyMedium?.color; // Use theme text color
 
     return Material(
-      color: Colors.white,
+      color: surfaceColor,
       borderRadius: BorderRadius.circular(20),
       elevation: 4,
       shadowColor: color.withOpacity(0.2),
@@ -466,34 +581,41 @@ class _ActionCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            // ⭐️ FIX: Removed mainAxisAlignment: MainAxisAlignment.spaceBetween
+            // to allow content to fit without overflow on small screens.
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(10), // Reduced padding
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.9),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12), // Reduced radius
                 ),
-                child: Icon(icon, color: Colors.white, size: 28),
+                child: Icon(
+                  icon,
+                  color: Theme.of(context).colorScheme.onPrimary,
+                  size: 24, // Reduced icon size
+                ),
               ),
+              // Added fixed spacing
+              const SizedBox(height: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w900,
-                      fontSize: 16,
-                      color: textDark,
+                      fontSize: 14, // Reduced font size
+                      color: textBodyColor, // Use theme text color
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2), // Reduced spacing
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
+                    style: TextStyle(
+                      fontSize: 11, // Reduced font size
+                      color: textBodyColor?.withOpacity(0.6),
+                    ), // Use theme text color
                   ),
                 ],
               ),

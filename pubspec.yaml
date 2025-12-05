@@ -43,6 +43,9 @@ dependencies:
   pull_to_refresh: ^2.0.0
   path_provider: ^2.1.5
   share_plus: ^12.0.1
+  lucide_icons: ^0.257.0
+  connectivity_plus: ^6.1.1
+
 
 
 dev_dependencies:
@@ -55,6 +58,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  lucide_icons: ^0.257.0
  
 
 # For information on the generic Dart part of this file, see the
@@ -70,8 +74,9 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-      - assets/images/baker.png
-  #   - images/a_dot_ham.jpeg
+    # ⭐️ ADDED: This line declares the folder containing your custom icons.
+    - assets/icons/ 
+    - assets/images/ 
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

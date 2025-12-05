@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // NOTE: Ensure these models and providers are correctly linked
@@ -37,7 +38,9 @@ class PurchaseOrdersApiService {
   T _handleDioError<T>(DioException e, String defaultMessage) {
     // Check for 401 Unauthorized (Token Expiration)
     if (e.response?.statusCode == 401) {
-      print("❌ 401 Unauthorized detected. Forcing user logout.");
+      if (kDebugMode) {
+        print("❌ 401 Unauthorized detected. Forcing user logout.");
+      }
       // Invalidate Auth State and force logout
       ref.read(authProvider.notifier).logout();
       // Throw a specific error that the UI can catch to show an alert
@@ -48,7 +51,9 @@ class PurchaseOrdersApiService {
 
     // Otherwise, log the raw error for debugging but throw a clean message
     final userMessage = e.response?.data?['message'] ?? defaultMessage;
-    print("❌ API Error (${e.requestOptions.path}): $userMessage");
+    if (kDebugMode) {
+      print("❌ API Error (${e.requestOptions.path}): $userMessage");
+    }
     throw Exception(userMessage);
   }
 

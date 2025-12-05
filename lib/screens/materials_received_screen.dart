@@ -3,7 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../provider/material_received_provider.dart';
 import '../widgets/token_error_widget.dart';
-import 'material_received_details_screen.dart';
+import 'material_received_details_screen.dart'; // Ensure this path is correct
+
+// ----------------------------------------------------------------------
+// DATE FILTER DEFINITIONS (Matching other screens)
+// ----------------------------------------------------------------------
+enum QuickDateFilter { all, today, last7Days, thisMonth, custom }
 
 class MaterialsReceivedScreen extends ConsumerStatefulWidget {
   const MaterialsReceivedScreen({super.key});
@@ -17,47 +22,128 @@ class _MaterialsReceivedScreenState
     extends ConsumerState<MaterialsReceivedScreen> {
   final TextEditingController _searchController = TextEditingController();
 
+  // ⭐️ NEW STATE: Control for the quick filter chips
+  QuickDateFilter _selectedQuickFilter = QuickDateFilter.all;
+
   @override
   void initState() {
     super.initState();
     final filters = ref.read(materialFiltersProvider);
     _searchController.text = filters.search ?? '';
+
+    // Initialize the quick filter state based on current provider filters
+    _updateQuickFilterState(filters.startDate, filters.endDate);
   }
 
-  void _pickDateRange() async {
+  void _updateQuickFilterState(String? startDateStr, String? endDateStr) {
+    if (startDateStr == null || endDateStr == null) {
+      _selectedQuickFilter = QuickDateFilter.all;
+    } else {
+      // Assuming if dates are set, it's either from a quick filter or custom
+      _selectedQuickFilter = QuickDateFilter.custom;
+    }
+  }
+
+  // ⭐️ MODIFIED: Now triggers filter update using the QuickDateFilter enum
+  void _pickDateRange({DateTimeRange? initialRange}) async {
+    final now = DateTime.now();
+    final filters = ref.read(materialFiltersProvider);
+    DateTimeRange? currentRange;
+    if (filters.startDate != null && filters.endDate != null) {
+      currentRange = DateTimeRange(
+        start: DateTime.parse(filters.startDate!),
+        end: DateTime.parse(filters.endDate!).add(const Duration(seconds: 1)).subtract(const Duration(days: 1)),
+      );
+    }
+
     final picked = await showDateRangePicker(
       context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 1),
+      initialDateRange: initialRange ?? currentRange,
     );
 
     if (picked != null) {
-      ref
-          .read(materialFiltersProvider.notifier)
-          .update(
+      _applyQuickFilter(QuickDateFilter.custom, picked);
+    }
+  }
+
+  void _clearDateRange() {
+    _applyQuickFilter(QuickDateFilter.all);
+  }
+
+  void _applyQuickFilter(QuickDateFilter filter, [DateTimeRange? customRange]) {
+    final newRange = filter == QuickDateFilter.custom ? customRange : _getDateRange(filter);
+
+    setState(() {
+      _selectedQuickFilter = filter;
+    });
+
+    if (newRange == null) {
+      ref.read(materialFiltersProvider.notifier).update(
+            (s) => s.copyWith(startDate: null, endDate: null, page: 1),
+      );
+    } else {
+      // Normalize dates: start time 00:00:00, end time 23:59:59
+      final start = DateTime(newRange.start.year, newRange.start.month, newRange.start.day);
+      final end = DateTime(newRange.end.year, newRange.end.month, newRange.end.day)
+          .add(const Duration(days: 1))
+          .subtract(const Duration(seconds: 1));
+
+      ref.read(materialFiltersProvider.notifier).update(
             (s) => s.copyWith(
-          startDate: picked.start.toIso8601String(),
-          endDate: picked.end.toIso8601String(),
+          startDate: start.toIso8601String(),
+          endDate: end.toIso8601String(),
           page: 1,
         ),
       );
     }
   }
 
-  void _clearDateRange() {
-    ref
-        .read(materialFiltersProvider.notifier)
-        .update(
-          (s) => s.copyWith(
-        startDate: null,
-        endDate: null,
-        page: 1,
-      ),
-    );
+  DateTimeRange? _getDateRange(QuickDateFilter filter) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    switch (filter) {
+      case QuickDateFilter.all:
+        return null;
+      case QuickDateFilter.today:
+        return DateTimeRange(start: today, end: today);
+      case QuickDateFilter.last7Days:
+        final lastWeek = today.subtract(const Duration(days: 6));
+        return DateTimeRange(start: lastWeek, end: today);
+      case QuickDateFilter.thisMonth:
+        final startOfMonth = DateTime(now.year, now.month, 1);
+        return DateTimeRange(start: startOfMonth, end: today);
+      case QuickDateFilter.custom:
+        return null;
+    }
+  }
+
+  String _getFilterName(QuickDateFilter filter) {
+    switch (filter) {
+      case QuickDateFilter.all:
+        return 'All Time';
+      case QuickDateFilter.today:
+        return 'Today';
+      case QuickDateFilter.last7Days:
+        return 'Last 7 Days';
+      case QuickDateFilter.thisMonth:
+        return 'This Month';
+      case QuickDateFilter.custom:
+        return 'Custom Range';
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // ⭐️ materialsProvider now returns List<dynamic> (List<MaterialReceipt>)
     final filters = ref.watch(materialFiltersProvider);
     final receiptsAsync = ref.watch(materialsProvider);
     final isTablet = MediaQuery.of(context).size.width >= 768;
@@ -74,7 +160,7 @@ class _MaterialsReceivedScreenState
             _buildFiltersSection(filters, isTablet),
 
             // Results count
-            _buildResultsCount(receiptsAsync),
+            _buildResultsCount(receiptsAsync, filters),
 
             // Table or List
             Expanded(
@@ -101,6 +187,7 @@ class _MaterialsReceivedScreenState
     );
   }
 
+  // ⭐️ MODIFIED: Filters section now includes quick date chips
   Widget _buildFiltersSection(MaterialFilters filters, bool isTablet) {
     return Card(
       margin: const EdgeInsets.all(16),
@@ -112,30 +199,77 @@ class _MaterialsReceivedScreenState
             if (isTablet) _buildTabletFilters(filters),
             if (!isTablet) _buildMobileFilters(filters),
 
-            // Date range display
-            if (filters.startDate != null && filters.endDate != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      '${DateFormat('dd/MM/yyyy').format(DateTime.parse(filters.startDate!))} - ${DateFormat('dd/MM/yyyy').format(DateTime.parse(filters.endDate!))}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w500,
-                        color: Colors.blue,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.clear, size: 16),
-                      onPressed: _clearDateRange,
-                      tooltip: 'Clear date range',
-                    ),
-                  ],
-                ),
-              ),
+            const SizedBox(height: 12),
+            _buildQuickDateFilters(filters),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildQuickDateFilters(MaterialFilters filters) {
+    const filterOptions = [
+      QuickDateFilter.all,
+      QuickDateFilter.today,
+      QuickDateFilter.last7Days,
+      QuickDateFilter.thisMonth,
+      QuickDateFilter.custom,
+    ];
+
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final surfaceColor = Theme.of(context).colorScheme.surface;
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          // Custom Date Range Picker Button
+          SizedBox(
+            width: 50,
+            height: 40,
+            child: ElevatedButton(
+              onPressed: _pickDateRange,
+              style: ElevatedButton.styleFrom(
+                padding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+              ),
+              child: const Icon(Icons.calendar_today),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Filter Chips
+          ...filterOptions.map((filter) {
+            final isSelected = filter == _selectedQuickFilter;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: FilterChip(
+                label: Text(
+                  filter == QuickDateFilter.custom && filters.startDate != null
+                      ? '${DateFormat('MMM d').format(DateTime.parse(filters.startDate!))} - ${DateFormat('MMM d').format(DateTime.parse(filters.endDate!))}'
+                      : _getFilterName(filter),
+                ),
+                selected: isSelected,
+                selectedColor: primaryColor.withOpacity(0.15),
+                checkmarkColor: primaryColor,
+                labelStyle: TextStyle(
+                  color: isSelected ? primaryColor : Theme.of(context).colorScheme.onSurface,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+                onSelected: (selected) {
+                  if (filter == QuickDateFilter.custom) {
+                    if (!isSelected) _pickDateRange();
+                  } else if (selected) {
+                    _applyQuickFilter(filter);
+                  } else if (filter == _selectedQuickFilter) {
+                    _applyQuickFilter(QuickDateFilter.all);
+                  }
+                },
+              ),
+            );
+          }).toList(),
+        ],
       ),
     );
   }
@@ -169,12 +303,6 @@ class _MaterialsReceivedScreenState
             },
           ),
         ),
-        const SizedBox(width: 12),
-        ElevatedButton.icon(
-          onPressed: _pickDateRange,
-          icon: const Icon(Icons.calendar_today),
-          label: const Text('Date Range'),
-        ),
       ],
     );
   }
@@ -206,34 +334,42 @@ class _MaterialsReceivedScreenState
                 .update((s) => s.copyWith(search: value, page: 1));
           },
         ),
-        const SizedBox(height: 12),
-        ElevatedButton.icon(
-          onPressed: _pickDateRange,
-          icon: const Icon(Icons.calendar_today),
-          label: const Text('Date Range'),
-          style: ElevatedButton.styleFrom(
-            minimumSize: const Size(double.infinity, 48),
-          ),
-        ),
       ],
     );
   }
 
-  Widget _buildResultsCount(AsyncValue<List<dynamic>> receiptsAsync) {
+  // ⭐️ MODIFIED: Displays current page info using totalRecords from filters
+  Widget _buildResultsCount(AsyncValue<List<dynamic>> receiptsAsync, MaterialFilters filters) {
     return receiptsAsync.when(
       data: (receipts) {
-        if (receipts.isEmpty) return const SizedBox();
+        final totalPages = (filters.totalRecords / filters.limit).ceil();
+
+        if (filters.totalRecords == 0 && receipts.isEmpty) return const SizedBox();
+
+        final startItem = (filters.page - 1) * filters.limit + 1;
+        final endItem = (filters.page - 1) * filters.limit + receipts.length;
+        final displayedEnd = endItem > filters.totalRecords ? filters.totalRecords : endItem;
+
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '${receipts.length} receipt${receipts.length != 1 ? 's' : ''} found',
+                'Showing $startItem-$displayedEnd of ${filters.totalRecords} receipt${filters.totalRecords != 1 ? 's' : ''}',
                 style: TextStyle(
                   color: Colors.grey[600],
                   fontSize: 14,
                 ),
               ),
+              if (filters.totalRecords > filters.limit)
+                Text(
+                  'Page ${filters.page} of $totalPages',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                  ),
+                ),
             ],
           ),
         );
@@ -308,6 +444,7 @@ class _MaterialsReceivedScreenState
                       Navigator.push(
                         context,
                         MaterialPageRoute(
+                          // Ensure MaterialDetailsScreen is correctly defined elsewhere
                           builder: (_) => MaterialDetailsScreen(receiptId: r.id),
                         ),
                       );
@@ -458,7 +595,7 @@ class _MaterialsReceivedScreenState
         msg.contains('unauthorized') ||
         msg.contains('token') ||
         msg.contains('expired')) {
-      return TokenErrorWidget();
+      return const TokenErrorWidget();
     }
 
     return Center(
@@ -492,7 +629,20 @@ class _MaterialsReceivedScreenState
     );
   }
 
+  // ⭐️ MODIFIED: Fully functional pagination controls
   Widget _buildPagination(MaterialFilters filters) {
+    final totalPages = (filters.totalRecords / filters.limit).ceil();
+    final isLastPage = filters.page >= totalPages && totalPages > 0;
+    final isFirstPage = filters.page <= 1;
+
+    if (filters.totalRecords <= filters.limit && filters.totalRecords > 0) {
+      return const SizedBox.shrink();
+    }
+
+    if (filters.totalRecords == 0) {
+      return const SizedBox.shrink();
+    }
+
     return Card(
       margin: const EdgeInsets.all(16),
       elevation: 2,
@@ -501,23 +651,27 @@ class _MaterialsReceivedScreenState
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            ElevatedButton(
-              onPressed: filters.page > 1
-                  ? () => ref
+            ElevatedButton.icon(
+              icon: const Icon(Icons.arrow_back_ios, size: 16),
+              label: const Text('Previous'),
+              onPressed: isFirstPage
+                  ? null
+                  : () => ref
                   .read(materialFiltersProvider.notifier)
-                  .update((s) => s.copyWith(page: s.page - 1))
-                  : null,
-              child: const Text('Previous'),
+                  .update((s) => s.copyWith(page: s.page - 1)),
             ),
             Text(
-              'Page ${filters.page}',
+              'Page ${filters.page} of $totalPages',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-            ElevatedButton(
-              onPressed: () => ref
+            ElevatedButton.icon(
+              label: const Text('Next'),
+              icon: const Icon(Icons.arrow_forward_ios, size: 16),
+              onPressed: isLastPage
+                  ? null
+                  : () => ref
                   .read(materialFiltersProvider.notifier)
                   .update((s) => s.copyWith(page: s.page + 1)),
-              child: const Text('Next'),
             ),
           ],
         ),
@@ -528,7 +682,7 @@ class _MaterialsReceivedScreenState
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'completed':
-        return Colors.green;
+        return Colors.brown;
       case 'pending':
         return Colors.orange;
       case 'cancelled':

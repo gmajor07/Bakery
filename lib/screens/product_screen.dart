@@ -69,7 +69,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   Widget _buildProductCard(dynamic product, BuildContext context) {
     // Assuming 'product' is the instance of your Product model
     final stockText = product.isInStock ? 'In Stock' : 'Out of Stock';
-    final stockColor = product.isInStock ? Colors.green : Colors.red;
+    final stockColor = product.isInStock ? Colors.brown : Colors.red;
     final statusColor = product.status == 'active'
         ? AppTheme.primaryBrown
         : Colors.grey;
