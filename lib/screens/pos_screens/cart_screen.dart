@@ -6,9 +6,7 @@ import 'checkout_screen.dart';
 
 // Helper function for formatting currency
 String formatCurrency(double amount) {
-  // Use NumberFormat to format the currency for Tanzania Shilling (TSh)
-  // The symbol 'TSh' is displayed, and the maximum fraction digits is set to 0
-  // to remove the decimal point if the amount is an integer.
+
   final formatter = NumberFormat.currency(
     locale: 'en_TZ', // Using a locale that supports TSh/African currencies
     symbol: 'TSh',
@@ -174,7 +172,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 // Quantity Control with Rounded Buttons
                 Container(
                   decoration: BoxDecoration(
-                    color: colorScheme.surfaceVariant,
+                    color: colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -190,7 +188,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                         colorScheme: colorScheme,
                       ),
                       SizedBox(
-                        width: 40,
+                        width: 60, // ⭐️ MODIFIED WIDTH HERE
                         child: TextField(
                           controller: controller,
                           keyboardType: TextInputType.number,
@@ -259,7 +257,6 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       ),
     );
   }
-
   Widget _buildQuantityButton({
     required IconData icon,
     required VoidCallback? onPressed,

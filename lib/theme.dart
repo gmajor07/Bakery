@@ -28,7 +28,6 @@ class AppTheme {
       colorScheme: ColorScheme.light(
         primary: primaryBrown,
         surface: surfaceLight,
-        background: backgroundLight,
         onPrimary: Colors.white,
       ),
       appBarTheme: const AppBarTheme(
@@ -99,10 +98,8 @@ class AppTheme {
         // Use a lighter brown for better contrast on a dark background
         primary: primaryBrownDark,
         surface: surfaceDark,
-        background: backgroundDark,
         onPrimary: Colors.black, // Text color on the primary brown
         onSurface: onSurfaceDark,
-        onBackground: Colors.white,
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: backgroundDark,

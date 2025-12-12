@@ -28,6 +28,12 @@ class _PurchaseOrderDetailScreenState
     _order = widget.order;
   }
 
+  // Helper function to capitalize the first letter
+  String _capitalizeFirstLetter(String text) {
+    if (text.isEmpty) return text;
+    return text[0].toUpperCase() + text.substring(1).toLowerCase();
+  }
+
   // Helper function to determine the color based on status
   static Color _statusColor(String status) {
     switch (status.toLowerCase()) {
@@ -47,8 +53,9 @@ class _PurchaseOrderDetailScreenState
   }
 
   // Helper function to determine the background color based on status
+  // 🚨 FIX: Made it theme-aware by blending it with the background or using a lighter shade.
   static Color _statusBackgroundColor(String status) {
-    return _statusColor(status).withValues();
+    return _statusColor(status).withOpacity(0.1);
   }
 
   // --------------------- UI BUILDERS ------------------------
@@ -66,7 +73,11 @@ class _PurchaseOrderDetailScreenState
     ).format(_order.totalCost);
 
     return Scaffold(
-      appBar: AppBar(title: Text('Purchase Order #${_order.id}'), elevation: 1),
+      appBar: AppBar(
+        title: Text('Purchase Order #${_order.id}'),
+        elevation: 1,
+        // The AppBar text color should be handled by the theme (onPrimary/onSurface)
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -82,7 +93,10 @@ class _PurchaseOrderDetailScreenState
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
-                side: BorderSide(color: Colors.grey.shade300),
+                // 🚨 FIX: Use theme-aware color for card border
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -125,18 +139,23 @@ class _PurchaseOrderDetailScreenState
     );
   }
 
+  // 🚨 MODIFIED: Ensure header text color is visible in dark theme
   Widget _buildHeader(String title) {
     return Text(
       title,
       style: TextStyle(
         fontSize: 22,
         fontWeight: FontWeight.w700,
-        color: Theme.of(context).primaryColor,
+        // Using onSurface ensures the text is visible against the background
+        color: Theme.of(context).colorScheme.onSurface,
       ),
     );
   }
 
+  // 🚨 MODIFIED: Ensure status is capitalized
   Widget _buildStatusBadge(String status) {
+    final displayStatus = _capitalizeFirstLetter(status);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
@@ -145,7 +164,7 @@ class _PurchaseOrderDetailScreenState
         border: Border.all(color: _statusColor(status), width: 1),
       ),
       child: Text(
-        status.toUpperCase(),
+        displayStatus,
         style: TextStyle(
           color: _statusColor(status),
           fontWeight: FontWeight.bold,
@@ -155,18 +174,24 @@ class _PurchaseOrderDetailScreenState
     );
   }
 
+  // 🚨 MODIFIED: Ensure label/value text colors are visible in dark theme
   Widget _buildLabelValue(
-    String label,
-    String value,
-    IconData icon, {
-    bool isTotal = false,
-  }) {
+      String label,
+      String value,
+      IconData icon, {
+        bool isTotal = false,
+      }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: Colors.grey.shade600),
+          Icon(
+            icon,
+            size: 20,
+            // 🚨 FIX: Use theme-aware color for icons
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -177,7 +202,8 @@ class _PurchaseOrderDetailScreenState
                   style: TextStyle(
                     fontWeight: isTotal ? FontWeight.bold : FontWeight.w600,
                     fontSize: 16,
-                    color: Colors.grey.shade700,
+                    // 🚨 FIX: Use theme-aware color for labels
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -186,9 +212,10 @@ class _PurchaseOrderDetailScreenState
                   style: TextStyle(
                     fontSize: isTotal ? 18 : 15,
                     fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+                    // 🚨 FIX: Use onSurface for primary value text color
                     color: isTotal
-                        ? Theme.of(context).colorScheme.secondary
-                        : Colors.black87,
+                        ? Theme.of(context).colorScheme.primary // Keep primary for total
+                        : Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ],
@@ -201,6 +228,7 @@ class _PurchaseOrderDetailScreenState
 
   Widget _buildItemsTable(WidgetRef ref) {
     final inventoryAsync = ref.watch(inventoryItemsProvider);
+    final textTheme = Theme.of(context).textTheme.bodyMedium; // Base text style
 
     return inventoryAsync.when(
       data: (inventoryItems) {
@@ -209,6 +237,11 @@ class _PurchaseOrderDetailScreenState
           for (var item in inventoryItems)
             item.id: PurchaseInventoryItem.fromInventoryItem(item),
         };
+
+        // 🚨 FIX: Formatter for Quantity (no currency symbol)
+        final qtyFormatter = NumberFormat('#,##0');
+        // Formatter for Currency/Cost (with commas)
+        final costFormatter = NumberFormat('#,##0');
 
         return Card(
           elevation: 4,
@@ -221,32 +254,32 @@ class _PurchaseOrderDetailScreenState
               columnSpacing: 24,
               dataRowMinHeight: 48,
               dataRowMaxHeight: 56,
+              // 🚨 FIX: Ensure heading text color is visible in dark theme
               headingTextStyle: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
-                color: Theme.of(context).primaryColor,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
               columns: const [
-                DataColumn(label: Text('ITEM')),
-                DataColumn(label: Text('QTY'), numeric: true),
-                DataColumn(label: Text('UNIT')),
-                DataColumn(label: Text('UNIT COST'), numeric: true),
-                DataColumn(label: Text('TOTAL'), numeric: true),
+                DataColumn(label: Text('Item')),
+                DataColumn(label: Text('Qty'), numeric: true),
+                DataColumn(label: Text('Uit')),
+                DataColumn(label: Text('Unit Cost'), numeric: true),
+                DataColumn(label: Text('Total'), numeric: true),
               ],
               rows: _order.items.map((item) {
                 // Safely parse and format numbers
                 final qty = item.quantity.toInt();
                 final price = item.price.toInt();
+                final total = qty * price;
 
                 final inventoryItem =
                     inventoryMap[item.inventoryItemId] ??
-                    PurchaseInventoryItem(
-                      id: 0,
-                      name: item.itemName,
-                      unit: 'N/A',
-                    );
-
-                final total = qty * price;
+                        PurchaseInventoryItem(
+                          id: 0,
+                          name: item.itemName,
+                          unit: 'N/A',
+                        );
 
                 return DataRow(
                   cells: [
@@ -256,16 +289,33 @@ class _PurchaseOrderDetailScreenState
                         child: Text(
                           inventoryItem.name,
                           overflow: TextOverflow.ellipsis,
+                          style: textTheme, // 🚨 FIX: Apply theme text style
                         ),
                       ),
                     ),
-                    DataCell(Text(qty.toString())),
-                    DataCell(Text(inventoryItem.unit)),
-                    DataCell(Text(NumberFormat('#,###').format(price))),
+                    // 🚨 FIX: Format QTY
                     DataCell(
                       Text(
-                        NumberFormat('#,###').format(total),
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        qtyFormatter.format(qty),
+                        style: textTheme, // 🚨 FIX: Apply theme text style
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        inventoryItem.unit,
+                        style: textTheme, // 🚨 FIX: Apply theme text style
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        costFormatter.format(price),
+                        style: textTheme, // 🚨 FIX: Apply theme text style
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        costFormatter.format(total),
+                        style: textTheme?.copyWith(fontWeight: FontWeight.bold), // 🚨 FIX: Apply theme text style
                       ),
                     ),
                   ],
@@ -295,7 +345,7 @@ class _PurchaseOrderDetailScreenState
     final isApproved = _order.status.toLowerCase() == 'approved';
     final isCompleted =
         _order.status.toLowerCase() == 'completed' ||
-        _order.status.toLowerCase() == 'received';
+            _order.status.toLowerCase() == 'received';
 
     return Padding(
       padding: const EdgeInsets.only(top: 16.0),
@@ -318,11 +368,11 @@ class _PurchaseOrderDetailScreenState
                 onPressed: _isSubmitting
                     ? null
                     : () => _showConfirmationDialog(
-                        context,
-                        'Cancel Order?',
-                        'Are you sure you want to cancel this pending purchase order? This action cannot be undone.',
-                        () => _handleUpdateStatus(ref, 'cancelled'),
-                      ),
+                  context,
+                  'Cancel Order?',
+                  'Are you sure you want to cancel this pending purchase order? This action cannot be undone.',
+                      () => _handleUpdateStatus(ref, 'cancelled'),
+                ),
               ),
             ),
 
@@ -337,9 +387,9 @@ class _PurchaseOrderDetailScreenState
                     : const Icon(Icons.check_circle_outline),
                 label: _isSubmitting
                     ? const CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      )
+                  color: Colors.white,
+                  strokeWidth: 2,
+                )
                     : const Text('Approve Order'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.brown.shade700,
@@ -361,32 +411,42 @@ class _PurchaseOrderDetailScreenState
                     : const Icon(Icons.move_to_inbox),
                 label: _isSubmitting
                     ? const CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      )
+                  color: Colors.white,
+                  strokeWidth: 2,
+                )
                     : const Text('Receive Goods'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green.shade700,
+                  backgroundColor: Colors.brown.shade700,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
                 onPressed: _isSubmitting
                     ? null
                     : () => _showConfirmationDialog(
-                        context,
-                        'Receive All Goods?',
-                        'Confirm receipt of ALL items in this order. This will mark the order as Received/Completed.',
-                        () => _handleReceiveGoods(ref),
-                      ),
+                  context,
+                  'Receive All Goods?',
+                  'Confirm receipt of ALL items in this order. This will mark the order as Received/Completed.',
+                      () => _handleReceiveGoods(ref),
+                ),
               ),
             ),
 
           // Show status text if completed
           if (isCompleted)
             Chip(
-              avatar: Icon(Icons.done_all, color: Colors.green.shade700),
-              label: const Text('Order Finalized'),
-              backgroundColor: Colors.green.shade50,
+              avatar: Icon(
+                Icons.done_all,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              label: Text(
+                'Order Finalized',
+                // 🚨 FIX: Use onSurface for text color
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+              // 🚨 FIX: Use theme-aware background color
+              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
             ),
         ],
       ),
@@ -397,11 +457,11 @@ class _PurchaseOrderDetailScreenState
 
   // Utility to show a confirmation dialog for sensitive actions
   Future<void> _showConfirmationDialog(
-    BuildContext context,
-    String title,
-    String content,
-    VoidCallback onConfirm,
-  ) async {
+      BuildContext context,
+      String title,
+      String content,
+      VoidCallback onConfirm,
+      ) async {
     return showDialog<void>(
       context: context,
       builder: (BuildContext context) {
@@ -445,7 +505,9 @@ class _PurchaseOrderDetailScreenState
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Order status updated to ${status.toUpperCase()}!'),
+          content: Text(
+            'Order status updated to ${_capitalizeFirstLetter(status)}!',
+          ), // 🚨 FIX: Capitalize status in SnackBar
         ),
       );
 
@@ -467,33 +529,23 @@ class _PurchaseOrderDetailScreenState
   Future<void> _handleReceiveGoods(WidgetRef ref) async {
     setState(() => _isSubmitting = true);
 
-    print("🔄 ======== HANDLE RECEIVE GOODS START ========");
+    if (kDebugMode) {
+      print("🔄 ======== HANDLE RECEIVE GOODS START ========");
+    }
 
     try {
-      // Debug the current order
-      print("🔍 Current Order:");
-      print("   ID: ${_order.id} (type: ${_order.id.runtimeType})");
-      print("   Status: ${_order.status}");
-      print("   Items count: ${_order.items.length}");
-
       final payloadItems = _order.items.map((i) {
-        // 🚨 FIX: Convert quantity to INT, not double
+        // Convert quantity to INT, not double
         final qty = int.tryParse(i.quantity.toString()) ?? i.quantity.toInt();
         final inventoryId = i.inventoryItemId;
 
-        print("🔍 Processing item:");
-        print(
-          "   InventoryItemId: $inventoryId (type: ${inventoryId.runtimeType})",
-        );
-        print("   Quantity: $qty (type: ${qty.runtimeType})");
-
         return {
           "inventoryItemId": inventoryId,
-          "receivedQuantity": qty, // 🚨 Now this is int, not double
+          "receivedQuantity": qty,
         };
       }).toList();
 
-      // 🚨 FIX: Format date to match backend expectation
+      // Format date to match backend expectation
       final now = DateTime.now().toUtc(); // Use UTC timezone
       final formattedDate = DateFormat(
         "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
@@ -501,13 +553,15 @@ class _PurchaseOrderDetailScreenState
 
       final payload = {
         "purchaseOrderId": _order.id,
-        "receivedDate": formattedDate, // 🚨 Properly formatted date
+        "receivedDate": formattedDate, // Properly formatted date
         "notes": "All items received.",
         "items": payloadItems,
       };
 
-      print("🔍 Final Payload to send:");
-      print(payload);
+      if (kDebugMode) {
+        print("🔍 Final Payload to send:");
+        print(payload);
+      }
 
       // Use the updated receiveGoods method that returns PurchaseOrder
       final updatedOrder = await ref
@@ -527,7 +581,9 @@ class _PurchaseOrderDetailScreenState
       // Show success message
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Goods received successfully!')));
+      ).showSnackBar(
+        const SnackBar(content: Text('Goods received successfully!')),
+      );
     } catch (e) {
       if (kDebugMode) {
         print("❌ Goods receipt failed: $e");
@@ -536,7 +592,7 @@ class _PurchaseOrderDetailScreenState
       // Show error message to user
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to receive goods: $e')));
+      ).showSnackBar(SnackBar(content: Text('Failed to receive goods: ${e.toString().split(':')[0]}')));
     } finally {
       setState(() => _isSubmitting = false);
       if (kDebugMode) {

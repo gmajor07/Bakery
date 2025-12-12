@@ -13,24 +13,49 @@ class CustomerCreationScreen extends ConsumerStatefulWidget {
 
 class _CustomerCreationScreenState extends ConsumerState<CustomerCreationScreen> {
   final _formKey = GlobalKey<FormState>();
+
+  // Basic Information Controllers
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
+
+  // ⭐️ EXTRA INFORMATION STATE/CONTROLLERS
+  String _status = 'Active'; // Default to Active
+  final _creditLimitController = TextEditingController();
+  final _notesController = TextEditingController();
   bool _isCredit = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize credit limit controller with 0.00 for good UX
+    _creditLimitController.text = '0';
+  }
 
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
+    // Safely parse credit limit
+    final double creditLimit = _isCredit
+        ? double.tryParse(_creditLimitController.text) ?? 0.0
+        : 0.0;
+
     // 1. Build the request body map (matching your POST request body)
     final customerData = {
+      // Basic Information
       'name': _nameController.text.trim(),
       'email': _emailController.text.trim(),
       'phone': _phoneController.text.trim(),
       'address': _addressController.text.trim(),
+
+      // Extra Information
       'isCredit': _isCredit,
+      'status': _status, // Use the selected status
+      'creditLimit': creditLimit, // Use the parsed limit
+      'notes': _notesController.text.trim().isEmpty ? null : _notesController.text.trim(), // Optional notes
     };
 
     try {
@@ -42,6 +67,8 @@ class _CustomerCreationScreenState extends ConsumerState<CustomerCreationScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('✅ Customer created successfully!')),
         );
+        // Invalidate the customers list provider if necessary (assuming you have one)
+        // ref.invalidate(customersListProvider);
         Navigator.of(context).pop();
       }
     } catch (e) {
@@ -60,7 +87,24 @@ class _CustomerCreationScreenState extends ConsumerState<CustomerCreationScreen>
     _emailController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
+    // ⭐️ Dispose new controllers
+    _creditLimitController.dispose();
+    _notesController.dispose();
     super.dispose();
+  }
+
+  // ⭐️ NEW: Helper to build section headers
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 24, bottom: 8),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+          fontWeight: FontWeight.bold,
+          color: Theme.of(context).colorScheme.primary, // Using primary color for emphasis
+        ),
+      ),
+    );
   }
 
   @override
@@ -77,6 +121,11 @@ class _CustomerCreationScreenState extends ConsumerState<CustomerCreationScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
+              // ===============================================
+              // 1. BASIC INFORMATION SECTION
+              // ===============================================
+              _buildSectionHeader('Basic Information'),
+
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: 'Name *'),
@@ -101,13 +150,43 @@ class _CustomerCreationScreenState extends ConsumerState<CustomerCreationScreen>
                 decoration: const InputDecoration(labelText: 'Address'),
                 maxLines: 2,
               ),
+
+              // ===============================================
+              // 2. EXTRA INFORMATION SECTION
+              // ===============================================
+              _buildSectionHeader('Extra Information'),
+
+              // 2.1 Status Dropdown
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(
+                  labelText: 'Status',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                ),
+                value: _status,
+                items: const [
+                  DropdownMenuItem(value: 'Active', child: Text('Active')),
+                  DropdownMenuItem(value: 'Inactive', child: Text('Inactive')),
+                ],
+                onChanged: isLoading ? null : (String? newValue) {
+                  if (newValue != null) {
+                    setState(() {
+                      _status = newValue;
+                    });
+                  }
+                },
+                validator: (value) => value == null ? 'Status is required' : null,
+              ),
+
               const SizedBox(height: 16),
+
+              // 2.2 Allow Credit Switch
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
                     'Allow Credit?',
-                    style: TextStyle(fontSize: 16),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                   ),
                   Switch(
                     value: _isCredit,
@@ -119,7 +198,42 @@ class _CustomerCreationScreenState extends ConsumerState<CustomerCreationScreen>
                   ),
                 ],
               ),
+
+              const SizedBox(height: 16),
+
+              // 2.3 Credit Limit Input (Conditional)
+              if (_isCredit) ...[
+                TextFormField(
+                  controller: _creditLimitController,
+                  decoration: const InputDecoration(
+                    labelText: 'Credit Limit *',
+                    prefixText: 'TSh ',
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (!_isCredit) return null; // If credit is disabled, validation is skipped
+                    if (value == null || value.isEmpty) {
+                      return 'Credit Limit is required when credit is allowed';
+                    }
+                    if (double.tryParse(value) == null || double.tryParse(value)! <= 0) {
+                      return 'Enter a valid positive number';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // 2.4 Notes
+              TextFormField(
+                controller: _notesController,
+                decoration: const InputDecoration(labelText: 'Any special notes about customer'),
+                maxLines: 3,
+              ),
+
               const SizedBox(height: 32),
+
+              // Submit Button
               ElevatedButton.icon(
                 onPressed: isLoading ? null : _submitForm,
                 icon: isLoading

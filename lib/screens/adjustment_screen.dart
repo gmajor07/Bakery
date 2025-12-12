@@ -398,7 +398,7 @@ class _AdjustmentsScreenState extends ConsumerState<AdjustmentsScreen> {
                 },
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );

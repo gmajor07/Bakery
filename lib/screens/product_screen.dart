@@ -1,11 +1,61 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart'; // ⬅️ NEW: Import for number formatting
 // Import your necessary files
 import '../auth/auth_provider.dart';
 import '../provider/products_provider.dart';
 import '../provider/products_search_provider.dart';
 import '../theme.dart';
 import '../widgets/token_error_widget.dart';
+
+
+// ⭐️ ADDED: Helper functions for formatting (If these exist in a utility file, you should remove them here)
+String formatCurrency(double amount) {
+  final formatter = NumberFormat.currency(
+    locale: 'en_TZ', // Example locale
+    symbol: 'TSh',
+    decimalDigits: 0,
+  );
+  return formatter.format(amount);
+}
+
+String formatNumber(int number) {
+  return NumberFormat('#,##0').format(number);
+}
+
+
+class Product {
+  final int id;
+  final String name;
+  final String description;
+  final double price;
+  final int quantity;
+  final String status; // new field
+
+  Product({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.price,
+    required this.quantity,
+    required this.status,
+  });
+
+  factory Product.fromJson(Map<String, dynamic> json) {
+    return Product(
+      id: json['id'] ?? 0,
+      name: json['name'] ?? '',
+      description: json['description'] ?? '',
+      price: (json['price'] is num)
+          ? (json['price'] as num).toDouble()
+          : double.tryParse(json['price'].toString()) ?? 0.0,
+      quantity: json['quantity'] ?? 0,
+      status: json['status']?.toString().toLowerCase() ?? 'active',
+    );
+  }
+
+  bool get isInStock => quantity > 0;
+}
 
 
 // Pagination provider
@@ -68,7 +118,12 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   // --- New Widget for Product Card View ---
   Widget _buildProductCard(dynamic product, BuildContext context) {
     // Assuming 'product' is the instance of your Product model
-    final stockText = product.isInStock ? 'In Stock' : 'Out of Stock';
+
+    final stockValue = product.quantity;
+    final stockText = stockValue > 0
+        ? 'In Stock'
+        : 'Out of Stock';
+
     final stockColor = product.isInStock ? Colors.brown : Colors.red;
     final statusColor = product.status == 'active'
         ? AppTheme.primaryBrown
@@ -102,7 +157,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   children: [
                     const Text('Price', style: TextStyle(color: Colors.grey)),
                     Text(
-                      'TSh ${product.price.toStringAsFixed(0)}',
+                      // ⭐️ FORMAT THE PRICE HERE
+                      formatCurrency(product.price),
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
                   ],
@@ -117,6 +173,16 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                       style: TextStyle(
                         color: stockColor,
                         fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    // ⭐️ ADDED: Display formatted quantity below status
+                    Text(
+                      '(${formatNumber(product.quantity)} units)',
+                      style: TextStyle(
+                        color: product.isInStock
+                            ? Colors.grey[600]
+                            : stockColor,
+                        fontSize: 12,
                       ),
                     ),
                   ],
@@ -199,17 +265,17 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                       prefixIcon: const Icon(Icons.search),
                       suffixIcon: _searchController.text.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                _searchController.clear();
-                                ref
-                                        .read(
-                                          productSearchQueryProvider.notifier,
-                                        )
-                                        .state =
-                                    '';
-                              },
-                            )
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          ref
+                              .read(
+                            productSearchQueryProvider.notifier,
+                          )
+                              .state =
+                          '';
+                        },
+                      )
                           : null,
                       border: const OutlineInputBorder(),
                     ),
@@ -238,24 +304,24 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: paginatedProducts.isEmpty
                       ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(32.0),
-                            child: Text(
-                              'No products found matching your search.',
-                              style: TextStyle(fontStyle: FontStyle.italic),
-                            ),
-                          ),
-                        )
+                    child: Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: Text(
+                        'No products found matching your search.',
+                        style: TextStyle(fontStyle: FontStyle.italic),
+                      ),
+                    ),
+                  )
                       : ListView.builder(
-                          // These two properties are crucial for ListView inside SingleChildScrollView
-                          shrinkWrap: true,
-                          primary: false,
-                          itemCount: paginatedProducts.length,
-                          itemBuilder: (context, index) {
-                            final product = paginatedProducts[index];
-                            return _buildProductCard(product, context);
-                          },
-                        ),
+                    // These two properties are crucial for ListView inside SingleChildScrollView
+                    shrinkWrap: true,
+                    primary: false,
+                    itemCount: paginatedProducts.length,
+                    itemBuilder: (context, index) {
+                      final product = paginatedProducts[index];
+                      return _buildProductCard(product, context);
+                    },
+                  ),
                 ),
 
                 // Pagination Controls

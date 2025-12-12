@@ -1,4 +1,5 @@
 import 'package:bak/screens/purchases_screens/purchases_order_screen.dart';
+import 'package:bak/screens/supplier_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../materials_received_screen.dart';
@@ -12,20 +13,21 @@ class PurchasesActionsScreen extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     final primaryColor = colorScheme.primary;
-    final backgroundColor = colorScheme.background;
+    final backgroundColor = colorScheme.surface;
     final onPrimary = colorScheme.onPrimary;
 
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
         title: Text(
-          'Purchases',
+          'Purchases Management',
           style: TextStyle(color: onPrimary, fontWeight: FontWeight.bold),
         ),
         backgroundColor: primaryColor,
         centerTitle: true,
         elevation: 0,
       ),
+
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -40,7 +42,7 @@ class PurchasesActionsScreen extends StatelessWidget {
               _ActionCard(
                 color: primaryColor,
                 label: 'Purchase Orders',
-                subtitle: 'Manage new orders to suppliers',
+                subtitle: 'Manage new orders',
                 icon: LucideIcons.receipt,
                 onTap: () {
                   Navigator.push(
@@ -56,7 +58,7 @@ class PurchasesActionsScreen extends StatelessWidget {
               _ActionCard(
                 color: primaryColor,
                 label: 'Material Receiving',
-                subtitle: 'Confirm items and update',
+                subtitle: 'Confirm items',
                 icon: LucideIcons.flaskConical,
                 onTap: () {
                   Navigator.push(
@@ -72,9 +74,14 @@ class PurchasesActionsScreen extends StatelessWidget {
               _ActionCard(
                 color: primaryColor,
                 label: 'Suppliers',
-                subtitle: 'Manage vendor details and contacts',
+                subtitle: 'Manage vendor',
                 icon: LucideIcons.box,
-                onTap: () {},
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SupplierScreen()),
+                  );
+                },
               ),
             ],
           ),
@@ -83,6 +90,7 @@ class PurchasesActionsScreen extends StatelessWidget {
     );
   }
 }
+
 class _ActionCard extends StatelessWidget {
   final Color color;
   final String label;
@@ -127,11 +135,7 @@ class _ActionCard extends StatelessWidget {
                   color: color.withOpacity(0.9),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  icon,
-                  color: colorScheme.onPrimary,
-                  size: 24,
-                ),
+                child: Icon(icon, color: colorScheme.onPrimary, size: 24),
               ),
               const SizedBox(height: 12),
 

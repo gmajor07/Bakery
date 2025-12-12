@@ -1,13 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart'; // ⬅️ NEW: Required for Number Formatting
 import '../../models/product.dart';
 import '../../provider/products_provider.dart';
 import '../../provider/pos_provider.dart';
 import '../../widgets/token_error_widget.dart';
 import 'cart_screen.dart' hide formatCurrency;
 import '../../auth/auth_provider.dart';
-// ⬅️ NEW: Import the currency formatter utility
+// ⬅️ Import the currency formatter utility (and now assumed formatNumber utility)
 import '../../utils/formatters.dart';
+
+// ⭐️ NOTE: If 'formatNumber' is not in 'formatters.dart', you need to
+// include it here or in that utility file. Assuming it's in formatters.dart,
+// but including a local version here for completeness if that's easier:
+String formatNumber(int number) {
+  // Use a locale that uses commas for thousands separator
+  // Assuming the developer wants standard locale formatting
+  return NumberFormat('#,##0').format(number);
+}
+
 
 class PosScreen extends ConsumerStatefulWidget {
   const PosScreen({super.key});
@@ -116,7 +127,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 // Search Section
                 TextField(
                   decoration: InputDecoration(
-                    hintText: 'Search products by name...',
+                    hintText: 'Search products...',
                     prefixIcon: const Icon(Icons.search),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16), // Larger radius
@@ -200,6 +211,10 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                       // Update controller text if quantity changes externally
                       if (qtyController.text != quantity.toString()) {
                         qtyController.text = quantity.toString();
+                        // Maintain cursor position at the end
+                        qtyController.selection = TextSelection.fromPosition(
+                          TextPosition(offset: qtyController.text.length),
+                        );
                       }
 
                       return _buildProductCard(
@@ -307,8 +322,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
+                  // ⭐️ STOCK FORMATTING APPLIED HERE
                   Text(
-                    'Stock: ${product.quantity}',
+                    'Stock: ${formatNumber(product.quantity)}',
                     style: TextStyle(
                       fontSize: 14,
                       color: isOutOfStock
@@ -333,7 +349,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                     // Quantity controls (Remove/Input/Add)
                     Container(
                       decoration: BoxDecoration(
-                        color: colorScheme.surfaceVariant,
+                        color: colorScheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
@@ -350,19 +366,24 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                           ),
                           // Manual quantity input
                           SizedBox(
-                            width: 40,
+                            width: 60, // ⭐️ INCREASED WIDTH
                             child: TextField(
                               controller: qtyController,
                               keyboardType: TextInputType.number,
                               textAlign: TextAlign.center,
-                              onSubmitted: (value) {
-                                final intQty = int.tryParse(value) ?? quantity;
-                                _handleQuantityUpdate(
-                                  ref,
-                                  product,
-                                  intQty,
-                                  qtyController,
-                                );
+                              // ⭐️ CHANGED to onChanged for automatic updates
+                              onChanged: (value) {
+                                final intQty = int.tryParse(value);
+                                if (intQty != null && intQty >= 1) {
+                                  _handleQuantityUpdate(
+                                    ref,
+                                    product,
+                                    intQty,
+                                    qtyController,
+                                  );
+                                } else if (value.isEmpty) {
+                                  // Keep the item in cart until user confirms removal or sets 0
+                                }
                               },
                               decoration: const InputDecoration(
                                 border: InputBorder.none,
@@ -423,9 +444,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       WidgetRef ref,
       Product product,
       int intQty,
-      TextEditingController controller,
+      TextEditingController controller
       ) {
     if (intQty <= 0) {
+      // If the user types 0 or clears the field, remove it.
+      // Note: This relies on the TextField controller being updated externally
+      // by the Riverpod state change, which happens when removeProduct is called.
       ref.read(cartProvider.notifier).removeProduct(product.id);
     } else if (intQty <= product.quantity) {
       ref
@@ -435,8 +459,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         intQty,
       );
     } else {
-      // Reset to max stock if exceeded
+      // If user exceeds stock, reset the TextField immediately to max stock
+      // and update cart to max stock.
       controller.text = product.quantity.toString();
+      controller.selection = TextSelection.fromPosition(
+        TextPosition(offset: controller.text.length),
+      );
       ref
           .read(cartProvider.notifier)
           .updateProductQuantity(

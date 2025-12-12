@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart'; // Import for PdfColors
@@ -120,7 +121,7 @@ Future<String?> generateSaleReceiptPdf(Map<String, dynamic> sale) async {
             pw.Text('Items Purchased', style: boldStyle.copyWith(fontSize: 14)),
             pw.SizedBox(height: 8),
 
-            pw.Table.fromTextArray(
+            pw.TableHelper.fromTextArray(
               headers: ['Product', 'Qty', 'Unit Price', 'Subtotal'],
               cellAlignment: pw.Alignment.centerRight,
               headerStyle: boldStyle.copyWith(
@@ -214,7 +215,9 @@ Future<String?> generateSaleReceiptPdf(Map<String, dynamic> sale) async {
     await file.writeAsBytes(bytes);
     return file.path;
   } catch (e) {
-    print('Error saving PDF: $e');
+    if (kDebugMode) {
+      print('Error saving PDF: $e');
+    }
     return null;
   }
 }

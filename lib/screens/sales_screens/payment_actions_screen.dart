@@ -15,7 +15,7 @@ class SalesActionsScreen extends StatelessWidget {
 
     return Scaffold(
       // 2. Use the Theme's background color
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         // Set AppBar theme explicitly here if needed, or rely on root theme
         backgroundColor: primaryColor,
@@ -43,7 +43,7 @@ class SalesActionsScreen extends StatelessWidget {
                 label: 'Outstanding',
                 subtitle: 'Manage credit and pending balances',
                 // ⭐️ NEW: Use Lucide Icon
-                icon: LucideIcons.creditCard,
+                icon: LucideIcons.badgeInfo,
                 onTap: () {
                   Navigator.push(
                     context,

@@ -320,7 +320,7 @@ class _OutstandingPaymentsScreenState
                 },
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );

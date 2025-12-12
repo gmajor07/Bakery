@@ -37,6 +37,9 @@ class SalesApiService {
 
       final response = await _dio.get(
         '/sales',
+        queryParameters: {
+          'limit': 10000,
+        }, // Fetch up to 10k sales to get all data
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
@@ -86,15 +89,21 @@ class SalesApiService {
       final List<dynamic> data = response.data['sales'] ?? [];
       return data.map((json) => SaleItem.fromJson(json)).toList();
     } on DioException catch (e) {
-      print("❌ Sales fetch error: ${e.response?.data}");
+      if (kDebugMode) {
+        print("❌ Sales fetch error: ${e.response?.data}");
+      }
       final message = _getFriendlyError(
         e,
         'Could not retrieve filtered sales. Check server status.',
       );
       throw Exception(message);
     } catch (e, stack) {
-      print("❌ Unexpected error: $e");
-      print(stack);
+      if (kDebugMode) {
+        print("❌ Unexpected error: $e");
+      }
+      if (kDebugMode) {
+        print(stack);
+      }
       throw Exception('An unexpected error occurred during sales filtering.');
     }
   }
@@ -112,12 +121,18 @@ class SalesApiService {
 
       return SaleItem.fromJson(response.data);
     } on DioException catch (e) {
-      print("❌ Sale detail error: ${e.response?.data}");
+      if (kDebugMode) {
+        print("❌ Sale detail error: ${e.response?.data}");
+      }
       final message = _getFriendlyError(e, 'Failed to load sale details.');
       throw Exception(message);
     } catch (e, stack) {
-      print("❌ Unexpected error: $e");
-      print(stack);
+      if (kDebugMode) {
+        print("❌ Unexpected error: $e");
+      }
+      if (kDebugMode) {
+        print(stack);
+      }
       throw Exception(
         'An unexpected error occurred while loading sale details.',
       );
@@ -140,10 +155,9 @@ class SalesApiService {
         "customerId": customerId,
         "isCredit": isCredit,
         "subtotal": subtotal, // 💡 Pass subtotal
-        "vat": vatAmount,      // ✅ Pass the calculated VAT AMOUNT
-         "total": total,
+        "vat": vatAmount, // ✅ Pass the calculated VAT AMOUNT
+        "total": total,
         "items": items
-
             .map(
               (item) => {
                 "productId": item["product_id"],

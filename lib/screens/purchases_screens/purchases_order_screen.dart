@@ -32,7 +32,7 @@ class PurchaseOrdersScreen extends ConsumerStatefulWidget {
 }
 
 class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
-  final ScrollController _scrollController = ScrollController();
+  // ❌ REMOVED: _scrollController for infinite scrolling
   final TextEditingController _searchController = TextEditingController();
 
   // Local state for client-side search/filter
@@ -49,7 +49,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_scrollListener);
+    // ❌ REMOVED: _scrollController.addListener(_scrollListener);
 
     // Search listener logic (updates local state and Riverpod search query)
     _searchController.addListener(() {
@@ -71,20 +71,21 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    // ❌ REMOVED: _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
-  void _scrollListener() {
-    if (_scrollController.position.pixels ==
-        _scrollController.position.maxScrollExtent) {
-      final paginationState = ref.read(purchasePaginationProvider);
-      if (paginationState.hasMore) {
-        ref.read(purchasePaginationProvider.notifier).nextPage();
-      }
-    }
-  }
+  // ❌ REMOVED: _scrollListener for infinite scrolling
+  // void _scrollListener() {
+  //   if (_scrollController.position.pixels ==
+  //       _scrollController.position.maxScrollExtent) {
+  //     final paginationState = ref.read(purchasePaginationProvider);
+  //     if (paginationState.hasMore) {
+  //       ref.read(purchasePaginationProvider.notifier).nextPage();
+  //     }
+  //   }
+  // }
 
   Future<void> _refreshData() async {
     ref.invalidate(purchaseOrdersProvider);
@@ -123,7 +124,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
 
     // This updates the Riverpod state
     ref.read(selectedPurchaseDateRangeProvider.notifier).state =
-        filter == QuickDateFilter.custom ? customRange : _getDateRange(filter);
+    filter == QuickDateFilter.custom ? customRange : _getDateRange(filter);
 
     ref.read(purchasePaginationProvider.notifier).reset();
   }
@@ -135,7 +136,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
       firstDate: DateTime(2000),
       lastDate: DateTime.now().add(const Duration(days: 365)),
       initialDateRange:
-          customDateRange ?? _getDateRange(QuickDateFilter.last7Days),
+      customDateRange ?? _getDateRange(QuickDateFilter.last7Days),
       helpText: 'Select Purchase Date Range',
       saveText: 'Apply',
     );
@@ -229,6 +230,14 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
   }
 
   // ----------------------------------------------------------------------
+  // Text Helper
+  // ----------------------------------------------------------------------
+  String _capitalizeFirstLetter(String text) {
+    if (text.isEmpty) return text;
+    return text[0].toUpperCase() + text.substring(1);
+  }
+
+  // ----------------------------------------------------------------------
   // Filtering and Pagination Methods - UNCHANGED
   // ----------------------------------------------------------------------
   List<PurchaseOrder> _applyFilters(List<PurchaseOrder> orders) {
@@ -249,8 +258,8 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
       // 1. Search Filter - FIXED: Check if search query matches
       final matchesSearch =
           searchQuery.isEmpty ||
-          order.supplier.name.toLowerCase().contains(searchQuery) ||
-          order.id.toString().contains(searchQuery);
+              order.supplier.name.toLowerCase().contains(searchQuery) ||
+              order.id.toString().contains(searchQuery);
 
       // 2. Status Filter - FIXED: Handle null properly
       bool matchesStatus = true;
@@ -276,8 +285,8 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
         matchesDate =
             (startOfOrderDay.isAtSameMomentAs(startOfRangeDay) ||
                 startOfOrderDay.isAfter(startOfRangeDay)) &&
-            (startOfOrderDay.isAtSameMomentAs(endOfRangeDay) ||
-                startOfOrderDay.isBefore(endOfRangeDay));
+                (startOfOrderDay.isAtSameMomentAs(endOfRangeDay) ||
+                    startOfOrderDay.isBefore(endOfRangeDay));
       }
 
       final shouldInclude = matchesSearch && matchesStatus && matchesDate;
@@ -311,17 +320,27 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
   }
 
   List<PurchaseOrder> _applyPagination(
-    List<PurchaseOrder> orders,
-    PaginationState pagination,
-  ) {
+      List<PurchaseOrder> orders,
+      PaginationState pagination,
+      ) {
     final startIndex = (pagination.currentPage - 1) * pagination.itemsPerPage;
     final endIndex = startIndex + pagination.itemsPerPage;
 
     final hasMore = endIndex < orders.length;
     if (hasMore != pagination.hasMore) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(purchasePaginationProvider.notifier).setHasMore(hasMore);
-      });
+      // Use setHasMore only if infinite scrolling were active.
+      // Now we just return the paginated list based on currentPage.
+      // We don't need a `setHasMore` call if we are using explicit buttons.
+    }
+
+    if (startIndex >= orders.length) {
+      // Safety check: if current page is beyond data, go back to last page
+      if (pagination.currentPage > 1) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ref.read(purchasePaginationProvider.notifier).previousPage();
+        });
+      }
+      return [];
     }
 
     return orders.sublist(
@@ -340,7 +359,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
       case 'cancelled':
         return Colors.red;
       case 'approved':
-        return Colors.blue;
+        return Colors.brown;
       case 'received':
         return Colors.brown.shade800;
       default:
@@ -358,7 +377,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
       case 'cancelled':
         return Colors.red.shade50;
       case 'approved':
-        return Colors.blue.shade50;
+        return Colors.brown.shade50;
       case 'received':
         return Colors.green.shade100;
       default:
@@ -388,8 +407,8 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
 
     final hasFilters =
         selectedRange != null ||
-        searchQuery.isNotEmpty ||
-        selectedStatus != null;
+            searchQuery.isNotEmpty ||
+            selectedStatus != null;
 
     return Scaffold(
       appBar: AppBar(
@@ -433,7 +452,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                     );
                   },
                   loading: () =>
-                      const Center(child: CircularProgressIndicator()),
+                  const Center(child: CircularProgressIndicator()),
                   error: (err, _) {
                     final msg = err.toString().toLowerCase();
                     if (msg.contains("token") || msg.contains("unauthorized")) {
@@ -447,21 +466,21 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          final result = await Navigator.push(
+          final bool? result = await Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => const CreatePurchaseOrderScreen(),
             ),
           );
           if (result == true) {
-            await _refreshData();
+            _refreshData();
           }
         },
-        icon: const Icon(Icons.add),
-        label: const Text('New Order'),
+        child: const Icon(Icons.add),
       ),
+
     );
   }
 
@@ -481,19 +500,19 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                labelText: 'Search by supplier or order #',
+                labelText: 'Search by Orders or Suppliers',
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: searchQuery.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => searchQuery = '');
-                          ref.read(purchaseSearchQueryProvider.notifier).state =
-                              '';
-                          ref.read(purchasePaginationProvider.notifier).reset();
-                        },
-                      )
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => searchQuery = '');
+                    ref.read(purchaseSearchQueryProvider.notifier).state =
+                    '';
+                    ref.read(purchasePaginationProvider.notifier).reset();
+                  },
+                )
                     : null,
                 border: const OutlineInputBorder(),
               ),
@@ -534,7 +553,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
     );
   }
 
-  // ⭐️ MODIFIED: Status Filter
+  // ⭐️ MODIFIED: Status Filter - Capitalize display text
   Widget _buildStatusFilter(String? selected) {
     const statuses = [
       null,
@@ -550,13 +569,15 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
       decoration: const InputDecoration(
         labelText: "Status",
         border: OutlineInputBorder(),
-        // contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 0), // Removed vertical padding fix height issue
       ),
       isExpanded: true,
       items: statuses
           .map(
-            (s) => DropdownMenuItem(value: s, child: Text(s ?? "All Status")),
-          )
+            (s) => DropdownMenuItem(
+          value: s,
+          child: Text(s == null ? "All Status" : _capitalizeFirstLetter(s)), // ✅ CAPITALIZE
+        ),
+      )
           .toList(),
       onChanged: (value) {
         if (kDebugMode) {
@@ -620,19 +641,19 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
   }
 
   // ----------------------------------------------------------------------
-  // UI: List View and Card Builder - UPDATED with Pull-to-Refresh
+  // UI: List View and Card Builder - UPDATED for explicit Pagination
   // ----------------------------------------------------------------------
 
   Widget _buildOrdersList(
-    List<PurchaseOrder> orders,
-    int totalFiltered,
-    PaginationState pagination,
-  ) {
+      List<PurchaseOrder> orders,
+      int totalFiltered,
+      PaginationState pagination,
+      ) {
     if (orders.isEmpty) {
       final hasFilters =
           ref.watch(selectedPurchaseDateRangeProvider) != null ||
-          searchQuery.isNotEmpty ||
-          ref.watch(selectedPurchaseStatusProvider) != null;
+              searchQuery.isNotEmpty ||
+              ref.watch(selectedPurchaseStatusProvider) != null;
       return _buildEmptyState(hasFilters);
     }
 
@@ -644,17 +665,11 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
           child: RefreshIndicator(
             onRefresh: _refreshData,
             child: ListView.builder(
-              controller: _scrollController,
+              // ❌ REMOVED: controller: _scrollController,
               physics:
-                  const AlwaysScrollableScrollPhysics(), // ✅ FIX: Enables pull-to-refresh
-              itemCount: orders.length + (pagination.hasMore ? 1 : 0),
+              const AlwaysScrollableScrollPhysics(),
+              itemCount: orders.length, // Only count the items in the current page
               itemBuilder: (context, index) {
-                if (index == orders.length) {
-                  return const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
                 final order = orders[index];
                 return PurchaseOrderCard(
                   order: order,
@@ -669,20 +684,24 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                   },
                   getStatusColor: _getStatusColor,
                   getStatusBackgroundColor: _getStatusBackgroundColor,
+                  capitalizeStatus: _capitalizeFirstLetter, // ✅ Passed capitalize function
                 );
               },
             ),
           ),
         ),
+        _buildPaginationControls(totalFiltered, pagination), // ✅ NEW: Pagination Buttons
       ],
     );
   }
 
+  // ✅ NEW: Pagination Info (Updated to reflect explicit pages)
   Widget _buildPaginationInfo(int totalFiltered, PaginationState pagination) {
     final startItem =
         (pagination.currentPage - 1) * pagination.itemsPerPage + 1;
     final endItem = pagination.currentPage * pagination.itemsPerPage;
     final displayedEnd = endItem > totalFiltered ? totalFiltered : endItem;
+    final totalPages = (totalFiltered / pagination.itemsPerPage).ceil();
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -693,12 +712,47 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
         ),
         if (totalFiltered > pagination.itemsPerPage)
           Text(
-            'Page ${pagination.currentPage} of ${(totalFiltered / pagination.itemsPerPage).ceil()}',
+            'Page ${pagination.currentPage} of $totalPages',
             style: TextStyle(color: Colors.grey[600]),
           ),
       ],
     );
   }
+
+  // ✅ NEW: Pagination Controls (Previous and Next Buttons)
+  Widget _buildPaginationControls(
+      int totalFiltered,
+      PaginationState pagination,
+      ) {
+    final totalPages = (totalFiltered / pagination.itemsPerPage).ceil();
+    final isFirstPage = pagination.currentPage == 1;
+    final isLastPage = pagination.currentPage >= totalPages;
+
+    if (totalFiltered <= pagination.itemsPerPage) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          ElevatedButton(
+            onPressed: isFirstPage
+                ? null
+                : () => ref.read(purchasePaginationProvider.notifier).previousPage(),
+            child: const Text('Previous'),
+          ),
+          const SizedBox(width: 16),
+          ElevatedButton(
+            onPressed: isLastPage
+                ? null
+                : () => ref.read(purchasePaginationProvider.notifier).nextPage(),
+            child: const Text('Next'),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Widget _buildEmptyState(bool hasFilters) {
     return RefreshIndicator(
@@ -771,21 +825,22 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
 // ----------------------------------------------------------------------
 
 typedef GetStatusColor = Color Function(String status);
+typedef CapitalizeStatus = String Function(String status); // ✅ NEW: Status capitalize type
 
 class PurchaseOrderCard extends StatelessWidget {
   final PurchaseOrder order;
-  // ⭐️ MODIFIED: Renamed onViewDetails to onTap
   final VoidCallback onTap;
   final GetStatusColor getStatusColor;
   final GetStatusColor getStatusBackgroundColor;
+  final CapitalizeStatus capitalizeStatus; // ✅ NEW: Capitalize function
 
   const PurchaseOrderCard({
     super.key,
     required this.order,
-    // ⭐️ MODIFIED: Renamed onViewDetails to onTap
     required this.onTap,
     required this.getStatusColor,
     required this.getStatusBackgroundColor,
+    required this.capitalizeStatus, // ✅ REQUIRED: Capitalize function
   });
 
   @override
@@ -795,8 +850,9 @@ class PurchaseOrderCard extends StatelessWidget {
     );
     final formattedAmount =
         'TSh ${NumberFormat('#,##0').format(order.totalCost)}'; // Use proper formatting
-    // final isPending = order.status.toLowerCase() == 'pending';
-    // final isApproved = order.status.toLowerCase() == 'approved';
+
+    // ✅ NEW: Capitalize status for display
+    final displayStatus = capitalizeStatus(order.status);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -818,7 +874,7 @@ class PurchaseOrderCard extends StatelessWidget {
                 ),
                 child: Icon(
                   Icons.shopping_cart_checkout,
-                  color: Theme.of(context).primaryColor,
+                  color: Colors.brown,
                 ),
               ),
               const SizedBox(width: 12),
@@ -872,7 +928,7 @@ class PurchaseOrderCard extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  order.status,
+                  displayStatus, // ✅ USED CAPITALIZED STATUS
                   style: TextStyle(
                     color: getStatusColor(order.status),
                     fontWeight: FontWeight.w500,
@@ -880,7 +936,6 @@ class PurchaseOrderCard extends StatelessWidget {
                   ),
                 ),
               ),
-              // ⭐️ REMOVED: Redundant IconButton for View Details and Receive Goods (Use onTap)
             ],
           ),
         ),

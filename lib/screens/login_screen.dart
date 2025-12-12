@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/login_api_service.dart';
@@ -39,7 +40,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-      print("❌ Login exception: $e");
+      if (kDebugMode) {
+        print("❌ Login exception: $e");
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -110,10 +113,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       // Subtitle
                       Text(
                         'Enter your email and password to continue',
-
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodyMedium?.copyWith(color: Colors.black54),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 32),
@@ -159,23 +161,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         autovalidateMode: AutovalidateMode.onUserInteraction,
                         onFieldSubmitted: (_) => _handleLogin(),
                       ),
-                      const SizedBox(height: 24),
 
-                      // Login Button
+                      // Code requirement text
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: Text(
+                          'Code must be at least 4 characters.',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 20), // Adjusted space
+
+                      // Login Button - MODIFIED
                       ElevatedButton(
                         onPressed: _isLoading ? null : _handleLogin,
                         child: _isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation(
-                                    Colors.white,
-                                  ),
-                                ),
-                              )
-                            : const Text('Sign In'),
+                            ? const Text(
+                          'Loading...',
+                          style: TextStyle(
+                            color: Colors.white,
+                          ),
+                        )
+                            : const Text('Login'),
                       ),
                     ],
                   ),

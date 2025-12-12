@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 
 import '../../models/sale_item.dart';
 import '../../provider/sales_provider.dart';
-// 🚨 NEW: Import the TokenErrorWidget
 import '../../widgets/token_error_widget.dart';
 import '../pos_screens/generate_pdf.dart';
 import 'sale_detail_screen.dart';
@@ -14,9 +13,9 @@ import 'sale_detail_screen.dart';
 // ----------------------------------------------------------------------
 
 final salesPaginationProvider =
-StateNotifierProvider<SalesPaginationNotifier, SalesPaginationState>(
+    StateNotifierProvider<SalesPaginationNotifier, SalesPaginationState>(
       (ref) => SalesPaginationNotifier(),
-);
+    );
 
 class SalesPaginationState {
   final int currentPage;
@@ -25,7 +24,7 @@ class SalesPaginationState {
 
   SalesPaginationState({
     this.currentPage = 1,
-    this.itemsPerPage = 50, // Default items per page
+    this.itemsPerPage = 10, // Default items per page
     this.hasMore = true,
   });
 
@@ -65,14 +64,28 @@ class SalesPaginationNotifier extends StateNotifier<SalesPaginationState> {
 }
 
 // ----------------------------------------------------------------------
-// 🚨 Sales History Screen with Client-Side Logic
+// 🚨 Sales History Screen with Standardized Filtering and Pagination
 // ----------------------------------------------------------------------
 
-// 🚨 NEW: Date filter options enum
-enum QuickDateFilter { all, today, yesterday, last7Days, thisMonth, lastMonth }
+// 🚨 NEW/FIXED: Date filter options enum (Consistent with PO screen)
+enum QuickDateFilter {
+  all,
+  today,
+  yesterday,
+  last7Days,
+  thisMonth,
+  lastMonth,
+  custom, // 🚨 Added custom option for chip display
+}
 
 // ⭐️ NEW CONSTANT: Define the light brown color
 const Color lightBrownBackground = Color(0xFFEEE3D7);
+
+// 🚨 NEW PROVIDERS for Sales History Filtering (Standardized)
+final selectedSaleStatusProvider = StateProvider<String?>((ref) => null);
+final selectedSaleDateRangeProvider = StateProvider<DateTimeRange?>(
+  (ref) => null,
+);
 
 class SalesHistoryScreen extends ConsumerStatefulWidget {
   const SalesHistoryScreen({super.key});
@@ -82,49 +95,41 @@ class SalesHistoryScreen extends ConsumerStatefulWidget {
 }
 
 class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
-  final ScrollController _scrollController = ScrollController();
+  // ❌ Removed: ScrollController for infinite scrolling
   final TextEditingController _searchController = TextEditingController();
+
   // Local state for client-side search/filter
   String searchQuery = '';
-  DateTimeRange? selectedRange;
-  // 🚨 FIX: Change default to today
+  // Local state for quick filter (used to control the chips)
   QuickDateFilter selectedQuickFilter = QuickDateFilter.today;
+  // Custom date range state for DateRangePicker
+  DateTimeRange? customDateRange;
+  // Status filter state
+  String? selectedStatus;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_scrollListener);
 
-    // 🚨 FIX: Set initial date range to today
-    selectedRange = _getDateRange(QuickDateFilter.today);
-
-    // Search listener logic from PaymentScreen
+    // 1. Search listener logic (updates local state and Riverpod search query)
     _searchController.addListener(() {
       setState(() => searchQuery = _searchController.text.toLowerCase());
       ref.read(salesPaginationProvider.notifier).reset();
     });
 
-    // Initial data load
+    // 2. Initial data load and filter setup
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Set initial date filter to Today
+      _applyQuickFilter(QuickDateFilter.today);
+      // Invalidate to fetch data based on the initial filters
       ref.invalidate(salesHistoryProvider);
     });
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
-  }
-
-  void _scrollListener() {
-    if (_scrollController.position.pixels ==
-        _scrollController.position.maxScrollExtent) {
-      final paginationState = ref.read(salesPaginationProvider);
-      if (paginationState.hasMore) {
-        ref.read(salesPaginationProvider.notifier).nextPage();
-      }
-    }
   }
 
   Future<void> _onRefresh() async {
@@ -132,32 +137,92 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   }
 
   void _clearAllFilters() {
+    _searchController.clear();
     setState(() {
-      selectedRange = null;
-      selectedQuickFilter = QuickDateFilter.all; // Reset quick filter
-      _searchController.clear();
       searchQuery = '';
+      selectedQuickFilter = QuickDateFilter.all; // Reset quick filter
+      customDateRange = null;
+      selectedStatus = null; // Clear status filter
     });
+
+    // Clear Riverpod filter states
+    ref.read(selectedSaleStatusProvider.notifier).state = null;
+    ref.read(selectedSaleDateRangeProvider.notifier).state = null;
     ref.read(salesPaginationProvider.notifier).reset();
   }
 
   // ----------------------------------------------------------------------
-  // 🚨 NEW: Helper method to calculate date ranges
+  // 🚨 NEW/FIXED: Date Filter Logic (Standardized with PO screen)
   // ----------------------------------------------------------------------
+
+  void _applyQuickFilter(QuickDateFilter filter, [DateTimeRange? customRange]) {
+    setState(() {
+      selectedQuickFilter = filter;
+      if (filter == QuickDateFilter.custom) {
+        customDateRange = customRange;
+      } else {
+        customDateRange = null;
+      }
+    });
+
+    // This updates the Riverpod state for filtering
+    ref.read(selectedSaleDateRangeProvider.notifier).state =
+        filter == QuickDateFilter.custom ? customRange : _getDateRange(filter);
+
+    ref.read(salesPaginationProvider.notifier).reset();
+  }
+
+  Future<void> _selectDateRange(BuildContext context) async {
+    final now = DateTime.now();
+    final DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 1),
+      initialDateRange:
+          customDateRange ?? _getDateRange(QuickDateFilter.last7Days),
+      helpText: 'Select Sale Date Range',
+      saveText: 'Apply',
+      // 🚨 FIX: Apply Theme Builder for consistent style
+      builder: (context, child) {
+        return Theme(
+          // Use the current theme for consistency
+          data: Theme.of(context),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      // Normalize picked range to full day range (start of start day to end of end day)
+      final normalizedRange = DateTimeRange(
+        start: DateTime(
+          picked.start.year,
+          picked.start.month,
+          picked.start.day,
+        ),
+        end: DateTime(
+          picked.end.year,
+          picked.end.month,
+          picked.end.day,
+        ).add(const Duration(days: 1)).subtract(const Duration(seconds: 1)),
+      );
+      _applyQuickFilter(QuickDateFilter.custom, normalizedRange);
+    }
+  }
+
   DateTimeRange? _getDateRange(QuickDateFilter filter) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final tomorrow = today.add(const Duration(days: 1));
+    // End of today (23:59:59)
+    final endOfToday = today
+        .add(const Duration(days: 1))
+        .subtract(const Duration(seconds: 1));
 
     switch (filter) {
       case QuickDateFilter.all:
         return null;
       case QuickDateFilter.today:
-      // 🚨 FIX: Ensure today's range covers the entire day
-        return DateTimeRange(
-          start: today,
-          end: tomorrow.subtract(const Duration(seconds: 1)),
-        );
+        return DateTimeRange(start: today, end: endOfToday);
       case QuickDateFilter.yesterday:
         final yesterday = today.subtract(const Duration(days: 1));
         return DateTimeRange(
@@ -166,37 +231,46 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
         );
       case QuickDateFilter.last7Days:
         final lastWeek = today.subtract(const Duration(days: 6));
-        return DateTimeRange(
-          start: lastWeek,
-          end: tomorrow.subtract(const Duration(seconds: 1)),
-        );
+        return DateTimeRange(start: lastWeek, end: endOfToday);
       case QuickDateFilter.thisMonth:
         final startOfMonth = DateTime(now.year, now.month, 1);
-        return DateTimeRange(
-          start: startOfMonth,
-          end: tomorrow.subtract(const Duration(seconds: 1)),
-        );
+        return DateTimeRange(start: startOfMonth, end: endOfToday);
       case QuickDateFilter.lastMonth:
-        final lastMonthEnd = DateTime(now.year, now.month, 0);
-        final lastMonthStart = DateTime(
-          lastMonthEnd.year,
-          lastMonthEnd.month,
+        final firstDayThisMonth = DateTime(now.year, now.month, 1);
+        final lastDayLastMonth = firstDayThisMonth.subtract(
+          const Duration(days: 1),
+        );
+        final firstDayLastMonth = DateTime(
+          lastDayLastMonth.year,
+          lastDayLastMonth.month,
           1,
         );
-        return DateTimeRange(start: lastMonthStart, end: lastMonthEnd);
+        return DateTimeRange(
+          start: firstDayLastMonth,
+          end: lastDayLastMonth
+              .add(const Duration(days: 1))
+              .subtract(const Duration(seconds: 1)),
+        );
+      case QuickDateFilter.custom:
+        return customDateRange;
     }
   }
 
   // ----------------------------------------------------------------------
-  // 🚨 UI: Build method (Updated error state)
+  // UI: Build method (Updated error state)
   // ----------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
     final salesAsync = ref.watch(salesHistoryProvider);
     final paginationState = ref.watch(salesPaginationProvider);
+    final selectedRange = ref.watch(selectedSaleDateRangeProvider);
+    final selectedStatus = ref.watch(selectedSaleStatusProvider);
 
-    final hasFilters = selectedRange != null || searchQuery.isNotEmpty;
+    final hasFilters =
+        selectedRange != null ||
+        searchQuery.isNotEmpty ||
+        selectedStatus != null;
 
     return Scaffold(
       appBar: AppBar(
@@ -221,7 +295,7 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // --- Filters Section ---
-            _buildFiltersSection(context),
+            _buildFiltersSection(context, selectedStatus),
             const SizedBox(height: 16),
 
             // --- Sales Data with Pull-to-refresh ---
@@ -244,7 +318,6 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
                   );
                 },
                 loading: () => const Center(child: CircularProgressIndicator()),
-                // 🚨 UPDATED: Use TokenErrorWidget for error display
                 error: (error, _) {
                   final msg = error.toString().toLowerCase();
                   if (msg.contains('401') ||
@@ -264,10 +337,10 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   }
 
   // ----------------------------------------------------------------------
-  // 🚨 UI: Date filter section (Updated with Quick Filters)
+  // 🚨 UI: Date and Status Filter section (Standardized)
   // ----------------------------------------------------------------------
 
-  Widget _buildFiltersSection(BuildContext context) {
+  Widget _buildFiltersSection(BuildContext context, String? selectedStatus) {
     return Card(
       elevation: 2,
       child: Padding(
@@ -279,99 +352,95 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                labelText: 'Search by customer name or receipt #',
+                labelText: 'Search by receipt # or customer name',
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: searchQuery.isNotEmpty
                     ? IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() => searchQuery = '');
-                    ref.read(salesPaginationProvider.notifier).reset();
-                  },
-                )
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => searchQuery = '');
+                          ref.read(salesPaginationProvider.notifier).reset();
+                        },
+                      )
                     : null,
                 border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 12),
 
-            // 🚨 NEW: Quick Date Filter Chips/Buttons
-            _buildQuickDateFilters(),
-
-            const SizedBox(height: 12),
-
-            // Date Range Picker (Only if 'Custom' option is needed, otherwise use only quick filters)
+            // 🚨 NEW: Row for Status Filter and Date Picker Button
             Row(
               children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.date_range),
-                    label: Text(
-                      selectedRange == null
-                          ? 'Select Custom Range'
-                          : '${DateFormat('MMM dd').format(selectedRange!.start)} - ${DateFormat('MMM dd, yyyy').format(selectedRange!.end)}',
-                      overflow: TextOverflow.ellipsis,
+                // Status Filter
+                Expanded(child: _buildStatusFilter(selectedStatus)),
+                const SizedBox(width: 8),
+
+                // Date Picker Button (launches custom date range picker)
+                SizedBox(
+                  width: 50,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: () => _selectDateRange(context),
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4.0),
+                      ),
                     ),
-                    onPressed: () async {
-                      // Deselect quick filter when choosing custom range
-                      setState(() => selectedQuickFilter = QuickDateFilter.all);
-                      final now = DateTime.now();
-                      final picked = await showDateRangePicker(
-                        context: context,
-                        firstDate: DateTime(now.year - 5),
-                        lastDate: DateTime(now.year + 1),
-                        initialDateRange: selectedRange,
-                      );
-                      if (picked != null) {
-                        // Ensure the range includes the end day completely
-                        final end = DateTime(
-                          picked.end.year,
-                          picked.end.month,
-                          picked.end.day,
-                          23,
-                          59,
-                          59,
-                        );
-                        setState(
-                              () => selectedRange = DateTimeRange(
-                            start: picked.start,
-                            end: end,
-                          ),
-                        );
-                        ref.read(salesPaginationProvider.notifier).reset();
-                      }
-                    },
+                    child: const Icon(Icons.date_range),
                   ),
                 ),
-                const SizedBox(width: 12),
-                if (selectedRange != null &&
-                    selectedQuickFilter ==
-                        QuickDateFilter
-                            .all) // Only show clear button for custom range
-                  IconButton(
-                    icon: const Icon(Icons.clear),
-                    onPressed: _clearAllFilters,
-                    tooltip: 'Clear date filter',
-                  ),
               ],
             ),
+            const SizedBox(height: 12),
+
+            // Quick Date Filter Chips/Buttons
+            _buildQuickDateFilters(),
           ],
         ),
       ),
     );
   }
 
+  Widget _buildStatusFilter(String? selected) {
+    // Define the available statuses for sales
+    const statuses = [null, 'completed', 'pending', 'cancelled'];
+
+    return DropdownButtonFormField<String?>(
+      value: selected,
+      items: statuses
+          .map(
+            (s) => DropdownMenuItem(
+              value: s,
+              child: Text(s == null ? "All Status" : _capitalizeFirstLetter(s)),
+            ),
+          )
+          .toList(),
+      onChanged: (val) {
+        ref.read(selectedSaleStatusProvider.notifier).state = val;
+        ref.read(salesPaginationProvider.notifier).reset();
+        setState(() => selectedStatus = val); // Keep local state updated
+      },
+      decoration: const InputDecoration(
+        labelText: "Status",
+        border: OutlineInputBorder(),
+        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      ),
+    );
+  }
+
   Widget _buildQuickDateFilters() {
     const filters = [
+      QuickDateFilter.all,
       QuickDateFilter.today,
       QuickDateFilter.yesterday,
       QuickDateFilter.last7Days,
       QuickDateFilter.thisMonth,
       QuickDateFilter.lastMonth,
+      QuickDateFilter.custom, // Include custom range chip
     ];
 
-    // Get the primary color for the text when selected
     final primaryColor = Theme.of(context).colorScheme.primary;
 
     return SingleChildScrollView(
@@ -384,34 +453,20 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
             child: FilterChip(
               label: Text(_getFilterName(filter)),
               selected: isSelected,
-              // ⭐️ CHANGE 1: Set the selected background color to light brown
               selectedColor: lightBrownBackground,
-
-              // ⭐️ CHANGE 2: Set the color of the checkmark and the text when selected
-              labelStyle: isSelected
-                  ? TextStyle(
-                color: primaryColor, // Use your app's primary color for contrast
-                fontWeight: FontWeight.bold,
-              )
-                  : null,
-
-              // ⭐️ CHANGE 3: Ensure the checkmark is visible against the light brown
               checkmarkColor: primaryColor,
-
+              labelStyle: TextStyle(
+                color: isSelected ? primaryColor : Colors.grey[700],
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              ),
               onSelected: (selected) {
-                if (selected) {
-                  setState(() {
-                    selectedQuickFilter = filter;
-                    selectedRange = _getDateRange(filter);
-                  });
-                  ref.read(salesPaginationProvider.notifier).reset();
+                if (filter == QuickDateFilter.custom) {
+                  _selectDateRange(context);
+                } else if (selected) {
+                  _applyQuickFilter(filter);
                 } else if (filter == selectedQuickFilter) {
-                  // Allow deselection to 'All'
-                  setState(() {
-                    selectedQuickFilter = QuickDateFilter.all;
-                    selectedRange = null;
-                  });
-                  ref.read(salesPaginationProvider.notifier).reset();
+                  // Allow deselection back to 'All'
+                  _applyQuickFilter(QuickDateFilter.all);
                 }
               },
             ),
@@ -420,6 +475,10 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
       ),
     );
   }
+
+  // ----------------------------------------------------------------------
+  // Helper Methods (Modified to handle QuickDateFilter enum)
+  // ----------------------------------------------------------------------
 
   String _getFilterName(QuickDateFilter filter) {
     switch (filter) {
@@ -435,70 +494,84 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
         return 'This Month';
       case QuickDateFilter.lastMonth:
         return 'Last Month';
+      case QuickDateFilter.custom:
+        if (customDateRange != null) {
+          final start = DateFormat('MMM d').format(customDateRange!.start);
+          final end = DateFormat('MMM d').format(customDateRange!.end);
+          return '$start - $end';
+        }
+        return 'Custom Range';
     }
   }
 
+  String _capitalizeFirstLetter(String text) {
+    if (text.isEmpty) return text;
+    return text[0].toUpperCase() + text.substring(1);
+  }
+
   // ----------------------------------------------------------------------
-  // 🚨 Filter and Pagination Methods (Updated date filter logic)
+  // Filter and Pagination Methods (Using Riverpod state for filtering)
   // ----------------------------------------------------------------------
 
   List<SaleItem> _applyFilters(List<SaleItem> sales) {
-    return sales.where((sale) {
-      // Search by customer or receipt number
-      final matchesSearch =
-          sale.receiptNumber.toString().toLowerCase().contains(searchQuery) ||
-              sale.customer.toLowerCase().contains(searchQuery);
+    final selectedStatus = ref.watch(selectedSaleStatusProvider);
+    final selectedRange = ref.watch(selectedSaleDateRangeProvider);
 
-      // If no date range is selected, return based on search only
-      if (selectedRange == null) {
-        return matchesSearch;
+    return sales.where((sale) {
+      // 1. Search Filter
+      final matchesSearch =
+          searchQuery.isEmpty ||
+          sale.receiptNumber.toString().toLowerCase().contains(searchQuery) ||
+          sale.customer.toLowerCase().contains(searchQuery);
+
+      // 2. Status Filter
+      final matchesStatus =
+          selectedStatus == null ||
+          sale.status?.toLowerCase() == selectedStatus!.toLowerCase();
+
+      // 3. Date Filter
+      bool matchesDate = true;
+      if (selectedRange != null) {
+        final saleDate = DateTime.parse(sale.date);
+
+        // Normalize sale date to start of the day for accurate comparison
+        final startOfSaleDay = DateTime(
+          saleDate.year,
+          saleDate.month,
+          saleDate.day,
+        );
+        final startOfRangeDay = selectedRange.start;
+        final endOfRangeDay = selectedRange.end;
+
+        matchesDate =
+            (startOfSaleDay.isAtSameMomentAs(startOfRangeDay) ||
+                startOfSaleDay.isAfter(startOfRangeDay)) &&
+            (startOfSaleDay.isAtSameMomentAs(endOfRangeDay) ||
+                startOfSaleDay.isBefore(endOfRangeDay));
       }
 
-      // Parse sale date
-      final saleDate = DateTime.parse(sale.date);
-
-      // Normalize dates to compare only year, month, day (ignore time)
-      final saleDateNormalized = DateTime(
-        saleDate.year,
-        saleDate.month,
-        saleDate.day,
-      );
-      final startNormalized = DateTime(
-        selectedRange!.start.year,
-        selectedRange!.start.month,
-        selectedRange!.start.day,
-      );
-      final endNormalized = DateTime(
-        selectedRange!.end.year,
-        selectedRange!.end.month,
-        selectedRange!.end.day,
-      );
-
-      // Check if sale date is within the selected range (inclusive)
-      final matchesDate =
-      (saleDateNormalized.isAfter(
-        startNormalized.subtract(const Duration(days: 1)),
-      ) &&
-          saleDateNormalized.isBefore(
-            endNormalized.add(const Duration(days: 1)),
-          ));
-
-      return matchesSearch && matchesDate;
+      return matchesSearch && matchesStatus && matchesDate;
     }).toList();
   }
 
   List<SaleItem> _applyPagination(
-      List<SaleItem> sales,
-      SalesPaginationState pagination,
-      ) {
+    List<SaleItem> sales,
+    SalesPaginationState pagination,
+  ) {
     final startIndex = (pagination.currentPage - 1) * pagination.itemsPerPage;
     final endIndex = startIndex + pagination.itemsPerPage;
 
-    final hasMore = endIndex < sales.length;
-    if (hasMore != pagination.hasMore) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(salesPaginationProvider.notifier).setHasMore(hasMore);
-      });
+    // We don't need setHasMore as we use explicit buttons now
+    // final hasMore = endIndex < sales.length;
+
+    if (startIndex >= sales.length) {
+      // Safety check: if current page is beyond data, go back to last page
+      if (pagination.currentPage > 1) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ref.read(salesPaginationProvider.notifier).previousPage();
+        });
+      }
+      return [];
     }
 
     return sales.sublist(
@@ -507,13 +580,20 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
     );
   }
 
+  // ----------------------------------------------------------------------
+  // UI: Sales List and Pagination Controls (New Pagination Buttons)
+  // ----------------------------------------------------------------------
+
   Widget _buildSalesList(
-      List<SaleItem> sales,
-      int totalFiltered,
-      SalesPaginationState pagination,
-      ) {
+    List<SaleItem> sales,
+    int totalFiltered,
+    SalesPaginationState pagination,
+  ) {
     if (sales.isEmpty) {
-      final hasFilters = selectedRange != null || searchQuery.isNotEmpty;
+      final hasFilters =
+          ref.watch(selectedSaleDateRangeProvider) != null ||
+          searchQuery.isNotEmpty ||
+          ref.watch(selectedSaleStatusProvider) != null;
       return _buildEmptyState(hasFilters);
     }
 
@@ -525,15 +605,9 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
           child: RefreshIndicator(
             onRefresh: _onRefresh,
             child: ListView.builder(
-              controller: _scrollController,
-              itemCount: sales.length + (pagination.hasMore ? 1 : 0),
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: sales.length,
               itemBuilder: (context, index) {
-                if (index == sales.length) {
-                  return const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
                 final sale = sales[index];
                 return SaleCard(
                   sale: sale,
@@ -552,18 +626,21 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
             ),
           ),
         ),
+        // 🚨 NEW: Pagination Buttons at the bottom
+        _buildPaginationControls(totalFiltered, pagination),
       ],
     );
   }
 
   Widget _buildPaginationInfo(
-      int totalFiltered,
-      SalesPaginationState pagination,
-      ) {
+    int totalFiltered,
+    SalesPaginationState pagination,
+  ) {
     final startItem =
         (pagination.currentPage - 1) * pagination.itemsPerPage + 1;
     final endItem = pagination.currentPage * pagination.itemsPerPage;
     final displayedEnd = endItem > totalFiltered ? totalFiltered : endItem;
+    final totalPages = (totalFiltered / pagination.itemsPerPage).ceil();
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -574,10 +651,52 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
         ),
         if (totalFiltered > pagination.itemsPerPage)
           Text(
-            'Page ${pagination.currentPage} of ${(totalFiltered / pagination.itemsPerPage).ceil()}',
+            'Page ${pagination.currentPage} of $totalPages',
             style: TextStyle(color: Colors.grey[600]),
           ),
       ],
+    );
+  }
+
+  Widget _buildPaginationControls(
+    int totalFiltered,
+    SalesPaginationState pagination,
+  ) {
+    final totalPages = (totalFiltered / pagination.itemsPerPage).ceil();
+    final isFirstPage = pagination.currentPage == 1;
+    final isLastPage = pagination.currentPage >= totalPages;
+
+    if (totalFiltered <= pagination.itemsPerPage)
+      return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          ElevatedButton(
+            // 🚨 FIX: Use OutlinedButton for consistent styling with PO screen
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            onPressed: isFirstPage
+                ? null
+                : ref.read(salesPaginationProvider.notifier).previousPage,
+            child: const Text('Previous'),
+          ),
+          const SizedBox(width: 16),
+          ElevatedButton(
+            // 🚨 FIX: Use OutlinedButton for consistent styling with PO screen
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            onPressed: isLastPage
+                ? null
+                : ref.read(salesPaginationProvider.notifier).nextPage,
+            child: const Text('Next'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -624,7 +743,7 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
 
 // ----------------------------------------------------------------
 
-/// Modernized Sale Card Widget
+/// Modernized Sale Card Widget (Kept as is)
 class SaleCard extends StatelessWidget {
   final SaleItem sale;
   final VoidCallback onViewDetails;
@@ -653,9 +772,9 @@ class SaleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final formattedDate = DateFormat('MMM dd, yyyy - HH:mm').format(
-      DateTime.parse(sale.date),
-    );
+    final formattedDate = DateFormat(
+      'MMM dd, yyyy - HH:mm',
+    ).format(DateTime.parse(sale.date));
     // Use NumberFormat for better localization/currency display
     final numberFormat = NumberFormat.currency(
       locale: 'en_TZ', // Example locale for Tanzania
@@ -727,7 +846,9 @@ class SaleCard extends StatelessWidget {
                   Text(
                     formattedDate,
                     style: theme.textTheme.bodySmall!.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                      color: theme.colorScheme.onSurfaceVariant.withOpacity(
+                        0.7,
+                      ),
                     ),
                   ),
 
@@ -767,7 +888,9 @@ class SaleCard extends StatelessWidget {
                     Icon(
                       Icons.arrow_forward_ios_rounded,
                       size: 16,
-                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+                      color: theme.colorScheme.onSurfaceVariant.withOpacity(
+                        0.5,
+                      ),
                     ),
                   ],
                 ),

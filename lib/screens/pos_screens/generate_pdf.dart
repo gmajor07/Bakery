@@ -21,7 +21,7 @@ Future<Uint8List> generateSaleReceiptPdf(SaleItem sale) async {
           pw.Text('Payment: ${sale.paymentStatus}'),
           pw.SizedBox(height: 12),
           pw.Text('Items Sold:', style: pw.TextStyle(fontSize: 16)),
-          pw.Table.fromTextArray(
+          pw.TableHelper.fromTextArray(
             headers: ['Product', 'Qty', 'Unit Price', 'Subtotal'],
             data: sale.items
                 .map(

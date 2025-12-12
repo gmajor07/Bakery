@@ -7,7 +7,22 @@ import '../../models/purchase_order.dart';
 import '../../provider/purchase_orders_provider.dart';
 import '../../purchases_model/inventory_item.dart';
 import '../../purchases_model/unit_type.dart';
-// 💡 ASSUMING THESE MODELS EXIST BASED ON USAGE:
+// Note: You must ensure the following models/providers exist in your project:
+// - Supplier
+// - InventoryItem
+// - UnitType
+// - suppliersProvider (AsyncValue<List<Supplier>>)
+// - inventoryItemsProvider (AsyncValue<List<InventoryItem>>)
+// - unitTypesProvider (AsyncValue<List<UnitType>>)
+
+// 💡 NEW PROVIDERS for State Persistence and Search
+// These should ideally be defined in a dedicated provider file (e.g., purchase_orders_provider.dart)
+final purchaseOrderDraftProvider =
+StateProvider<Map<String, dynamic>>((ref) => {
+  'supplierId': null,
+  'items': <Map<String, dynamic>>[],
+});
+final purchaseItemSearchQueryProvider = StateProvider<String>((ref) => '');
 
 class CreatePurchaseOrderScreen extends ConsumerStatefulWidget {
   const CreatePurchaseOrderScreen({super.key});
@@ -20,20 +35,49 @@ class CreatePurchaseOrderScreen extends ConsumerStatefulWidget {
 class _CreatePurchaseOrderScreenState
     extends ConsumerState<CreatePurchaseOrderScreen> {
   final _formKey = GlobalKey<FormState>();
+  final TextEditingController _searchController = TextEditingController();
 
   // Form State Variables
   int? selectedSupplierId;
   List<Map<String, dynamic>> items = [];
-  String notes = '';
+  // ❌ Removed: String notes = '';
   double totalCost = 0.0;
   bool _isCreating = false;
+
+  // 🚨 Number formatter for Unit Price and currency (no decimals, with commas)
+  final _priceFormatter = NumberFormat('#,##0');
 
   @override
   void initState() {
     super.initState();
-    // Start with one item for convenience
-    _addItem();
+
+    // 5. State Persistence: Load draft on init
+    final draft = ref.read(purchaseOrderDraftProvider);
+    if (draft['items']?.isNotEmpty == true) {
+      // Load saved state
+      selectedSupplierId = draft['supplierId'] as int?;
+      items = (draft['items'] as List).cast<Map<String, dynamic>>().toList();
+    } else {
+      // Start fresh
+      _addItem();
+    }
+
+    // 2. Item Search: Listener for search field
+    _searchController.addListener(() {
+      ref.read(purchaseItemSearchQueryProvider.notifier).state =
+          _searchController.text.toLowerCase();
+    });
+
+    _calculateTotal();
   }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // ------------------------- STATE MANAGEMENT -------------------------
 
   void _addItem() {
     setState(() {
@@ -62,9 +106,69 @@ class _CreatePurchaseOrderScreenState
     setState(() {
       totalCost = items.fold(
         0.0,
-        (sum, item) => sum + ((item['quantity'] ?? 0) * (item['price'] ?? 0.0)),
+            (sum, item) => sum + ((item['quantity'] ?? 0) * (item['price'] ?? 0.0)),
       );
     });
+  }
+
+  // 5. State Persistence & 6. Cancellation Confirmation: Handle back button press
+  Future<bool> _onWillPop() async {
+    // If an order is being created, prevent pop.
+    if (_isCreating) return false;
+
+    // Check if any data has been entered
+    final hasData = selectedSupplierId != null ||
+        items.any((i) => i['inventoryItemId'] != null);
+
+    if (!hasData) {
+      // No data entered, allow pop immediately
+      return true;
+    }
+
+    // Show confirmation dialog for cancellation
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Order Creation?'),
+        content: const Text(
+            'Are you sure you want to exit? Your current data will be saved as a draft.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false), // No
+            child: const Text('Continue Editing'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true), // Yes
+            child: const Text('Save Draft and Exit'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      // Save draft before exiting
+      _saveDraft();
+      return true;
+    }
+
+    // User chose to continue editing
+    return false;
+  }
+
+  void _saveDraft() {
+    // Ensure form fields that aren't calculated are saved
+    _formKey.currentState?.save();
+
+    final draftPayload = {
+      'supplierId': selectedSupplierId,
+      // Only save items that have an inventory selected, or the first empty one
+      'items': items
+          .where((i) =>
+      i['inventoryItemId'] != null ||
+          (items.indexOf(i) == 0 && items.length == 1))
+          .toList(),
+    };
+    ref.read(purchaseOrderDraftProvider.notifier).state = draftPayload;
   }
 
   // ------------------------- API HANDLER -------------------------
@@ -106,28 +210,32 @@ class _CreatePurchaseOrderScreenState
         throw Exception('Token expired or missing.');
       }
 
+      // 🚨 'notes' field removed from the payload
       final payload = {
         "supplierId": selectedSupplierId,
         "totalCost": totalCost,
         "status": "pending", // Default status for new POs
-        "notes": notes,
         "items": items
             .where((i) => i['inventoryItemId'] != null) // Only send valid items
             .map(
               (i) => {
-                "inventoryItemId": i['inventoryItemId'],
-                "quantity": i['quantity'],
-                "unit": i['unit'],
-                "price": i['price'],
-              },
-            )
+            "inventoryItemId": i['inventoryItemId'],
+            "quantity": i['quantity'],
+            "unit": i['unit'],
+            "price": i['price'],
+          },
+        )
             .toList(),
       };
 
       await api.createPurchaseOrder(payload);
 
-      // Successfully created order, refresh the list on the previous screen
+      // Invalidate providers and clear draft upon success
       ref.invalidate(purchaseOrdersProvider);
+      ref.read(purchaseOrderDraftProvider.notifier).state = {
+        'supplierId': null,
+        'items': <Map<String, dynamic>>[],
+      };
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -182,66 +290,89 @@ class _CreatePurchaseOrderScreenState
     final itemsAsync = ref.watch(inventoryItemsProvider);
     final unitsAsync = ref.watch(unitTypesProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text("Create Purchase Order")),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeader('Supplier & Details'),
-                const SizedBox(height: 12),
+    // 5. Cancellation Confirmation: Wrap with PopScope
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        final shouldPop = await _onWillPop();
+        if (shouldPop && mounted) {
+          Navigator.pop(context);
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(title: const Text("Create Purchase Order")),
+        body: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildHeader('Supplier Details'),
+                  const SizedBox(height: 12),
 
-                // --- 1. Supplier Dropdown ---
-                _buildSupplierDropdown(suppliersAsync),
-                const SizedBox(height: 20),
+                  // --- 1. Supplier Dropdown ---
+                  _buildSupplierDropdown(suppliersAsync),
+                  const SizedBox(height: 30),
 
-                // --- 2. Notes Field ---
-                TextFormField(
-                  decoration: const InputDecoration(
-                    labelText: "Notes (Optional)",
-                    hintText: "E.g., Delivery required by next Friday",
-                    border: OutlineInputBorder(),
+                  // --- 2. Items Search and Header ---
+                  _buildHeader('Order Items'),
+                  const SizedBox(height: 12),
+                  _buildItemSearch(), // Item Search: Search bar
+                  const SizedBox(height: 16),
+
+                  // Dynamic Item Fields
+                  ...items.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final item = entry.value;
+
+                    return _buildItemRow(index, item, itemsAsync, unitsAsync);
+                  }),
+
+                  TextButton.icon(
+                    onPressed: _addItem,
+                    icon: const Icon(Icons.add_circle_outline),
+                    label: const Text("Add Another Item"),
                   ),
-                  maxLines: 2,
-                  onSaved: (value) => notes = value ?? '',
-                ),
-                const SizedBox(height: 30),
 
-                // --- 3. Items List ---
-                _buildHeader('Order Items'),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 20),
 
-                // Dynamic Item Fields
-                ...items.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final item = entry.value;
+                  // --- 3. Total Cost Display ---
+                  _buildTotalCostDisplay(),
 
-                  return _buildItemRow(index, item, itemsAsync, unitsAsync);
-                }),
+                  const SizedBox(height: 30),
 
-                TextButton.icon(
-                  onPressed: _addItem,
-                  icon: const Icon(Icons.add_circle_outline),
-                  label: const Text("Add Another Item"),
-                ),
-
-                const SizedBox(height: 20),
-
-                // --- 4. Total Cost Display ---
-                _buildTotalCostDisplay(),
-
-                const SizedBox(height: 30),
-
-                // --- 5. Action Buttons ---
-                _buildActionButtons(),
-              ],
+                  // --- 4. Action Buttons ---
+                  _buildActionButtons(),
+                ],
+              ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  // 2. Item Search: Search bar implementation
+  Widget _buildItemSearch() {
+    return TextField(
+      controller: _searchController,
+      decoration: InputDecoration(
+        labelText: 'Search Items',
+        hintText: 'Type to filter items in dropdowns',
+        prefixIcon: const Icon(Icons.search),
+        suffixIcon: _searchController.text.isNotEmpty
+            ? IconButton(
+          icon: const Icon(Icons.clear),
+          onPressed: () {
+            _searchController.clear();
+            ref.read(purchaseItemSearchQueryProvider.notifier).state = '';
+          },
+        )
+            : null,
+        border: const OutlineInputBorder(),
       ),
     );
   }
@@ -260,16 +391,14 @@ class _CreatePurchaseOrderScreenState
   Widget _buildSupplierDropdown(AsyncValue<List<dynamic>> suppliersAsync) {
     return suppliersAsync.when(
       data: (suppliers) {
-        // 💡 CAST LIST: Explicitly cast to List<Supplier>
         final supplierList = suppliers.cast<Supplier>();
 
         return DropdownButtonFormField<int>(
           value: selectedSupplierId,
           items: supplierList
               .map<DropdownMenuItem<int>>(
-                // 💡 Explicit Map Type
                 (s) => DropdownMenuItem<int>(value: s.id, child: Text(s.name)),
-              )
+          )
               .toList(),
           onChanged: (val) => setState(() => selectedSupplierId = val),
           decoration: const InputDecoration(
@@ -292,22 +421,32 @@ class _CreatePurchaseOrderScreenState
   }
 
   Widget _buildItemRow(
-    int index,
-    Map<String, dynamic> item,
-    AsyncValue<List<dynamic>> itemsAsync,
-    AsyncValue<List<dynamic>> unitsAsync,
-  ) {
-    // 💡 CAST LIST: Explicitly cast to List<InventoryItem>
-    final List<InventoryItem> inventoryItems =
+      int index,
+      Map<String, dynamic> item,
+      AsyncValue<List<dynamic>> itemsAsync,
+      AsyncValue<List<dynamic>> unitsAsync,
+      ) {
+    final searchQuery = ref.watch(purchaseItemSearchQueryProvider);
+
+    final List<InventoryItem> allInventoryItems =
         itemsAsync.valueOrNull?.cast<InventoryItem>() ?? [];
 
-    // Find the currently selected item to display its details (unit/price)
-    final InventoryItem? selectedInventoryItem = inventoryItems
+    final filteredInventoryItems = allInventoryItems
+        .where((i) => i.name.toLowerCase().contains(searchQuery))
+        .toList();
+
+    final InventoryItem? selectedInventoryItem = allInventoryItems
         .cast<InventoryItem?>()
         .firstWhere(
           (i) => i?.id == item['inventoryItemId'],
-          orElse: () => null,
-        );
+      orElse: () => null,
+    );
+
+    // Fix for DropdownButton assertion: ensure selected item is in the filtered list
+    if (selectedInventoryItem != null &&
+        !filteredInventoryItems.any((i) => i.id == selectedInventoryItem.id)) {
+      filteredInventoryItems.add(selectedInventoryItem);
+    }
 
     // Calculate row total
     final rowTotal = (item['quantity'] ?? 0) * (item['price'] ?? 0.0);
@@ -331,27 +470,25 @@ class _CreatePurchaseOrderScreenState
                   child: itemsAsync.when(
                     data: (_) => DropdownButtonFormField<int>(
                       value: item['inventoryItemId'],
-                      items: inventoryItems
+                      items: filteredInventoryItems
                           .map<DropdownMenuItem<int>>(
-                            // 💡 Explicit Map Type
                             (i) => DropdownMenuItem<int>(
-                              value: i.id,
-                              child: Text(
-                                i.name,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          )
+                          value: i.id,
+                          child: Text(
+                            i.name,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
                           .toList(),
                       onChanged: (val) {
-                        final selected = inventoryItems.firstWhere(
-                          (i) => i.id == val,
+                        final selected = allInventoryItems.firstWhere(
+                              (i) => i.id == val,
                         );
                         setState(() {
                           item['inventoryItemId'] = val;
-                          item['price'] = selected.cost;
-                          item['unit'] =
-                              selected.unit; // Default to inventory unit
+                          item['price'] = selected.cost; // Set the default cost
+                          item['unit'] = selected.unit;
                           _calculateTotal();
                         });
                       },
@@ -366,7 +503,7 @@ class _CreatePurchaseOrderScreenState
                       validator: (val) => val == null ? "Select item" : null,
                     ),
                     loading: () => const LinearProgressIndicator(),
-                    error: (e, _) => Text("Error loading items"),
+                    error: (e, _) => const Text("Error loading items"),
                   ),
                 ),
                 IconButton(
@@ -386,7 +523,7 @@ class _CreatePurchaseOrderScreenState
                 Expanded(
                   flex: 3,
                   child: TextFormField(
-                    key: ValueKey('qty_${index}_${item['quantity']}'),
+                    // 3. Focus Fix: No ValueKey needed for Qty
                     initialValue: item['quantity'].toString(),
                     decoration: const InputDecoration(
                       labelText: "Qty",
@@ -403,7 +540,7 @@ class _CreatePurchaseOrderScreenState
                       _calculateTotal();
                     },
                     validator: (v) =>
-                        (int.tryParse(v ?? '') ?? 0) < 1 ? "Min 1" : null,
+                    (int.tryParse(v ?? '') ?? 0) < 1 ? "Min 1" : null,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -413,20 +550,17 @@ class _CreatePurchaseOrderScreenState
                   flex: 4,
                   child: unitsAsync.when(
                     data: (units) {
-                      // 💡 CAST LIST: Explicitly cast to List<UnitType>
                       final unitList = units.cast<UnitType>();
 
                       return DropdownButtonFormField<String>(
                         value: item['unit'],
                         items: unitList
                             .map<DropdownMenuItem<String>>(
-                              // 💡 Explicit Map Type (FIX)
                               (u) => DropdownMenuItem<String>(
-                                // 💡 Explicit Item Type (FIX)
-                                value: u.name,
-                                child: Text(u.name),
-                              ),
-                            )
+                            value: u.name,
+                            child: Text(u.name),
+                          ),
+                        )
                             .toList(),
                         onChanged: (val) {
                           setState(() => item['unit'] = val);
@@ -442,7 +576,7 @@ class _CreatePurchaseOrderScreenState
                       );
                     },
                     loading: () => const LinearProgressIndicator(),
-                    error: (e, _) => Text("Error loading units"),
+                    error: (e, _) => const Text("Error loading units"),
                   ),
                 ),
               ],
@@ -457,12 +591,16 @@ class _CreatePurchaseOrderScreenState
                 Expanded(
                   flex: 5,
                   child: TextFormField(
-                    key: ValueKey('price_${index}_${item['price']}'),
-                    initialValue: item['price'].toStringAsFixed(2),
+                    // 🚨 Price Fix: Key forces rebuild when item ID changes
+                    key: ValueKey('price_field_${item['inventoryItemId'] ?? index}'),
+
+                    // Display the formatted price from the state
+                    initialValue: _priceFormatter.format(item['price'] ?? 0.0),
+
                     decoration: InputDecoration(
-                      labelText: "Unit Price",
+                      labelText: "Price", // Renamed label
                       hintText: selectedInventoryItem != null
-                          ? 'Default: ${selectedInventoryItem.cost.toStringAsFixed(2)}'
+                          ? 'Default: ${_priceFormatter.format(selectedInventoryItem.cost)}'
                           : null,
                       border: const OutlineInputBorder(),
                       contentPadding: const EdgeInsets.symmetric(
@@ -472,12 +610,17 @@ class _CreatePurchaseOrderScreenState
                     ),
                     keyboardType: TextInputType.number,
                     onChanged: (v) {
-                      item['price'] = double.tryParse(v) ?? 0.0;
+                      // Remove formatting characters before parsing
+                      final rawValue = v.replaceAll(RegExp(r'[^\d.]'), '');
+                      item['price'] = double.tryParse(rawValue) ?? 0.0;
                       _calculateTotal();
                     },
-                    validator: (v) => (double.tryParse(v ?? '') ?? 0.0) <= 0.0
-                        ? "Price > 0"
-                        : null,
+                    validator: (v) {
+                      final rawValue = v?.replaceAll(RegExp(r'[^\d.]'), '');
+                      return (double.tryParse(rawValue ?? '') ?? 0.0) <= 0.0
+                          ? "Price > 0"
+                          : null;
+                    },
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -538,7 +681,7 @@ class _CreatePurchaseOrderScreenState
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           const Text(
-            "TOTAL ORDER COST:",
+            "Total Order Cost:",
             style: TextStyle(
               fontWeight: FontWeight.w500,
               fontSize: 18,
@@ -558,12 +701,56 @@ class _CreatePurchaseOrderScreenState
     );
   }
 
+  // ------------------------- NEW HANDLER METHOD -------------------------
+
+  Future<void> _onCancelOrder() async {
+    // Show confirmation dialog to ensure user wants to discard the draft
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Discard Order Draft?'),
+        content: const Text(
+            'Are you sure you want to cancel and discard this purchase order? All entered data will be lost.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false), // No
+            child: const Text('Continue Editing'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(context).pop(true), // Yes
+            child: const Text('Discard Order'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      // Clear the draft state immediately
+      ref.read(purchaseOrderDraftProvider.notifier).state = {
+        'supplierId': null,
+        'items': <Map<String, dynamic>>[],
+      };
+
+      // Clear search query
+      ref.read(purchaseItemSearchQueryProvider.notifier).state = '';
+
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    }
+  }
+
+
+// ------------------------- UPDATED ACTION BUTTONS -------------------------
+
   Widget _buildActionButtons() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         TextButton(
-          onPressed: _isCreating ? null : () => Navigator.pop(context),
+          // 🚨 FIX: Call the new handler for confirmation and draft clearing
+          onPressed: _isCreating ? null : _onCancelOrder,
           child: const Text("Cancel"),
         ),
         const SizedBox(width: 16),
@@ -571,13 +758,13 @@ class _CreatePurchaseOrderScreenState
           onPressed: _isCreating ? null : _createOrder,
           icon: _isCreating
               ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Colors.white,
+            ),
+          )
               : const Icon(Icons.send_rounded),
           label: Text(_isCreating ? "Creating..." : "Create PO"),
           style: ElevatedButton.styleFrom(

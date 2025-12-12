@@ -1,3 +1,4 @@
+import 'package:bak/screens/pos_screens/pos_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -277,7 +278,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             Expanded(
               child: _buildPaymentMethodCard(
                 value: 'Cash',
-                icon: Icons.monetization_on_outlined,
+                icon: Icons.money,
                 title: 'Cash',
                 subtitle: 'Immediate payment',
                 colorScheme: colorScheme,
@@ -289,7 +290,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 value: 'Credit',
                 icon: Icons.credit_card_outlined,
                 title: 'Credit',
-                subtitle: '+ 18% VAT & Due Date',
+                subtitle: 'Later Payment',
                 colorScheme: colorScheme,
               ),
             ),
@@ -448,7 +449,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Payment Breakdown',
+              'Breakdown',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: colorScheme.onSurface,
@@ -567,7 +568,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Are you sure you want to complete this transaction?'),
+            const Text('Are you sure you want to complete this sale?'),
             const SizedBox(height: 16),
             _buildTotalRow('Total Amount:', total, colorScheme, isBold: true),
             const SizedBox(height: 8),
@@ -752,8 +753,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             label: const Text('Done'),
             onPressed: () {
               Navigator.pop(context);
-              Navigator.pop(context, true); // back to POS screen, pass 'true' to trigger refresh
-            },
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => PosScreen()),
+              );            },
             style: FilledButton.styleFrom(
               backgroundColor: colorScheme.primary,
               foregroundColor: colorScheme.onPrimary,

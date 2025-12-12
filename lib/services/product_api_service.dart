@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import '../auth/auth_provider.dart';
 import '../models/product.dart';
 import 'base_api_service.dart';
@@ -31,7 +32,9 @@ class ProductsApiService {
       return data.map((json) => Product.fromJson(json)).toList();
     } on DioException catch (e) {
       final error = e.response?.data?['message'] ?? 'Failed to load products';
-      print("❌ Products fetch error: $error");
+      if (kDebugMode) {
+        print("❌ Products fetch error: $error");
+      }
       throw Exception(error);
     }
   }

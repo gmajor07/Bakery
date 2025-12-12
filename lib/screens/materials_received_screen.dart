@@ -268,7 +268,7 @@ class _MaterialsReceivedScreenState
                 },
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );

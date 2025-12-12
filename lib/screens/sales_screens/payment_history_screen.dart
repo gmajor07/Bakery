@@ -340,7 +340,7 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
                 },
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );

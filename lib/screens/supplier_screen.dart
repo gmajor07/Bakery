@@ -1,40 +1,30 @@
-// lib/screens/customer_screen.dart
+// lib/screens/supplier_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Adjust imports based on your project structure
-import 'package:intl/intl.dart'; // Import for formatting
 import '../auth/auth_provider.dart';
-import '../models/customer.dart';
-import '../provider/customers_provider.dart';
-import '../provider/customer_search_provider.dart';
+import '../models/supplier_model.dart'; // Ensure this model exists
+import '../provider/supplier_search_provider.dart'; // Ensure this provider exists
+import '../provider/suppliers_provider.dart';
 import '../theme.dart';
 import '../widgets/token_error_widget.dart';
-import 'customer_creation_screen.dart';
-import 'customer_detail_screen.dart'; // Import the detail screen
+// ⬇️ Ensure this file and class are created!
+import 'supplier_creation_screen.dart';
 
 // Pagination providers (Reusable)
+// Assuming these are correctly defined StateProviders:
 final paginationProvider = StateProvider<int>((ref) => 0);
 final itemsPerPageProvider = StateProvider<int>((ref) => 10);
 
-// ⭐️ Formatting Helpers (Needed here for the full file structure)
-String formatCurrencyNoDecimal(double amount) {
-  final formatter = NumberFormat.currency(
-    locale: 'en_TZ',
-    symbol: 'TSh',
-    decimalDigits: 0, // No decimals
-  );
-  return formatter.format(amount);
-}
-
-class CustomerScreen extends ConsumerStatefulWidget {
-  const CustomerScreen({super.key});
+class SupplierScreen extends ConsumerStatefulWidget {
+  const SupplierScreen({super.key});
 
   @override
-  ConsumerState<CustomerScreen> createState() => _CustomerScreenState();
+  ConsumerState<SupplierScreen> createState() => _SupplierScreenState();
 }
 
-class _CustomerScreenState extends ConsumerState<CustomerScreen> {
+class _SupplierScreenState extends ConsumerState<SupplierScreen> {
   late TextEditingController _searchController;
   String? _token;
   bool _isLoadingToken = true;
@@ -43,12 +33,12 @@ class _CustomerScreenState extends ConsumerState<CustomerScreen> {
   void initState() {
     super.initState();
     _searchController = TextEditingController();
-    _searchController.text = ref.read(customerSearchQueryProvider);
+    _searchController.text = ref.read(supplierSearchQueryProvider);
 
     _searchController.addListener(() {
-      ref.read(customerSearchQueryProvider.notifier).state =
+      ref.read(supplierSearchQueryProvider.notifier).state =
           _searchController.text;
-      // Reset to first page when search changes
+      // ⬅️ Ensure correct StateProvider usage
       ref.read(paginationProvider.notifier).state = 0;
     });
 
@@ -67,7 +57,7 @@ class _CustomerScreenState extends ConsumerState<CustomerScreen> {
   }
 
   void _nextPage(int totalItems, int itemsPerPage) {
-    final currentPage = ref.read(paginationProvider);
+    final currentPage = ref.read(paginationProvider.notifier).state; // Correct state access
     final totalPages = (totalItems / itemsPerPage).ceil();
     if (currentPage < totalPages - 1) {
       ref.read(paginationProvider.notifier).state = currentPage + 1;
@@ -75,83 +65,111 @@ class _CustomerScreenState extends ConsumerState<CustomerScreen> {
   }
 
   void _previousPage() {
-    final currentPage = ref.read(paginationProvider);
+    final currentPage = ref.read(paginationProvider.notifier).state; // Correct state access
     if (currentPage > 0) {
       ref.read(paginationProvider.notifier).state = currentPage - 1;
     }
   }
 
-  // Pull-to-refresh logic
   Future<void> _handleRefresh() async {
     if (_token != null) {
-      ref.invalidate(customersProvider(_token!));
-      await ref.read(customersProvider(_token!).future);
+      // ⬅️ Cleaner way to force a refetch and wait for it
+      ref.invalidate(suppliersProvider(_token!));
+      await ref.read(suppliersProvider(_token!).future);
     }
   }
 
-  // --- Widget for Customer Card View (MODIFIED) ---
-  Widget _buildCustomerCard(Customer customer, BuildContext context) {
-    final isDefaultIcon = customer.isDefault
-        ? Icon(Icons.star, color: AppTheme.primaryBrown, size: 18)
-        : const SizedBox.shrink();
+  void _navigateToAddSupplier(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const SupplierCreationScreen(), // ⬅️ Now resolved by creating the file
+      ),
+    );
+  }
+
+  // --- Widget for Supplier Card View (no changes) ---
+  Widget _buildSupplierCard(Supplier supplier, BuildContext context) {
+    final statusIsActive = supplier.status.toLowerCase() == 'active';
+    final statusColor = statusIsActive ? Colors.brown : Colors.red;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
-      child: InkWell( // MAKE CARD CLICKABLE
-        borderRadius: BorderRadius.circular(8.0),
-        onTap: () {
-          // Navigate to the new detail screen
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => CustomerDetailScreen(customer: customer),
-            ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Customer Name and Default Icon (Simplified)
-              Row(
-                children: [
-                  Text(
-                    customer.name,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryBrown,
-                    ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Name and Status
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  supplier.name,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryBrown,
                   ),
-                  const SizedBox(width: 8),
-                  isDefaultIcon,
-                ],
-              ),
-              // Arrow Indicator
-              Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-                color: Colors.grey[400],
-              ),
-            ],
-          ),
+                ),
+                Text(
+                  supplier.status,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+
+            // Contact Info
+            Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Email', style: TextStyle(color: Colors.grey)),
+                      Text(
+                        supplier.email,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                      const SizedBox(height: 8),
+                      const Text('Phone', style: TextStyle(color: Colors.grey)),
+                      Text(supplier.phone),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text('Address', style: TextStyle(color: Colors.grey)),
+                      Text(
+                        supplier.address,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.right,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
-  // --- End of Modified Customer Card Widget ---
+  // --- End of Supplier Card Widget ---
 
-  void _navigateToAddCustomer(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const CustomerCreationScreen(),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
-    final searchQuery = ref.watch(customerSearchQueryProvider).toLowerCase();
+    // ⬅️ Correct state access: watch the state value, not the provider object
+    final searchQuery = ref.watch(supplierSearchQueryProvider);
     final currentPage = ref.watch(paginationProvider);
     final itemsPerPage = ref.watch(itemsPerPageProvider);
 
@@ -165,44 +183,46 @@ class _CustomerScreenState extends ConsumerState<CustomerScreen> {
       );
     }
 
-    final customersAsync = ref.watch(customersProvider(_token!));
+    final suppliersAsync = ref.watch(suppliersProvider(_token!));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Customers')),
+      appBar: AppBar(title: const Text('Suppliers')),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _navigateToAddCustomer(context),
+        onPressed: () => _navigateToAddSupplier(context),
         backgroundColor: AppTheme.primaryBrown,
-        child: const Icon(Icons.person_add, color: Colors.white),
+        child: const Icon(Icons.group_add, color: Colors.white),
       ),
-      body: customersAsync.when(
-        data: (customers) {
-          // Filtering and Pagination logic remains the same...
-          final filteredCustomers = customers.where((customer) {
-            return customer.name.toLowerCase().contains(searchQuery) ||
-                customer.email.toLowerCase().contains(searchQuery) ||
-                customer.phone.contains(searchQuery);
+      body: suppliersAsync.when(
+        data: (suppliers) {
+          // Filtering logic
+          final filteredSuppliers = suppliers.where((supplier) {
+            return supplier.name.toLowerCase().contains(searchQuery.toLowerCase()) ||
+                supplier.email.toLowerCase().contains(searchQuery.toLowerCase()) ||
+                supplier.phone.contains(searchQuery);
           }).toList();
 
-          final totalItems = filteredCustomers.length;
+          // Pagination calculations
+          final totalItems = filteredSuppliers.length;
           final totalPages = (totalItems / itemsPerPage).ceil();
           final startIndex = currentPage * itemsPerPage;
           final endIndex = (startIndex + itemsPerPage) > totalItems
               ? totalItems
               : (startIndex + itemsPerPage);
 
-          final paginatedCustomers = filteredCustomers.sublist(
+          final paginatedSuppliers = filteredSuppliers.sublist(
             startIndex,
             endIndex,
           );
 
-          // Use RefreshIndicator
+          // Use RefreshIndicator wrapping the ListView
           return RefreshIndicator(
             onRefresh: _handleRefresh,
-            color: AppTheme.primaryBrown, // Customize the spinner color
-            // Replace SingleChildScrollView with ListView.builder + Header/Footer elements
+            color: AppTheme.primaryBrown,
             child: ListView.builder(
-              itemCount: paginatedCustomers.length + 3, // +3 for search, info, and pagination controls
+              itemCount: paginatedSuppliers.length + 3,
               itemBuilder: (context, index) {
+                // ... (rest of the ListView.builder logic remains the same)
+
                 // 1. Search Bar (Header)
                 if (index == 0) {
                   return Padding(
@@ -217,7 +237,7 @@ class _CustomerScreenState extends ConsumerState<CustomerScreen> {
                           icon: const Icon(Icons.clear),
                           onPressed: () {
                             _searchController.clear();
-                            ref.read(customerSearchQueryProvider.notifier).state = '';
+                            ref.read(supplierSearchQueryProvider.notifier).state = '';
                           },
                         )
                             : null,
@@ -235,7 +255,7 @@ class _CustomerScreenState extends ConsumerState<CustomerScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Showing ${startIndex + 1}-$endIndex of $totalItems customers',
+                          'Showing ${startIndex + 1}-$endIndex of $totalItems suppliers',
                         ),
                         if (searchQuery.isNotEmpty)
                           Text('Filtered by: "$searchQuery"'),
@@ -245,7 +265,7 @@ class _CustomerScreenState extends ConsumerState<CustomerScreen> {
                 }
 
                 // 3. Pagination Controls (Footer)
-                if (index == paginatedCustomers.length + 2) {
+                if (index == paginatedSuppliers.length + 2) {
                   return Container(
                     padding: const EdgeInsets.all(16),
                     child: Row(
@@ -274,23 +294,22 @@ class _CustomerScreenState extends ConsumerState<CustomerScreen> {
                   );
                 }
 
-                // 4. Customer Cards (Main Content)
-                final cardIndex = index - 2; // Subtract header items (0 and 1)
-                final customer = paginatedCustomers[cardIndex];
+                // 4. Supplier Cards (Main Content)
+                final cardIndex = index - 2;
+                final supplier = paginatedSuppliers[cardIndex];
 
-                // Add padding above and below the list section for visual separation
                 final hasListPadding = cardIndex == 0 ? const EdgeInsets.only(top: 16, left: 16, right: 16) : const EdgeInsets.symmetric(horizontal: 16);
 
                 return Padding(
                   padding: hasListPadding,
-                  child: _buildCustomerCard(customer, context),
+                  child: _buildSupplierCard(supplier, context),
                 );
               },
             ),
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) { // Added stack for better debugging
+        error: (error, stack) {
           final msg = error.toString().toLowerCase();
           if (msg.contains('401') ||
               msg.contains('unauthorized') ||
@@ -303,4 +322,3 @@ class _CustomerScreenState extends ConsumerState<CustomerScreen> {
     );
   }
 }
-

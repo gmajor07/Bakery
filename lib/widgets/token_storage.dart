@@ -30,7 +30,9 @@ class TokenStorage {
     try {
       final token = await _storage.read(key: _accessTokenKey);
       if (kDebugMode && token != null) {
-        print("🔑 TokenStorage: Access token retrieved");
+        if (kDebugMode) {
+          print("🔑 TokenStorage: Access token retrieved");
+        }
       }
       return token;
     } catch (e) {
@@ -45,7 +47,9 @@ class TokenStorage {
     try {
       final token = await _storage.read(key: _refreshTokenKey);
       if (kDebugMode && token != null) {
-        print("🔑 TokenStorage: Refresh token retrieved");
+        if (kDebugMode) {
+          print("🔑 TokenStorage: Refresh token retrieved");
+        }
       }
       return token;
     } catch (e) {

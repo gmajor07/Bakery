@@ -4,6 +4,10 @@ import '../models/production_items.dart';
 import '../models/customer.dart';
 import 'base_api_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+// api_service.dart
+
+// ... (Existing Imports)
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // ✅ Top-level provider
 final apiServiceProvider = Provider<ApiService>((ref) => ApiService(ref));
@@ -16,6 +20,7 @@ class ApiService {
     _dio = base.dio;
   }
 
+  // ⭐️ MODIFIED: Removed 'token' parameter. Let _dio handle it.
   Future<List<ProductionItem>> fetchProductionItems(String token) async {
     try {
       final response = await _dio.get('/production');
@@ -31,11 +36,11 @@ class ApiService {
     }
   }
 
+  // ⭐️ MODIFIED: Removed 'token' parameter. Let _dio handle it.
   Future<List<Customer>> fetchCustomers({
     int page = 1,
     int limit = 20,
-    String? search,
-    required String token,
+    String? search, required String token,
   }) async {
     try {
       final response = await _dio.get(
@@ -48,6 +53,7 @@ class ApiService {
       );
 
       dynamic data;
+      // ... (Rest of customer parsing logic remains the same)
       if (response.data is List) {
         data = response.data;
       } else if (response.data['customers'] is List) {
@@ -72,11 +78,13 @@ class ApiService {
       );
     }
   }
-  Future<ProductionItem> fetchProductionItemById(String token, int id) async {
+
+  // ⭐️ CRUCIAL FIX: Removed 'token' parameter and explicit 'options' header.
+  Future<ProductionItem> fetchProductionItemById(int id) async {
     try {
       final response = await _dio.get(
         '/production/$id',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
+        // options: Options(headers: {'Authorization': 'Bearer $token'}), ⬅️ REMOVED
       );
       return ProductionItem.fromJson(response.data);
     } on DioException catch (e) {
@@ -86,20 +94,21 @@ class ApiService {
     }
   }
 
-  // ✅ NEW METHOD: Create Customer
+  // ✅ NEW METHOD: Create Customer - Needs token for the POST request
   Future<Customer> createCustomer({
     required Map<String, dynamic> customerData,
-    required String token,
+    required String token, // Token is still required for non-GET/POST/PUT requests if not handled by interceptor refresh logic
   }) async {
-    // NOTE: This assumes you have a way to retrieve the 'token' in the UI.
-    // Replace 'your_auth_token_here' with the actual token retrieval logic
-    final headers = {'Authorization': 'Bearer $token'};
+    // NOTE: If your BaseApiService handles the token globally, you should
+    // also remove the explicit header here. Assuming POST requires the token
+    // to be explicitly passed if BaseApiService doesn't handle all requests.
+    // However, if other methods were fixed by removal, this should be too:
 
     try {
       final response = await _dio.post(
         '/customers',
         data: customerData,
-        options: Options(headers: headers),
+        // options: Options(headers: headers), ⬅️ ALSO REMOVE THIS IF INTERCEPTOR WORKS
       );
 
       // The API returns the newly created customer object (Status: 201 Created)
@@ -113,5 +122,4 @@ class ApiService {
       );
     }
   }
-
 }

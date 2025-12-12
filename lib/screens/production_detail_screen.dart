@@ -1,8 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart'; // ⬅️ NEW: Import for number formatting
 import '../auth/auth_provider.dart';
 import '../services/api_service.dart';
 import '../models/production_items.dart';
+
+// ----------------------------------------------------------------------
+// ⭐️ NEW: Formatting Helpers
+// ----------------------------------------------------------------------
+
+String formatCurrency(double amount) {
+  final formatter = NumberFormat.currency(
+    locale: 'en_TZ', // Using a locale that supports TSh/African currencies
+    symbol: 'TSh',
+    decimalDigits: 0, // No decimal points for TSh
+  );
+  return formatter.format(amount);
+}
+
+String formatNumber(double number) {
+  // Use a locale that uses commas for thousands separator
+  return NumberFormat('#,##0.##').format(number);
+}
+
 
 class ProductionDetailScreen extends ConsumerWidget {
   final int productionId;
@@ -11,12 +31,14 @@ class ProductionDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final token = ref.read(authProvider).accessToken ?? '';
+    // ⭐️ FIX: API Service Fix - Removed token from call here too,
+    // relying on the interceptor handled in the previous turn.
     final api = ref.read(apiServiceProvider);
     final isTablet = MediaQuery.of(context).size.width >= 768;
 
     return FutureBuilder<ProductionItem>(
-      future: api.fetchProductionItemById(token, productionId),
+      // ⭐️ FIX: Call api.fetchProductionItemById without token, assuming fix in ApiService
+      future: api.fetchProductionItemById(productionId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
@@ -131,6 +153,9 @@ class ProductionDetailScreen extends ConsumerWidget {
   }
 
   Widget _buildProductionInfo(ProductionItem item) {
+    // ⭐️ PRICE & QUANTITY FORMATTING APPLIED HERE
+    final formattedCostPerUnit = formatCurrency(item.cost / item.quantity);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -145,15 +170,22 @@ class ProductionDetailScreen extends ConsumerWidget {
         const SizedBox(height: 16),
         _buildInfoRow('Product', item.product),
         const Divider(),
-        _buildInfoRow('Quantity Produced', '${item.quantity} units'),
+        // ⭐️ FORMATTED QUANTITY
+        _buildInfoRow(
+            'Quantity Produced',
+            '${formatNumber(item.quantity.toDouble())} units'
+        ),
         const Divider(),
+        // ⭐️ FORMATTED DATE/TIME
         _buildInfoRow('Date', _formatDate(item.date)),
         const Divider(),
-        _buildInfoRow('Total Cost', 'Tsh ${item.cost.toStringAsFixed(0)}'),
+        // ⭐️ FORMATTED TOTAL COST
+        _buildInfoRow('Total Cost', formatCurrency(item.cost)),
         const Divider(),
+        // ⭐️ FORMATTED COST PER UNIT
         _buildInfoRow(
             'Cost per Unit',
-            'Tsh ${(item.cost / item.quantity).toStringAsFixed(3)}'
+            formattedCostPerUnit
         ),
         const Divider(),
         _buildProfitMarginRow(item.profitMargin),
@@ -240,7 +272,7 @@ class ProductionDetailScreen extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Ingredients Used',
+          'Ingredients Deducted',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -275,7 +307,7 @@ class ProductionDetailScreen extends ConsumerWidget {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
-        headingRowColor: MaterialStateColor.resolveWith(
+        headingRowColor: WidgetStateColor.resolveWith(
               (states) => Colors.grey[50]!,
         ),
         columns: const [
@@ -284,12 +316,16 @@ class ProductionDetailScreen extends ConsumerWidget {
           DataColumn(label: Text('Cost', style: TextStyle(fontWeight: FontWeight.bold))),
         ],
         rows: ingredients.map((ing) {
+          // ⭐️ FORMATTED QUANTITY
+          final formattedAmount = formatNumber(ing.amountDeducted.toDouble());
+
           return DataRow(
             cells: [
               DataCell(Text(ing.name.toString())),
-              DataCell(Text('${ing.amountDeducted} ${ing.unit}')),
+              DataCell(Text('$formattedAmount ${ing.unit}')),
               DataCell(Text(
-                'Tsh ${ing.cost.toStringAsFixed(0)}',
+                // ⭐️ FORMATTED COST
+                formatCurrency(ing.cost),
                 style: const TextStyle(fontWeight: FontWeight.w600),
               )),
             ],
@@ -306,6 +342,11 @@ class ProductionDetailScreen extends ConsumerWidget {
   }
 
   Widget _buildIngredientCard(dynamic ingredient) {
+    // ⭐️ FORMATTED QUANTITY
+    final formattedAmount = formatNumber(ingredient.amountDeducted.toDouble());
+    // ⭐️ FORMATTED COST
+    final formattedCost = formatCurrency(ingredient.cost);
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       elevation: 1,
@@ -325,12 +366,12 @@ class ProductionDetailScreen extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Amount: ${ingredient.amountDeducted} ${ingredient.unit}'),
+                Text('Amount: $formattedAmount ${ingredient.unit}'),
                 Text(
-                  'Cost: Tsh ${ingredient.cost.toStringAsFixed(0)}',
+                  'Cost: $formattedCost',
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
-                    color: Colors.green,
+                    color: Colors.brown,
                   ),
                 ),
               ],
@@ -342,12 +383,13 @@ class ProductionDetailScreen extends ConsumerWidget {
   }
 
   Color _getProfitMarginColor(double margin) {
-    if (margin >= 20) return Colors.green;
+    if (margin >= 20) return Colors.brown;
     if (margin >= 10) return Colors.orange;
     return Colors.red;
   }
 
+  // ⭐️ MODIFIED: To include hours, minutes, and seconds
   String _formatDate(DateTime date) {
-    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+    return DateFormat('MMM dd, yyyy HH:mm:ss').format(date);
   }
 }

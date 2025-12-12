@@ -39,31 +39,6 @@ class InventoryActionsScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header Section
-              Padding(
-                padding: const EdgeInsets.only(bottom: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Stock Control',
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        color: textBodyColor,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Manage finished goods, raw ingredients, and supplies.',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: textBodyColor?.withOpacity(0.6),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
 
               // ⭐️ REVISED: Unified GridView for all sizes (Responsive)
               Expanded(
@@ -97,8 +72,8 @@ class InventoryActionsScreen extends StatelessWidget {
       _ActionCard(
         color: primaryColor,
         label: 'Products',
-        subtitle: 'Manage finished baked goods stock levels.',
-        icon: LucideIcons.cake, // Updated Icon
+        subtitle: 'Manage stock levels.',
+        icon: LucideIcons.box, // Updated Icon
         onTap: () {
           Navigator.push(
             context,
@@ -111,8 +86,8 @@ class InventoryActionsScreen extends StatelessWidget {
       _ActionCard(
         color: primaryColor.withOpacity(0.8), // Slight variation
         label: 'Materials',
-        subtitle: 'Track flour, sugar, eggs, and other ingredients.',
-        icon: LucideIcons.package, // Updated Icon
+        subtitle: 'Track ingredients.',
+        icon: LucideIcons.cakeSlice, // Updated Icon
         onTap: () {
           Navigator.push(
             context,
@@ -126,8 +101,8 @@ class InventoryActionsScreen extends StatelessWidget {
         // ⭐️ CHANGE: Using a distinct accent color for better visual separation
         color: primaryColor.withOpacity(0.8), // Slight variation
         label: 'Supplies',
-        subtitle: 'Manage packaging, uniforms, and non-consumables.',
-        icon: LucideIcons.box, // Updated Icon
+        subtitle: 'Manage supplies',
+        icon: LucideIcons.cake, // Updated Icon
         onTap: () {
           Navigator.push(
             context,
@@ -141,7 +116,7 @@ class InventoryActionsScreen extends StatelessWidget {
       _ActionCard(
         color: primaryColor.withOpacity(0.8), // Slight variation
         label: 'Stock Adjustments',
-        subtitle: 'Record gains, losses, or waste in inventory.',
+        subtitle: 'Record stock.',
         icon: LucideIcons.history,
         onTap: () {
           Navigator.push(

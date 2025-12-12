@@ -290,7 +290,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Production Records'),
+        title: const Text('Production'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         // ⭐️ ADDED: Clear Filter Button in AppBar
         actions: [

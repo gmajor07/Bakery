@@ -15,7 +15,9 @@ class TokenNotifier extends StateNotifier<String?> {
     try {
       state = await TokenStorage.getAccessToken();
       if (kDebugMode && state != null) {
-        print("🔑 TokenProvider: Token loaded from storage");
+        if (kDebugMode) {
+          print("🔑 TokenProvider: Token loaded from storage");
+        }
       }
     } catch (e) {
       if (kDebugMode) {
