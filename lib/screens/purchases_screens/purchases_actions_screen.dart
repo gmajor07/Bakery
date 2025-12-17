@@ -1,8 +1,10 @@
+// lib/screens/purchases_screens/purchases_actions_screen.dart
 import 'package:bak/screens/purchases_screens/purchases_order_screen.dart';
 import 'package:bak/screens/supplier_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../materials_received_screen.dart';
+import '../../widgets/action_card.dart';
+import '../material_screen/materials_received_screen.dart';
 
 class PurchasesActionsScreen extends StatelessWidget {
   const PurchasesActionsScreen({super.key});
@@ -13,11 +15,12 @@ class PurchasesActionsScreen extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     final primaryColor = colorScheme.primary;
-    final backgroundColor = colorScheme.surface;
+    final backgroundColor = colorScheme.surface; // Changed from .surface
     final onPrimary = colorScheme.onPrimary;
+    final textBodyColor = textTheme.bodyMedium?.color;
 
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: backgroundColor, // Now using background color
       appBar: AppBar(
         title: Text(
           'Purchases Management',
@@ -31,137 +34,79 @@ class PurchasesActionsScreen extends StatelessWidget {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: GridView.count(
-            // The GridView setup remains the same, forcing the responsiveness into the card
-            crossAxisCount: 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1.2,
-            children: [
-              // 1. Purchase Orders
-              _ActionCard(
-                color: primaryColor,
-                label: 'Purchase Orders',
-                subtitle: 'Manage new orders',
-                icon: LucideIcons.receipt,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const PurchaseOrdersScreen(),
-                    ),
-                  );
-                },
-              ),
-
-              // 2. Material Receiving
-              _ActionCard(
-                color: primaryColor,
-                label: 'Material Receiving',
-                subtitle: 'Confirm items',
-                icon: LucideIcons.flaskConical,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const MaterialsReceivedScreen(),
-                    ),
-                  );
-                },
-              ),
-
-              // 3. Suppliers
-              _ActionCard(
-                color: primaryColor,
-                label: 'Suppliers',
-                subtitle: 'Manage vendor',
-                icon: LucideIcons.box,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const SupplierScreen()),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ActionCard extends StatelessWidget {
-  final Color color;
-  final String label;
-  final String subtitle;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _ActionCard({
-    required this.color,
-    required this.label,
-    required this.subtitle,
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    final cardSurfaceColor = colorScheme.surface;
-    final textBodyColor = textTheme.bodyMedium?.color;
-
-    return Material(
-      color: cardSurfaceColor,
-      borderRadius: BorderRadius.circular(20),
-      elevation: 4,
-      shadowColor: color.withOpacity(0.2),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          // ⭐️ FIX 1: Reduced overall padding to save vertical space
-          padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.9),
-                  borderRadius: BorderRadius.circular(12),
+              Text(
+                'Quick Actions',
+                style: textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: textBodyColor,
                 ),
-                child: Icon(icon, color: colorScheme.onPrimary, size: 24),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
+              Expanded(
+                child: GridView.count(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 1.2,
+                  children: [
+                    // 1. Purchase Orders
+                    ActionCard(
+                      color: primaryColor,
+                      label: 'Purchase Orders',
+                      subtitle: 'Manage PO',
+                      icon: LucideIcons.box,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const PurchaseOrdersScreen(),
+                          ),
+                        );
+                      },
+                      contentAlignment: CrossAxisAlignment.center,
+                      textAlignment: TextAlign.center,
+                    ),
 
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 14,
-                      color: textBodyColor,
+                    // 2. Material Receiving
+                    ActionCard(
+                      color: primaryColor,
+                      label: 'Material Received',
+                      subtitle: 'Confirm items',
+                      icon: LucideIcons.car,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MaterialsReceivedScreen(),
+                          ),
+                        );
+                      },
+                      contentAlignment: CrossAxisAlignment.center,
+                      textAlignment: TextAlign.center,
                     ),
-                  ),
-                  // ⭐️ FIX 2: Reduced spacing between label and subtitle
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: textBodyColor?.withOpacity(0.6),
+
+                    // 3. Suppliers
+                    ActionCard(
+                      color: primaryColor,
+                      label: 'Suppliers',
+                      subtitle: 'Manage suppliers',
+                      icon: LucideIcons.userCog,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SupplierScreen(),
+                          ),
+                        );
+                      },
+                      contentAlignment: CrossAxisAlignment.center,
+                      textAlignment: TextAlign.center,
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),

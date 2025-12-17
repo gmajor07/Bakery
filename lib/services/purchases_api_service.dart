@@ -276,7 +276,7 @@ class PurchaseOrdersApiService {
 
     try {
       // 1. First, receive the goods (creates receipt)
-      final response = await _dio.post(
+      final _ = await _dio.post(
         '/purchases/receiving',
         data: payload,
         options: Options(headers: {'Authorization': 'Bearer $token'}),

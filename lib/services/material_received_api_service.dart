@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/material_received.dart';
 import '../auth/auth_provider.dart';
@@ -20,11 +21,10 @@ class MaterialApiService {
     _dio = BaseApiService(ref).dio;
   }
 
-  /// Fetch paginated goods receipts
-  // ⭐️ MODIFIED: Return type changed to MaterialReceiptResponse
+  /// Fetch paginated materials received
   Future<MaterialReceiptResponse> fetchReceipts({
     int page = 1,
-    int limit = 15, // ⭐️ Changed default to 15 (matching screen assumption)
+    int limit = 15,
     String? status,
     String? startDate,
     String? endDate,
@@ -34,6 +34,11 @@ class MaterialApiService {
     if (token == null) throw Exception('Token not found');
 
     try {
+      if (kDebugMode) {
+        print(
+          'Fetching materials received with page: $page, limit: $limit, search: $search',
+        );
+      }
       final response = await _dio.get(
         '/purchases/receiving',
         queryParameters: {
@@ -48,35 +53,80 @@ class MaterialApiService {
       );
 
       final raw = response.data;
+      if (kDebugMode) {
+        print('Response data type: ${raw.runtimeType}, data: $raw');
+      }
       List<dynamic> list = [];
-      int totalRecords = 0; // ⭐️ Initialize totalRecords
+      int totalRecords = 0;
 
-      if (raw is List) {
-        list = raw;
-        // If API returns only a list, we can't get totalRecords, so we guess.
-        // It's crucial the API returns metadata for proper pagination.
-        totalRecords = list.length;
-      } else if (raw is Map<String, dynamic>) {
-        // ⭐️ ASSUME: API returns metadata like this:
-        totalRecords = raw['totalCount'] ?? raw['totalRecords'] ?? 0;
-
+      if (raw is Map<String, dynamic>) {
+        // Check for common API response structures - prioritize goodsReceipts
         if (raw['goodsReceipts'] is List) {
           list = raw['goodsReceipts'];
+          totalRecords =
+              raw['totalCount'] ?? raw['totalRecords'] ?? list.length;
+        } else if (raw['materialsReceived'] is List) {
+          list = raw['materialsReceived'];
+          totalRecords =
+              raw['totalCount'] ?? raw['totalRecords'] ?? list.length;
         } else if (raw['data'] is List) {
           list = raw['data'];
+          totalRecords =
+              raw['totalCount'] ?? raw['totalRecords'] ?? list.length;
+        } else if (raw['receipts'] is List) {
+          list = raw['receipts'];
+          totalRecords =
+              raw['totalCount'] ?? raw['totalRecords'] ?? list.length;
+        } else {
+          // Fallback: assume the entire response is the list
+          list = raw.values.whereType<List>().expand((v) => v as List).toList();
+          totalRecords = list.length;
         }
+      } else if (raw is List) {
+        list = raw;
+        totalRecords = list.length;
       }
 
-      final receipts = list.map((e) => MaterialReceipt.fromJson(e)).toList();
+      if (kDebugMode) {
+        print('Parsed receipts: ${list.length}, totalRecords: $totalRecords');
+      }
 
-      // ⭐️ RETURN: Use the new response model
+      if (list.isEmpty) {
+        return MaterialReceiptResponse(receipts: [], totalRecords: 0);
+      }
+
+      final receipts = list.map((e) {
+        try {
+          return MaterialReceipt.fromJson(e as Map<String, dynamic>);
+        } catch (e) {
+          print('Error parsing receipt: $e, data: $e');
+          // Return a fallback receipt if parsing fails
+          return MaterialReceipt(
+            id: 0,
+            purchaseOrderId: 0,
+            receivedDate: DateTime.now(),
+            receivedQuantity: 0,
+            status: 'Unknown',
+            supplierName: 'Unknown',
+            total: 0,
+            receivedBy: 'Unknown',
+            items: [],
+          );
+        }
+      }).toList();
+
       return MaterialReceiptResponse(
         receipts: receipts,
         totalRecords: totalRecords,
       );
     } on DioException catch (e) {
-      final msg = e.response?.data?['message'] ?? 'Failed to fetch receipts';
+      print('DioException: ${e.message}, response: ${e.response?.data}');
+      final msg =
+          e.response?.data?['message'] ?? 'Failed to fetch materials received';
       throw Exception(msg);
+    } catch (e) {
+      print('General exception: $e');
+      throw Exception('Failed to fetch materials received: $e');
     }
   }
 
@@ -86,37 +136,74 @@ class MaterialApiService {
     if (token == null) throw Exception('Token not found');
 
     try {
-      final response = await _dio.get(
+      print('Fetching receipt detail for ID: $receiptId');
+
+      // Try multiple endpoint patterns
+      List<String> endpoints = [
         '/purchases/receiving/$receiptId',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
+        '/purchases/materials-received/$receiptId',
+        '/goods-receipts/$receiptId',
+        '/inventory/materials-received/$receiptId',
+      ];
 
-      final data = response.data is Map<String, dynamic>
-          ? response.data
-          : (response.data['data'] ?? {});
+      Exception? lastError;
 
-      // ✅ Ensure items array exists
-      if (data['items'] == null) {
-        data['items'] = [];
+      for (String endpoint in endpoints) {
+        try {
+          print('Trying endpoint: $endpoint');
+          final response = await _dio.get(
+            endpoint,
+            options: Options(headers: {'Authorization': 'Bearer $token'}),
+          );
+
+          print('Response received from $endpoint: ${response.data}');
+
+          final data = response.data is Map<String, dynamic>
+              ? response.data
+              : (response.data['data'] ?? {});
+
+          // Ensure items array exists
+          if (data['items'] == null) {
+            data['items'] = [];
+          }
+
+          // Ensure each item has a name (from the API)
+          if (data['items'] is List) {
+            data['items'] = (data['items'] as List)
+                .map(
+                  (item) => {
+                    'name': item['name'] ?? '',
+                    'quantity': item['quantity'] ?? 0,
+                    'cost': item['cost'] ?? 0,
+                    'total': item['total'] ?? 0,
+                  },
+                )
+                .toList();
+          }
+
+          print('Parsed detail data: $data');
+          return MaterialReceipt.fromJson(data);
+        } on DioException catch (e) {
+          print(
+            'Endpoint $endpoint failed: ${e.message}, status: ${e.response?.statusCode}',
+          );
+          lastError = e;
+          continue; // Try next endpoint
+        }
       }
 
-      // ✅ Ensure each item has a name (from the API)
-      data['items'] = (data['items'] as List)
-          .map(
-            (item) => {
-          'name': item['name'] ?? '',
-          'quantity': item['quantity'] ?? 0,
-          'cost': item['cost'] ?? 0,
-          'total': item['total'] ?? 0,
-        },
-      )
-          .toList();
-
-      return MaterialReceipt.fromJson(data);
+      // If all endpoints failed, throw the last error
+      throw lastError ?? Exception('All detail endpoints failed');
     } on DioException catch (e) {
+      print(
+        'DioException in fetchReceiptDetail: ${e.message}, response: ${e.response?.data}',
+      );
       final msg =
           e.response?.data?['message'] ?? 'Failed to fetch receipt detail';
       throw Exception(msg);
+    } catch (e) {
+      print('General exception in fetchReceiptDetail: $e');
+      throw Exception('Failed to fetch receipt detail: $e');
     }
   }
 }

@@ -1,3 +1,4 @@
+import 'package:bak/screens/app_restart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'auth/auth_provider.dart';
@@ -9,10 +10,17 @@ import 'utils/network_helper.dart';
 import 'widgets/network_error_widget.dart';
 
 void main() {
-  // Ensure Flutter bindings are initialized
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ProviderScope(child: MyApp()));
+
+  runApp(
+    ProviderScope(
+      child: AppRestart(
+        child: MyApp(),
+      ),
+    ),
+  );
 }
+
 
 class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});

@@ -22,6 +22,7 @@ class SalesNotifier extends StateNotifier<bool> {
     int? dueDays,
     required double subtotal,
     required double vatAmount,
+    required String paymentMethod,
   }) async {
     state = true; // show loading
 
@@ -95,7 +96,9 @@ class SalesNotifier extends StateNotifier<bool> {
         dueDays: dueDays,
       );
     } on Exception catch (e) {
-      print("❌ Failed to record payment: $e");
+      if (kDebugMode) {
+        print("❌ Failed to record payment: $e");
+      }
       rethrow;
     }
   }

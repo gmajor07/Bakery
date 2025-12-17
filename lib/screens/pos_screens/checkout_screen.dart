@@ -2,17 +2,15 @@ import 'package:bak/screens/pos_screens/pos_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart'; // Used here for date formatting in print
-import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
-
+import 'package:intl/intl.dart';
 import '../../models/customer.dart';
 import '../../provider/pos_provider.dart';
 import '../../provider/customer_provider.dart';
 import '../../provider/sales_provider.dart';
 import '../../provider/sell_provider.dart';
-// ⬅️ NEW: Import the currency formatter utility
+import '../../provider/settings_provider.dart';
 import '../../utils/formatters.dart';
+import '../../utils/receipt_generator.dart'; // ⬅️ NEW: Import the receipt generator utility
 
 class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen({super.key});
@@ -22,7 +20,8 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 }
 
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
-  String paymentMethod = 'Cash';
+  // ⬅️ UPDATED: Changed default payment to Cash (VAT)
+  String paymentMethod = 'Cash (VAT)';
   bool _isProcessing = false;
   String? _selectedDueDays;
   final List<String> _dueDaysOptions = ['7', '14', '21', '30'];
@@ -33,13 +32,29 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final cartNotifier = ref.read(cartProvider.notifier);
     final cart = ref.watch(cartProvider);
     final customersAsync = ref.watch(customerListProvider);
+    final settingsAsync = ref.watch(settingsProvider);
 
     final subtotal = cartNotifier.totalPrice;
 
+    final vatRate = settingsAsync.maybeWhen(
+      data: (settings) {
+        final vatValue = settings['vat'];
+        if (vatValue is num) {
+          return vatValue.toDouble() / 100;
+        }
+        return 0.18;
+      },
+      orElse: () => 0.18,
+    );
+
+    // ⬅️ UPDATED LOGIC FOR VAT
     final isCredit = paymentMethod == 'Credit';
-    // VAT is calculated on the subtotal (18% in this example)
-    final vatCredit = isCredit ? subtotal * 0.18 : 0.0;
-    final total = subtotal + vatCredit;
+    final isVatApplied = isCredit || paymentMethod == 'Cash (VAT)';
+
+    // VAT is calculated on the subtotal only if it's Credit or Cash (VAT)
+    final vatAmount = isVatApplied ? subtotal * vatRate : 0.0;
+
+    final total = subtotal + vatAmount; // Total includes VAT if applied
 
     return Scaffold(
       appBar: AppBar(
@@ -60,7 +75,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             const SizedBox(height: 24),
             _buildPaymentMethodSection(colorScheme),
             const SizedBox(height: 24),
-            if (paymentMethod == 'Credit') ...[
+            // Customer selection depends on payment method
+            if (isCredit) ...[
               _buildCreditDueDaysSection(colorScheme),
               const SizedBox(height: 24),
               _buildCustomerSection(customersAsync, colorScheme),
@@ -71,9 +87,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               const SizedBox(height: 24),
             ],
 
-            _buildTotalsSection(subtotal, vatCredit, total, isCredit, colorScheme),
+            _buildTotalsSection(
+              subtotal,
+              vatAmount, // ⬅️ UPDATED
+              total,
+              isCredit,
+              colorScheme,
+              vatRate,
+            ),
             const SizedBox(height: 32),
-            _buildCompleteSaleButton(cart, total, colorScheme),
+            _buildCompleteSaleButton(cart, total, colorScheme, vatRate),
           ],
         ),
       ),
@@ -85,6 +108,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       double subtotal,
       ColorScheme colorScheme,
       ) {
+    // ... (No changes here)
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -119,7 +143,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               ],
             ),
             const Divider(height: 20),
-            ...cart.values.take(3).map(
+            ...cart.values
+                .take(3)
+                .map(
                   (item) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(
@@ -129,11 +155,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       child: Text(
                         item.product.name,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: colorScheme.onSurfaceVariant),
+                        style: TextStyle(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                     Text(
-                      '${item.quantity} × ${formatCurrency(item.product.price)}', // ⬅️ FORMATTED
+                      '${item.quantity} × ${formatCurrency(item.product.price)}',
                       style: TextStyle(fontWeight: FontWeight.w500),
                     ),
                   ],
@@ -146,7 +174,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 child: Text(
                   '+ ${cart.length - 3} more items...',
                   style: TextStyle(
-                    color: colorScheme.onSurfaceVariant.withValues(),
+                    color: colorScheme.onSurfaceVariant.withOpacity(0.8),
                     fontStyle: FontStyle.italic,
                   ),
                 ),
@@ -161,6 +189,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       AsyncValue<List<Customer>> customersAsync,
       ColorScheme colorScheme,
       ) {
+    // ... (No changes here)
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -274,13 +303,24 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         ),
         const SizedBox(height: 12),
         Row(
+          // ⬅️ UPDATED: Added a third payment method option
           children: [
             Expanded(
               child: _buildPaymentMethodCard(
                 value: 'Cash',
                 icon: Icons.money,
+                title: 'Cash ',
+                subtitle: 'Payment without VAT',
+                colorScheme: colorScheme,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildPaymentMethodCard(
+                value: 'Cash (VAT)',
+                icon: Icons.money,
                 title: 'Cash',
-                subtitle: 'Immediate payment',
+                subtitle: 'Payment with VAT',
                 colorScheme: colorScheme,
               ),
             ),
@@ -307,12 +347,19 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.person_off_outlined, color: colorScheme.onErrorContainer),
+                  Icon(
+                    Icons.person_off_outlined,
+                    color: colorScheme.onErrorContainer,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'You must select a customer for credit sales.',
-                      style: TextStyle(color: colorScheme.onErrorContainer, fontSize: 13, fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                        color: colorScheme.onErrorContainer,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ],
@@ -335,7 +382,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       onTap: () {
         setState(() {
           paymentMethod = value;
-          if (paymentMethod == 'Cash') _selectedDueDays = null;
+          // Only clear due days if switching AWAY from Credit
+          if (paymentMethod != 'Credit') _selectedDueDays = null;
         });
       },
       borderRadius: BorderRadius.circular(16),
@@ -344,17 +392,27 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(
-            color: isSelected ? colorScheme.primary : colorScheme.outlineVariant,
+            color: isSelected
+                ? colorScheme.primary
+                : colorScheme.outlineVariant,
             width: isSelected ? 2 : 1,
           ),
         ),
-        color: isSelected ? colorScheme.primaryContainer.withOpacity(0.3) : colorScheme.surface,
+        color: isSelected
+            ? colorScheme.primaryContainer.withOpacity(0.3)
+            : colorScheme.surface,
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 30, color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant),
+              Icon(
+                icon,
+                size: 30,
+                color: isSelected
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant,
+              ),
               const SizedBox(height: 8),
               Text(
                 title,
@@ -367,7 +425,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ),
@@ -377,6 +438,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 
   Widget _buildCreditDueDaysSection(ColorScheme colorScheme) {
+    // ... (No changes here)
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -391,7 +453,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         Container(
           decoration: BoxDecoration(
             border: Border.all(
-              color: _selectedDueDays == null ? colorScheme.error : colorScheme.outline,
+              color: _selectedDueDays == null
+                  ? colorScheme.error
+                  : colorScheme.outline,
             ),
             borderRadius: BorderRadius.circular(12),
           ),
@@ -401,7 +465,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               value: _selectedDueDays,
               hint: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text('Select due days', style: TextStyle(color: colorScheme.onSurfaceVariant)),
+                child: Text(
+                  'Select due days',
+                  style: TextStyle(color: colorScheme.onSurfaceVariant),
+                ),
               ),
               items: _dueDaysOptions
                   .map(
@@ -432,11 +499,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   Widget _buildTotalsSection(
       double subtotal,
-      double vatCredit,
+      double vatAmount, // ⬅️ UPDATED
       double total,
       bool isCredit,
       ColorScheme colorScheme,
+      double vatRate,
       ) {
+    // ⬅️ UPDATED: Check for Cash (VAT) as well
+    final isVatApplied = isCredit || paymentMethod == 'Cash (VAT)';
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -457,8 +528,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             ),
             const Divider(),
             _buildTotalRow('Subtotal:', subtotal, colorScheme),
-            if (isCredit)
-              _buildTotalRow('VAT (18%):', vatCredit, colorScheme),
+            if (isVatApplied) // ⬅️ UPDATED: Show VAT if credit OR Cash (VAT)
+              _buildTotalRow(
+                'VAT (${(vatRate * 100).toInt()}%):',
+                vatAmount, // ⬅️ Use vatAmount
+                colorScheme,
+              ),
             const Divider(height: 20, thickness: 2),
             _buildTotalRow('Total Amount:', total, colorScheme, isBold: true),
             if (isCredit && _selectedDueDays != null)
@@ -484,6 +559,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       ColorScheme colorScheme, {
         bool isBold = false,
       }) {
+    // ... (No changes here)
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -498,7 +574,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             ),
           ),
           Text(
-            formatCurrency(value), // ⬅️ FORMATTED
+            formatCurrency(value),
             style: TextStyle(
               fontWeight: isBold ? FontWeight.w900 : FontWeight.w600,
               fontSize: isBold ? 18 : 16,
@@ -514,6 +590,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       Map<int, CartItem> cart,
       double total,
       ColorScheme colorScheme,
+      double vatRate,
       ) {
     final selectedCustomer = ref.watch(selectedCustomerProvider);
     final isCredit = paymentMethod == 'Credit';
@@ -538,11 +615,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         )
             : const Icon(Icons.payment_rounded),
         label: Text(
-          'Complete Sale - ${formatCurrency(total)}', // ⬅️ FORMATTED
+          'Complete Sale - ${formatCurrency(total)}',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         onPressed: (isValid && !_isProcessing)
-            ? () => _showConfirmDialog(total, colorScheme)
+            ? () => _showConfirmDialog(total, colorScheme, vatRate)
             : null,
         style: FilledButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 18),
@@ -556,7 +633,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     );
   }
 
-  void _showConfirmDialog(double total, ColorScheme colorScheme) {
+  void _showConfirmDialog(
+      double total,
+      ColorScheme colorScheme,
+      double vatRate,
+      ) {
     final selectedCustomer = ref.read(selectedCustomerProvider);
     final isCredit = paymentMethod == 'Credit';
 
@@ -589,7 +670,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           FilledButton(
             onPressed: () {
               Navigator.pop(context);
-              _completeSale(ref, total);
+              _completeSale(ref, total, vatRate);
             },
             style: FilledButton.styleFrom(
               backgroundColor: colorScheme.primary,
@@ -603,6 +684,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 
   Widget _buildTextRow(String label, String value, {bool isBold = false}) {
+    // ... (No changes here)
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
@@ -625,7 +707,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     );
   }
 
-  Future<void> _completeSale(WidgetRef ref, double total) async {
+  Future<void> _completeSale(
+      WidgetRef ref,
+      double total,
+      double vatRate,
+      ) async {
     setState(() => _isProcessing = true);
 
     try {
@@ -634,6 +720,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
       final customer = ref.read(selectedCustomerProvider);
       final isCredit = paymentMethod == 'Credit';
+      // ⬅️ NEW: Determine if VAT should be applied (Credit or Cash (VAT))
+      final isVatApplied = isCredit || paymentMethod == 'Cash (VAT)';
+
 
       if (isCredit) {
         if (customer == null) {
@@ -661,27 +750,28 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       }).toList();
 
       // 2. Calculate VAT amount
-      const vatRate = 0.18;
-      final vatAmount = isCredit ? subtotal * vatRate : 0.0;
-
+      // ⬅️ UPDATED: Calculate VAT based on isVatApplied
+      final vatAmount = isVatApplied ? subtotal * vatRate : 0.0;
 
       final sale = await ref
           .read(salesProvider.notifier)
           .createSale(
         customerId: customer?.id,
         isCredit: isCredit,
-        subtotal: subtotal,    // ⬅️ NEW: Pass calculated subtotal
-        vatAmount: vatAmount,  // ⬅️ NEW: Pass calculated VAT amount
-        total: total,          // Pass the already calculated Grand Total
+        subtotal: subtotal,
+        vatAmount: vatAmount,
+        total: total,
         items: items,
         dueDays: isCredit ? int.parse(_selectedDueDays!) : null,
+        // You may want to send the exact paymentMethod string to the backend as well
+        paymentMethod: paymentMethod,
       );
 
       if (kDebugMode) print("🟢 Sale created: $sale");
 
       ref.read(cartProvider.notifier).clearCart();
       if (context.mounted) {
-        _showSuccessDialog(sale, isCredit);
+        _showSuccessDialog(sale, isCredit, vatRate);
       }
     } catch (err, stack) {
       if (kDebugMode) {
@@ -692,7 +782,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Sale failed: ${err.toString().split(':').last.trim()}'),
+            content: Text(
+              'Sale failed: ${err.toString().split(':').last.trim()}',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -701,7 +793,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       setState(() => _isProcessing = false);
     }
   }
-  void _showSuccessDialog(Map<String, dynamic> sale, bool isCredit) {
+
+  void _showSuccessDialog(
+      Map<String, dynamic> sale,
+      bool isCredit,
+      double vatRate,
+      ) {
     final selectedCustomer = ref.read(selectedCustomerProvider);
     final total = (sale['total'] is num)
         ? (sale['total'] as num).toDouble()
@@ -724,7 +821,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Total: ${formatCurrency(total)}', // ⬅️ FORMATTED
+              'Total: ${formatCurrency(total)}',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -742,10 +839,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         actions: [
           TextButton.icon(
             icon: Icon(Icons.print, color: colorScheme.onSurface),
-            label: Text('Print Receipt', style: TextStyle(color: colorScheme.onSurface)),
+            label: Text(
+              'Print Receipt',
+              style: TextStyle(color: colorScheme.onSurface),
+            ),
             onPressed: () {
               Navigator.pop(context);
-              _printSaleMap(sale);
+              // ⬅️ UPDATED: Call the new, separated utility function
+              printSaleReceipt(sale, vatRate);
             },
           ),
           FilledButton.icon(
@@ -756,7 +857,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => PosScreen()),
-              );            },
+              );
+            },
             style: FilledButton.styleFrom(
               backgroundColor: colorScheme.primary,
               foregroundColor: colorScheme.onPrimary,
@@ -765,146 +867,5 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         ],
       ),
     );
-  }
-
-  // PRINT: generate a PDF from the returned sale map
-  Future<void> _printSaleMap(Map<String, dynamic> sale) async {
-    final pdf = pw.Document();
-    final dateRaw = sale['date'] ?? DateTime.now().toIso8601String();
-    DateTime date;
-    try {
-      date = DateTime.parse(dateRaw.toString());
-    } catch (_) {
-      date = DateTime.now();
-    }
-    final dateFormatted = DateFormat('yyyy-MM-dd HH:mm').format(date);
-    final customerName =
-    (sale['customer'] == null || (sale['customer'] as String).isEmpty)
-        ? 'Walk-in Customer'
-        : sale['customer'].toString();
-
-    // Build items list, tolerant of various shapes
-    final List items = sale['items'] is List ? sale['items'] as List : [];
-    final subtotal = (sale['subtotal'] is num)
-        ? (sale['subtotal'] as num).toDouble()
-        : items.fold<double>(0, (s, it) {
-      final price = (it['price'] ?? it['unit_price'] ?? 0);
-      final qty = (it['quantity'] ?? it['qty'] ?? 0);
-      return s + ((price as num).toDouble() * (qty as num).toDouble());
-    });
-
-    final vat = (sale['vat'] is num)
-        ? (sale['vat'] as num).toDouble()
-        : ((sale['isCredit'] == true) ? subtotal * 0.18 : 0.0);
-    final grandTotal = (sale['total'] is num)
-        ? (sale['total'] as num).toDouble()
-        : subtotal + vat;
-
-    pdf.addPage(
-      pw.Page(
-        margin: const pw.EdgeInsets.all(20),
-        build: (context) {
-          // Inner function to format currency for PDF
-          String formatPdfCurrency(double amount) {
-            return 'TSh ${NumberFormat('#,##0.00').format(amount)}';
-          }
-
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text(
-                '🧾 SALES RECEIPT',
-                style: pw.TextStyle(
-                  fontSize: 22,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.SizedBox(height: 10),
-              pw.Text('Receipt #: ${sale['id'] ?? ''}'),
-              pw.Text('Customer: $customerName'),
-              pw.Text('Date: $dateFormatted'),
-              pw.Text(
-                'Payment Type: ${sale['isCredit'] == true ? "Credit" : "Cash"}',
-              ),
-              pw.SizedBox(height: 12),
-              pw.Text(
-                'Items',
-                style: pw.TextStyle(
-                  fontSize: 16,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.SizedBox(height: 6),
-              pw.TableHelper.fromTextArray(
-                headers: ['Product', 'Qty', 'Unit Price', 'Subtotal'],
-                data: items.map((it) {
-                  final name = it['name'] ?? it['product_name'] ?? '';
-                  final qty = (it['quantity'] ?? it['qty'] ?? 0).toString();
-                  final price = ((it['price'] ?? it['unit_price'] ?? 0) as num)
-                      .toDouble();
-                  final sub = (((it['price'] ?? it['unit_price'] ?? 0) as num)
-                      .toDouble() *
-                      ((it['quantity'] ?? it['qty'] ?? 0) as num)
-                          .toDouble());
-                  return [name.toString(), qty, formatPdfCurrency(price), formatPdfCurrency(sub)];
-                }).toList(),
-              ),
-              pw.SizedBox(height: 12),
-              pw.Divider(),
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Text("Subtotal:", style: pw.TextStyle(fontSize: 14)),
-                  pw.Text(
-                    formatPdfCurrency(subtotal),
-                    style: pw.TextStyle(fontSize: 14),
-                  ),
-                ],
-              ),
-              if (vat > 0)
-                pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Text("VAT (18%):", style: pw.TextStyle(fontSize: 14)),
-                    pw.Text(
-                      formatPdfCurrency(vat),
-                      style: pw.TextStyle(fontSize: 14),
-                    ),
-                  ],
-                ),
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Text(
-                    "TOTAL:",
-                    style: pw.TextStyle(
-                      fontSize: 16,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                  pw.Text(
-                    formatPdfCurrency(grandTotal),
-                    style: pw.TextStyle(
-                      fontSize: 16,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              pw.Divider(),
-              pw.SizedBox(height: 12),
-              pw.Center(
-                child: pw.Text(
-                  'Thank you for your purchase!',
-                  style: pw.TextStyle(fontSize: 14),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-
-    await Printing.layoutPdf(onLayout: (format) => pdf.save());
   }
 }

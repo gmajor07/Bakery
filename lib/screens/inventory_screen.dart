@@ -6,7 +6,7 @@ import '../provider/inventory_provider.dart';
 import '../widgets/token_error_widget.dart';
 
 
-import 'create_material_screen.dart';
+import 'material_screen/create_material_screen.dart';
 
 // --- Top-level Providers and Helper Functions ---
 

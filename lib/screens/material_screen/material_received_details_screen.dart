@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import '../provider/material_received_provider.dart';
-import '../widgets/token_error_widget.dart';
+import '../../provider/material_received_provider.dart';
+import '../../widgets/token_error_widget.dart';
 
 class MaterialDetailsScreen extends ConsumerWidget {
   final int receiptId;

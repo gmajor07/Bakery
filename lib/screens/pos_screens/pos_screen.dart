@@ -1,24 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart'; // ⬅️ NEW: Required for Number Formatting
+import 'package:intl/intl.dart';
 import '../../models/product.dart';
 import '../../provider/products_provider.dart';
 import '../../provider/pos_provider.dart';
 import '../../widgets/token_error_widget.dart';
 import 'cart_screen.dart' hide formatCurrency;
 import '../../auth/auth_provider.dart';
-// ⬅️ Import the currency formatter utility (and now assumed formatNumber utility)
-import '../../utils/formatters.dart';
+import '../../utils/formatters.dart'; // Contains formatCurrency
 
-// ⭐️ NOTE: If 'formatNumber' is not in 'formatters.dart', you need to
-// include it here or in that utility file. Assuming it's in formatters.dart,
-// but including a local version here for completeness if that's easier:
+// Utility function definition for completeness (as used in the UI)
 String formatNumber(int number) {
   // Use a locale that uses commas for thousands separator
-  // Assuming the developer wants standard locale formatting
   return NumberFormat('#,##0').format(number);
 }
-
 
 class PosScreen extends ConsumerStatefulWidget {
   const PosScreen({super.key});
@@ -68,7 +63,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final cart = ref.watch(cartProvider);
     final totalItems = cart.values.fold<int>(
       0,
-          (sum, item) => sum + item.quantity,
+      (sum, item) => sum + item.quantity,
     );
 
     return Scaffold(
@@ -85,7 +80,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           if (totalItems > 0)
             Padding(
               padding: const EdgeInsets.only(right: 16.0),
-              child: Badge.count( // ⬅️ NEW: Use Badge for the item count
+              child: Badge.count(
                 count: totalItems,
                 backgroundColor: colorScheme.error,
                 textColor: colorScheme.onError,
@@ -120,7 +115,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
-            color: colorScheme.surface, // Use surface for clean look
+            color: colorScheme.surface,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -130,11 +125,13 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                     hintText: 'Search products...',
                     prefixIcon: const Icon(Icons.search),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16), // Larger radius
+                      borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide.none,
                     ),
                     filled: true,
-                    fillColor: colorScheme.surfaceVariant.withOpacity(0.5),
+                    fillColor: colorScheme.surfaceContainerHighest.withOpacity(
+                      0.5,
+                    ),
                     contentPadding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                   onChanged: (value) => setState(() => searchQuery = value),
@@ -163,9 +160,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                   final filtered = products
                       .where(
                         (p) => p.name.toLowerCase().contains(
-                      searchQuery.toLowerCase(),
-                    ),
-                  )
+                          searchQuery.toLowerCase(),
+                        ),
+                      )
                       .toList();
 
                   if (filtered.isEmpty) {
@@ -206,7 +203,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                       // Get or create controller for the product
                       final qtyController = _qtyControllers.putIfAbsent(
                         product.id,
-                            () => TextEditingController(),
+                        () => TextEditingController(),
                       );
                       // Update controller text if quantity changes externally
                       if (qtyController.text != quantity.toString()) {
@@ -237,7 +234,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                       msg.contains('expired')) {
                     // Check if mounted before returning widget
                     if (context.mounted) {
-                      return TokenErrorWidget();
+                      return const TokenErrorWidget();
                     }
                   }
                   return Center(
@@ -271,17 +268,26 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     );
   }
 
-  // Extracted widget for better readability and maintainability
+  // Extracted widget for better readability and maintainability (Responsive version)
   Widget _buildProductCard(
-      BuildContext context,
-      WidgetRef ref,
-      Product product,
-      int quantity,
-      TextEditingController qtyController,
-      ColorScheme colorScheme,
-      ) {
+    BuildContext context,
+    WidgetRef ref,
+    Product product,
+    int quantity,
+    TextEditingController qtyController,
+    ColorScheme colorScheme,
+  ) {
     final isOutOfStock = product.quantity == 0;
     final canIncrement = product.quantity > quantity;
+
+    // Determine screen width to adjust layout density if needed
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isNarrowScreen = screenWidth < 360;
+    final cardPadding = isNarrowScreen ? 12.0 : 16.0;
+
+    // ADJUSTED FLEX RATIOS: Give controls more horizontal space
+    final infoFlex = isNarrowScreen ? 2 : 3;
+    final controlFlex = isNarrowScreen ? 3 : 2;
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -289,15 +295,15 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: colorScheme.outlineVariant),
       ),
-      elevation: 0, // Flat cards
+      elevation: 0,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(cardPadding),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Product Info
             Expanded(
-              flex: 3,
+              flex: infoFlex,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -312,7 +318,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  // ⬅️ PRICE FORMATTING APPLIED HERE
+                  // PRICE FORMATTING
                   Text(
                     formatCurrency(product.price),
                     style: TextStyle(
@@ -322,7 +328,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  // ⭐️ STOCK FORMATTING APPLIED HERE
+                  // STOCK FORMATTING
                   Text(
                     'Stock: ${formatNumber(product.quantity)}',
                     style: TextStyle(
@@ -330,18 +336,20 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                       color: isOutOfStock
                           ? colorScheme.error
                           : colorScheme.onSurfaceVariant,
-                      fontWeight: isOutOfStock ? FontWeight.w600 : FontWeight.normal,
+                      fontWeight: isOutOfStock
+                          ? FontWeight.w600
+                          : FontWeight.normal,
                     ),
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(width: 16),
+            const SizedBox(width: 8),
 
             // Quantity Controls / Add Button
             Expanded(
-              flex: 2,
+              flex: controlFlex,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -353,8 +361,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize
+                            .min, // Ensures Row only takes space needed by children
                         children: [
                           IconButton(
                             icon: const Icon(Icons.remove, size: 20),
@@ -366,12 +375,11 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                           ),
                           // Manual quantity input
                           SizedBox(
-                            width: 60, // ⭐️ INCREASED WIDTH
+                            width: 50, // Usable width, supported by flex ratio
                             child: TextField(
                               controller: qtyController,
                               keyboardType: TextInputType.number,
                               textAlign: TextAlign.center,
-                              // ⭐️ CHANGED to onChanged for automatic updates
                               onChanged: (value) {
                                 final intQty = int.tryParse(value);
                                 if (intQty != null && intQty >= 1) {
@@ -382,7 +390,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                     qtyController,
                                   );
                                 } else if (value.isEmpty) {
-                                  // Keep the item in cart until user confirms removal or sets 0
+                                  // Logic to handle clearing the input field
                                 }
                               },
                               decoration: const InputDecoration(
@@ -390,17 +398,22 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                 isDense: true,
                                 contentPadding: EdgeInsets.zero,
                               ),
-                              style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.onSurface),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.onSurface,
+                              ),
                             ),
                           ),
                           IconButton(
                             icon: const Icon(Icons.add, size: 20),
                             onPressed: canIncrement
                                 ? () => ref
-                                .read(cartProvider.notifier)
-                                .addProduct(product)
+                                      .read(cartProvider.notifier)
+                                      .addProduct(product)
                                 : null,
-                            color: canIncrement ? colorScheme.primary : colorScheme.onSurfaceVariant.withOpacity(0.5),
+                            color: canIncrement
+                                ? colorScheme.primary
+                                : colorScheme.onSurfaceVariant.withOpacity(0.5),
                             visualDensity: VisualDensity.compact,
                           ),
                         ],
@@ -412,17 +425,22 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                       onPressed: isOutOfStock
                           ? null
                           : () => ref
-                          .read(cartProvider.notifier)
-                          .addProduct(product),
+                                .read(cartProvider.notifier)
+                                .addProduct(product),
                       icon: const Icon(Icons.add),
-                      label: const Text('Add'),
+                      label: Text(isNarrowScreen ? '' : 'Add'),
                       style: FilledButton.styleFrom(
                         backgroundColor: colorScheme.primary,
                         foregroundColor: colorScheme.onPrimary,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
+                        padding: isNarrowScreen
+                            ? const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 10,
+                              )
+                            : const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -439,38 +457,26 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     );
   }
 
-  // Helper to handle quantity updates and stock checks
+  // ⭐️ RESTORED FUNCTION: Helper to handle quantity updates and stock checks
   void _handleQuantityUpdate(
-      WidgetRef ref,
-      Product product,
-      int intQty,
-      TextEditingController controller
-      ) {
+    WidgetRef ref,
+    Product product,
+    int intQty,
+    TextEditingController controller,
+  ) {
     if (intQty <= 0) {
-      // If the user types 0 or clears the field, remove it.
-      // Note: This relies on the TextField controller being updated externally
-      // by the Riverpod state change, which happens when removeProduct is called.
       ref.read(cartProvider.notifier).removeProduct(product.id);
     } else if (intQty <= product.quantity) {
-      ref
-          .read(cartProvider.notifier)
-          .updateProductQuantity(
-        product.id,
-        intQty,
-      );
+      ref.read(cartProvider.notifier).updateProductQuantity(product.id, intQty);
     } else {
       // If user exceeds stock, reset the TextField immediately to max stock
-      // and update cart to max stock.
       controller.text = product.quantity.toString();
       controller.selection = TextSelection.fromPosition(
         TextPosition(offset: controller.text.length),
       );
       ref
           .read(cartProvider.notifier)
-          .updateProductQuantity(
-        product.id,
-        product.quantity,
-      );
+          .updateProductQuantity(product.id, product.quantity);
     }
   }
 }

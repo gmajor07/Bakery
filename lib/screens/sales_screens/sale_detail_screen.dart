@@ -20,11 +20,6 @@ class SaleDetailScreen extends ConsumerWidget {
   }
 
   // 2. 💡 MODIFIED: Helper to format currency (FOR EXTERNAL USE/PDF)
-  String _formatCurrency(double amount) {
-    final absoluteAmount = amount.abs();
-    final formatter = NumberFormat('#,##0', 'en_US');
-    return 'TSh ${formatter.format(absoluteAmount)}';
-  }
 
   // Helper to format date
   String _formatDate(String dateString) {
@@ -38,16 +33,10 @@ class SaleDetailScreen extends ConsumerWidget {
 
   void _printReceipt(SaleItem sale, BuildContext context) async {
     final bytes = await generateSaleReceiptPdf(sale);
-    if (bytes != null) {
-      await Printing.layoutPdf(onLayout: (format) => bytes);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Receipt sent to printer.')));
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to generate receipt.')),
-      );
-    }
+    await Printing.layoutPdf(onLayout: (format) => bytes);
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Receipt sent to printer.')));
   }
 
   void _shareReceipt(SaleItem sale, BuildContext context) async {
@@ -57,26 +46,17 @@ class SaleDetailScreen extends ConsumerWidget {
 
     final bytes = await generateSaleReceiptPdf(sale);
 
-    if (bytes != null) {
-      // Use XFile.fromData to create XFile from bytes for sharing
-      final file = XFile.fromData(
-        bytes,
-        name: 'receipt_${sale.receiptNumber}.pdf',
-        mimeType: 'application/pdf', // Specify MIME type
-      );
+    // Use XFile.fromData to create XFile from bytes for sharing
+    final file = XFile.fromData(
+      bytes,
+      name: 'receipt_${sale.receiptNumber}.pdf',
+      mimeType: 'application/pdf', // Specify MIME type
+    );
 
-      await Share.shareXFiles(
-        [file],
-        text:
-            'Please find the receipt for Sale #${sale.receiptNumber} attached.',
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to generate receipt for sharing.'),
-        ),
-      );
-    }
+    await Share.shareXFiles(
+      [file],
+      text: 'Please find the receipt for Sale #${sale.receiptNumber} attached.',
+    );
   }
 
   @override

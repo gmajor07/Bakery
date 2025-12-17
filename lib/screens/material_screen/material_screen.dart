@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../provider/material_provider.dart';
-import '../provider/materials_search_provider.dart';
-import '../widgets/token_error_widget.dart';
+import '../../provider/material_provider.dart';
+import '../../provider/materials_search_provider.dart';
+import '../../widgets/token_error_widget.dart';
 import 'create_material_screen.dart';
 
 class MaterialsScreen extends ConsumerWidget {

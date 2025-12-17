@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart'; // ⬅️ NEW: Import for number formatting
-import '../auth/auth_provider.dart';
 import '../services/api_service.dart';
 import '../models/production_items.dart';
 

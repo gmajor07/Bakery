@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../auth/auth_provider.dart';
 import '../provider/suppliers_provider.dart';
 
-
 class SupplierCreationScreen extends ConsumerStatefulWidget {
   const SupplierCreationScreen({super.key});
 
@@ -21,16 +20,17 @@ class _SupplierCreationScreenState
 
   // Form Controllers
   final _nameController = TextEditingController();
-  final _phoneController = TextEditingController();
+  final _contactInfoController =
+      TextEditingController(); // ⬅️ Renamed from _phoneController
   final _emailController = TextEditingController();
   final _addressController = TextEditingController();
 
-  String? _selectedStatus = 'active';
+  // 🗑️ Removed _selectedStatus variable as it will be hardcoded to 'active'
 
   @override
   void dispose() {
     _nameController.dispose();
-    _phoneController.dispose();
+    _contactInfoController.dispose(); // ⬅️ Disposing the new controller
     _emailController.dispose();
     _addressController.dispose();
     super.dispose();
@@ -62,10 +62,11 @@ class _SupplierCreationScreenState
 
     final supplierData = {
       'name': _nameController.text,
-      'phone': _phoneController.text,
+      // ⬅️ Updated key and value source to contactInfo
+      'contactInfo': _contactInfoController.text,
       'email': _emailController.text,
       'address': _addressController.text,
-      'status': _selectedStatus,
+      'status': 'active', // ⬅️ Hardcoded status to 'active'
     };
 
     try {
@@ -136,11 +137,14 @@ class _SupplierCreationScreenState
               ),
               const SizedBox(height: 16),
 
-              // Phone
+              // Contact Info (formerly Phone)
               TextFormField(
-                controller: _phoneController,
-                decoration: const InputDecoration(labelText: 'Phone'),
-                keyboardType: TextInputType.phone,
+                controller: _contactInfoController, // ⬅️ Used new controller
+                decoration: const InputDecoration(
+                  labelText: 'Contact Info',
+                ), // ⬅️ Updated label
+                keyboardType:
+                    TextInputType.text, // ⬅️ Changed type to generic Text
               ),
               const SizedBox(height: 16),
 
@@ -161,25 +165,6 @@ class _SupplierCreationScreenState
                 maxLines: 2,
               ),
               const SizedBox(height: 24),
-
-              // Status Dropdown
-              DropdownButtonFormField<String>(
-                value: _selectedStatus,
-                decoration: const InputDecoration(
-                  labelText: 'Status',
-                  border: OutlineInputBorder(),
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'active', child: Text('Active')),
-                  DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    _selectedStatus = value;
-                  });
-                },
-              ),
-              const SizedBox(height: 32),
 
               // Submit Button
               ElevatedButton(

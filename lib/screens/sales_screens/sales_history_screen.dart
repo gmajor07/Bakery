@@ -527,7 +527,7 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
       // 2. Status Filter
       final matchesStatus =
           selectedStatus == null ||
-          sale.status?.toLowerCase() == selectedStatus!.toLowerCase();
+          sale.status.toLowerCase() == selectedStatus.toLowerCase();
 
       // 3. Date Filter
       bool matchesDate = true;
@@ -666,8 +666,9 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
     final isFirstPage = pagination.currentPage == 1;
     final isLastPage = pagination.currentPage >= totalPages;
 
-    if (totalFiltered <= pagination.itemsPerPage)
+    if (totalFiltered <= pagination.itemsPerPage) {
       return const SizedBox.shrink();
+    }
 
     return Padding(
       padding: const EdgeInsets.only(top: 12.0),
@@ -853,14 +854,13 @@ class SaleCard extends StatelessWidget {
                   ),
 
                   // Status Badge
-                  if (sale.status != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: _StatusBadge(
-                        status: sale.status!,
-                        color: _getStatusColor(sale.status!),
-                      ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: _StatusBadge(
+                      status: sale.status,
+                      color: _getStatusColor(sale.status),
                     ),
+                  ),
                 ],
               ),
             ),

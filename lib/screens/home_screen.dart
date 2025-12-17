@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../auth/auth_provider.dart';
 import '../provider/user_provider.dart';
+import '../widgets/action_card.dart';
+import 'app_restart.dart';
 import 'product_screen.dart';
 import 'purchases_screens/purchases_order_screen.dart';
 import 'sales_screens/payment_actions_screen.dart';
@@ -16,7 +18,6 @@ import 'inventory_actions_screen.dart';
 import 'sales_screens/sales_history_screen.dart';
 
 const String customHomeIconPath = 'assets/icons/bakery_icon.png';
-const Color lightBrownColor = Color(0xFFD7CCC8); // Light brown color
 
 class BakeryHomeScreen extends ConsumerStatefulWidget {
   const BakeryHomeScreen({super.key});
@@ -47,6 +48,7 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final colorScheme = Theme.of(context).colorScheme;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     ref.listen(authProvider, (previous, next) {
       if (!next.isAuthenticated) {
@@ -57,6 +59,19 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
     if (authState.isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+
+    // Define bottom navigation colors based on theme
+    final bottomNavColor = isDarkMode
+        ? Colors.grey[900] // Dark gray for dark mode
+        : const Color(0xFFD7CCC8); // Light brown for light mode
+
+    final unselectedIconColor = isDarkMode
+        ? Colors.grey[400] // Light gray for dark mode
+        : Colors.brown[700]?.withOpacity(0.7); // Brown for light mode
+
+    final unselectedTextColor = isDarkMode
+        ? Colors.grey[400] // Light gray for dark mode
+        : Colors.brown[800]?.withOpacity(0.7); // Brown for light mode
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -70,6 +85,14 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.restart_alt),
+            tooltip: 'Refresh App',
+            onPressed: () {
+              AppRestart.restartApp(context);
+            },
+          ),
+
           // Logout button
           IconButton(
             icon: const Icon(LucideIcons.logOut),
@@ -83,21 +106,16 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
       ),
 
       // ----------------------------------------------------------------------
-      // 🆕 ROUNDED LIGHT BROWN BOTTOM NAVIGATION BAR WITH 5 ITEMS
+      // 🆕 THEME-AWARE ROUNDED BOTTOM NAVIGATION BAR WITH 5 ITEMS
       // ----------------------------------------------------------------------
       bottomNavigationBar: Container(
-        margin: const EdgeInsets.fromLTRB(
-          16,
-          0,
-          16,
-          16,
-        ), // Adds space at bottom
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         decoration: BoxDecoration(
-          color: lightBrownColor, // Light brown color
-          borderRadius: BorderRadius.circular(30), // Fully rounded
+          color: bottomNavColor,
+          borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withOpacity(isDarkMode ? 0.3 : 0.1),
               blurRadius: 10,
               spreadRadius: 1,
               offset: const Offset(0, 2),
@@ -105,9 +123,9 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(30), // Match container radius
+          borderRadius: BorderRadius.circular(30),
           child: SizedBox(
-            height: 65, // Slightly shorter height
+            height: 65,
             child: Row(
               children: [
                 // Home
@@ -116,6 +134,8 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
                     icon: LucideIcons.home,
                     label: 'Home',
                     index: 0,
+                    unselectedIconColor: unselectedIconColor,
+                    unselectedTextColor: unselectedTextColor,
                   ),
                 ),
 
@@ -125,6 +145,8 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
                     icon: LucideIcons.badgeInfo,
                     label: 'Payments',
                     index: 1,
+                    unselectedIconColor: unselectedIconColor,
+                    unselectedTextColor: unselectedTextColor,
                   ),
                 ),
 
@@ -134,6 +156,8 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
                     icon: LucideIcons.shoppingCart,
                     label: 'Purchases',
                     index: 2,
+                    unselectedIconColor: unselectedIconColor,
+                    unselectedTextColor: unselectedTextColor,
                   ),
                 ),
 
@@ -143,6 +167,8 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
                     icon: LucideIcons.box,
                     label: 'Inventory',
                     index: 3,
+                    unselectedIconColor: unselectedIconColor,
+                    unselectedTextColor: unselectedTextColor,
                   ),
                 ),
 
@@ -152,6 +178,8 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
                     icon: LucideIcons.printer,
                     label: 'Report',
                     index: 4,
+                    unselectedIconColor: unselectedIconColor,
+                    unselectedTextColor: unselectedTextColor,
                   ),
                 ),
               ],
@@ -168,6 +196,8 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
     required IconData icon,
     required String label,
     required int index,
+    required Color? unselectedIconColor,
+    required Color? unselectedTextColor,
   }) {
     final bool isSelected = _selectedIndex == index;
     final colorScheme = Theme.of(context).colorScheme;
@@ -202,9 +232,7 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
                   // Icon
                   Icon(
                     icon,
-                    color: isSelected
-                        ? primaryColor
-                        : Colors.brown[700]?.withOpacity(0.7),
+                    color: isSelected ? primaryColor : unselectedIconColor,
                     size: 22,
                   ),
                 ],
@@ -218,9 +246,7 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
-                  color: isSelected
-                      ? primaryColor
-                      : Colors.brown[800]?.withOpacity(0.7),
+                  color: isSelected ? primaryColor : unselectedTextColor,
                 ),
               ),
             ],
@@ -383,7 +409,6 @@ class _DashboardBody extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  // Search bar (Enhanced)
                 ],
               ),
             ),
@@ -391,7 +416,7 @@ class _DashboardBody extends ConsumerWidget {
 
           const SizedBox(height: 24),
 
-          // Quick Actions Grid (Enhanced/Enlarged)
+          // Quick Actions Grid (Centered content)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
@@ -414,7 +439,7 @@ class _DashboardBody extends ConsumerWidget {
                   mainAxisSpacing: 16,
                   childAspectRatio: 1.2,
                   children: [
-                    _ActionCard(
+                    ActionCard(
                       color: primaryColor,
                       label: 'New Sale',
                       subtitle: 'Start a transaction',
@@ -425,9 +450,11 @@ class _DashboardBody extends ConsumerWidget {
                           MaterialPageRoute(builder: (_) => const PosScreen()),
                         );
                       },
+                      contentAlignment: CrossAxisAlignment.center,
+                      textAlignment: TextAlign.center,
                     ),
 
-                    _ActionCard(
+                    ActionCard(
                       color: primaryColor,
                       label: 'Sales History',
                       subtitle: 'Review transactions',
@@ -440,9 +467,11 @@ class _DashboardBody extends ConsumerWidget {
                           ),
                         );
                       },
+                      contentAlignment: CrossAxisAlignment.center,
+                      textAlignment: TextAlign.center,
                     ),
 
-                    _ActionCard(
+                    ActionCard(
                       color: primaryColor,
                       label: 'Purchase Orders',
                       subtitle: 'Manage PO',
@@ -455,13 +484,15 @@ class _DashboardBody extends ConsumerWidget {
                           ),
                         );
                       },
+                      contentAlignment: CrossAxisAlignment.center,
+                      textAlignment: TextAlign.center,
                     ),
 
-                    _ActionCard(
+                    ActionCard(
                       color: primaryColor,
                       label: 'Products',
                       subtitle: 'Manage produce',
-                      icon: LucideIcons.box,
+                      icon: LucideIcons.badgeCheck,
                       onTap: () {
                         Navigator.push(
                           context,
@@ -470,11 +501,13 @@ class _DashboardBody extends ConsumerWidget {
                           ),
                         );
                       },
+                      contentAlignment: CrossAxisAlignment.center,
+                      textAlignment: TextAlign.center,
                     ),
 
-                    _ActionCard(
+                    ActionCard(
                       color: primaryColor,
-                      label: 'Productions',
+                      label: 'Production',
                       subtitle: 'View production',
                       icon: LucideIcons.factory,
                       onTap: () {
@@ -483,9 +516,11 @@ class _DashboardBody extends ConsumerWidget {
                           MaterialPageRoute(builder: (_) => ProductionScreen()),
                         );
                       },
+                      contentAlignment: CrossAxisAlignment.center,
+                      textAlignment: TextAlign.center,
                     ),
 
-                    _ActionCard(
+                    ActionCard(
                       color: primaryColor,
                       label: 'Customers',
                       subtitle: 'Manage customers',
@@ -496,6 +531,8 @@ class _DashboardBody extends ConsumerWidget {
                           MaterialPageRoute(builder: (_) => CustomerScreen()),
                         );
                       },
+                      contentAlignment: CrossAxisAlignment.center,
+                      textAlignment: TextAlign.center,
                     ),
                   ],
                 ),
@@ -537,81 +574,5 @@ class _DashboardBody extends ConsumerWidget {
   static String _dayShort(int d) {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return days[d - 1];
-  }
-}
-
-// Action card widget
-class _ActionCard extends StatelessWidget {
-  final Color color;
-  final String label;
-  final String subtitle;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _ActionCard({
-    required this.color,
-    required this.label,
-    required this.subtitle,
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final surfaceColor = Theme.of(context).colorScheme.surface;
-    final textBodyColor = Theme.of(context).textTheme.bodyMedium?.color;
-
-    return Material(
-      color: surfaceColor,
-      borderRadius: BorderRadius.circular(20),
-      elevation: 2,
-      shadowColor: Colors.black.withOpacity(0.05),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.9),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  icon,
-                  color: Theme.of(context).colorScheme.onPrimary,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 14,
-                      color: textBodyColor,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: textBodyColor?.withOpacity(0.6),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }

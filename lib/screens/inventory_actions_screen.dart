@@ -1,24 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart'; // Using Lucide Icons for consistency
-// Note: Ensure adjustment_screen.dart and material_screen.dart are correctly named
+import 'package:lucide_icons/lucide_icons.dart';
+import '../widgets/action_card.dart';
 import 'adjustment_screen.dart';
-import 'material_screen.dart';
+import 'material_screen/material_screen.dart';
 import 'product_screen.dart';
-import 'inventory_screen.dart'; // Assuming this is the Supplies screen
+import 'inventory_screen.dart';
 
 class InventoryActionsScreen extends StatelessWidget {
   const InventoryActionsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // ⭐️ Get the theme colors
     final colorScheme = Theme.of(context).colorScheme;
     final primaryColor = colorScheme.primary;
     final onPrimary = colorScheme.onPrimary;
-    final background = colorScheme.background;
-    final textBodyColor = Theme.of(context).textTheme.bodyMedium?.color;
+    final background = colorScheme.surface;
 
-    // Define break point for 2 or 3 columns
     final screenWidth = MediaQuery.of(context).size.width;
     final crossAxisCount = screenWidth >= 768 ? 3 : 2;
 
@@ -35,181 +32,97 @@ class InventoryActionsScreen extends StatelessWidget {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.only(left: 16, right: 16, top: 16),
+          padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-
-              // ⭐️ REVISED: Unified GridView for all sizes (Responsive)
+              Text(
+                'Quick Actions',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
+                ),
+              ),
+              const SizedBox(height: 16),
               Expanded(
                 child: GridView.count(
                   crossAxisCount: crossAxisCount,
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
-                  // Use a small aspect ratio for density in the grid
                   childAspectRatio: 1.2,
-                  padding: const EdgeInsets.only(bottom: 16),
-                  children: _buildAllCards(context),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // --- Card Definitions ---
-
-  List<Widget> _buildAllCards(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final primaryColor = colorScheme.primary;
-    // Using a different accent for Supplies for visual distinction
-    final accentColor = Colors.orange;
-
-    return [
-      // 1. Products (Finished Goods)
-      _ActionCard(
-        color: primaryColor,
-        label: 'Products',
-        subtitle: 'Manage stock levels.',
-        icon: LucideIcons.box, // Updated Icon
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const ProductsScreen()),
-          );
-        },
-      ),
-
-      // 2. Materials (Raw Ingredients)
-      _ActionCard(
-        color: primaryColor.withOpacity(0.8), // Slight variation
-        label: 'Materials',
-        subtitle: 'Track ingredients.',
-        icon: LucideIcons.cakeSlice, // Updated Icon
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const MaterialsScreen()),
-          );
-        },
-      ),
-
-      // 3. Supplies (Non-raw items)
-      _ActionCard(
-        // ⭐️ CHANGE: Using a distinct accent color for better visual separation
-        color: primaryColor.withOpacity(0.8), // Slight variation
-        label: 'Supplies',
-        subtitle: 'Manage supplies',
-        icon: LucideIcons.cake, // Updated Icon
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const InventoryScreen()),
-          );
-        },
-      ),
-
-      // 4. Stock Adjustments (If this is a direct inventory action)
-      // Added a separate card for Adjustments for completeness, if not handled elsewhere
-      _ActionCard(
-        color: primaryColor.withOpacity(0.8), // Slight variation
-        label: 'Stock Adjustments',
-        subtitle: 'Record stock.',
-        icon: LucideIcons.history,
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AdjustmentsScreen()),
-          );
-        },
-      ),
-    ];
-  }
-}
-
-// ⭐️ REVISED _ActionCard for Responsiveness ⭐️
-class _ActionCard extends StatelessWidget {
-  final Color color;
-  final String label;
-  final String subtitle;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _ActionCard({
-    required this.color,
-    required this.label,
-    required this.subtitle,
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final surfaceColor = colorScheme.surface;
-    final onSurfaceColor = colorScheme.onSurface;
-    final onColor = colorScheme.onPrimary;
-
-    return Material(
-      color: surfaceColor,
-      borderRadius: BorderRadius.circular(20),
-      elevation: 4,
-      shadowColor: color.withOpacity(0.2),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          // ⭐️ FIX 1: Reduced padding from 16 to 12
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            // ⭐️ FIX 2: Removed mainAxisAlignment.spaceBetween
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              // Icon section
-              Container(
-                // Reduced padding
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.9),
-                  // Reduced radius
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                // ⭐️ FIX 3: Reduced icon size from 28 to 24
-                child: Icon(icon, color: onColor, size: 24),
-              ),
-
-              // ⭐️ FIX 4: Added fixed spacing
-              const SizedBox(height: 12),
-
-              // Text section
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      // ⭐️ FIX 5: Reduced font size from 16 to 14
-                      fontSize: 14,
-                      color: onSurfaceColor,
+                  children: [
+                    // 2. Materials (Raw Ingredients)
+                    ActionCard(
+                      color: primaryColor,
+                      label: 'Materials',
+                      subtitle: 'Track ingredients',
+                      icon: LucideIcons.cakeSlice,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MaterialsScreen(),
+                          ),
+                        );
+                      },
+                      contentAlignment: CrossAxisAlignment.center,
+                      textAlignment: TextAlign.center,
                     ),
-                  ),
-                  // ⭐️ FIX 6: Reduced spacing between label and subtitle
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      // ⭐️ FIX 7: Reduced font size from 12 to 11
-                      fontSize: 11,
-                      color: onSurfaceColor.withOpacity(0.6),
+
+                    // 3. Supplies (Non-raw items)
+                    ActionCard(
+                      color: primaryColor,
+                      label: 'Supplies',
+                      subtitle: 'Manage supplies',
+                      icon: LucideIcons.cake,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const InventoryScreen(),
+                          ),
+                        );
+                      },
+                      contentAlignment: CrossAxisAlignment.center,
+                      textAlignment: TextAlign.center,
                     ),
-                    maxLines: 2, // Helps prevent overflow
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                    // 1. Products (Finished Goods)
+                    ActionCard(
+                      color: primaryColor,
+                      label: 'Products',
+                      subtitle: 'Manage stock levels',
+                      icon: LucideIcons.box,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ProductsScreen(),
+                          ),
+                        );
+                      },
+                      contentAlignment: CrossAxisAlignment.center,
+                      textAlignment: TextAlign.center,
+                    ),
+
+                    // 4. Stock Adjustments
+                    ActionCard(
+                      color: primaryColor,
+                      label: 'Stock Adjustments',
+                      subtitle: 'Record stock',
+                      icon: LucideIcons.history,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AdjustmentsScreen(),
+                          ),
+                        );
+                      },
+                      contentAlignment: CrossAxisAlignment.center,
+                      textAlignment: TextAlign.center,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

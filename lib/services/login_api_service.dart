@@ -16,8 +16,6 @@ class LoginApiService {
     );
   }
 
-
-
   /// Login and print everything for debugging
   Future<Map<String, dynamic>> login(String email, String code) async {
     try {
@@ -33,9 +31,10 @@ class LoginApiService {
 
       return response.data;
     } on DioException catch (e) {
-      throw e;
+      rethrow;
     }
   }
+
   final dioProvider = Provider<Dio>((ref) {
     final dio = Dio(
       BaseOptions(
@@ -48,5 +47,4 @@ class LoginApiService {
 
     return dio;
   });
-
 }

@@ -1,11 +1,9 @@
-// lib/screens/supplier_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Adjust imports based on your project structure
 import '../auth/auth_provider.dart';
-import '../models/supplier_model.dart'; // Ensure this model exists
-import '../provider/supplier_search_provider.dart'; // Ensure this provider exists
+import '../models/supplier_model.dart';
+import '../provider/supplier_search_provider.dart';
 import '../provider/suppliers_provider.dart';
 import '../theme.dart';
 import '../widgets/token_error_widget.dart';
@@ -57,7 +55,9 @@ class _SupplierScreenState extends ConsumerState<SupplierScreen> {
   }
 
   void _nextPage(int totalItems, int itemsPerPage) {
-    final currentPage = ref.read(paginationProvider.notifier).state; // Correct state access
+    final currentPage = ref
+        .read(paginationProvider.notifier)
+        .state; // Correct state access
     final totalPages = (totalItems / itemsPerPage).ceil();
     if (currentPage < totalPages - 1) {
       ref.read(paginationProvider.notifier).state = currentPage + 1;
@@ -65,7 +65,9 @@ class _SupplierScreenState extends ConsumerState<SupplierScreen> {
   }
 
   void _previousPage() {
-    final currentPage = ref.read(paginationProvider.notifier).state; // Correct state access
+    final currentPage = ref
+        .read(paginationProvider.notifier)
+        .state; // Correct state access
     if (currentPage > 0) {
       ref.read(paginationProvider.notifier).state = currentPage - 1;
     }
@@ -82,13 +84,19 @@ class _SupplierScreenState extends ConsumerState<SupplierScreen> {
   void _navigateToAddSupplier(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => const SupplierCreationScreen(), // ⬅️ Now resolved by creating the file
+        builder: (context) =>
+            const SupplierCreationScreen(), // ⬅️ Now resolved by creating the file
       ),
     );
   }
 
-  // --- Widget for Supplier Card View (no changes) ---
+  // --- Widget for Supplier Card View (UPDATED for status capitalization) ---
   Widget _buildSupplierCard(Supplier supplier, BuildContext context) {
+    // 1. Capitalize the first letter of the status for display
+    String displayStatus = supplier.status.isNotEmpty
+        ? supplier.status[0].toUpperCase() + supplier.status.substring(1)
+        : '—'; // Handle empty status case
+
     final statusIsActive = supplier.status.toLowerCase() == 'active';
     final statusColor = statusIsActive ? Colors.brown : Colors.red;
 
@@ -112,7 +120,7 @@ class _SupplierScreenState extends ConsumerState<SupplierScreen> {
                   ),
                 ),
                 Text(
-                  supplier.status,
+                  displayStatus, // ⬅️ Use the capitalized status here
                   style: TextStyle(
                     color: statusColor,
                     fontWeight: FontWeight.w600,
@@ -137,8 +145,12 @@ class _SupplierScreenState extends ConsumerState<SupplierScreen> {
                         maxLines: 1,
                       ),
                       const SizedBox(height: 8),
-                      const Text('Phone', style: TextStyle(color: Colors.grey)),
-                      Text(supplier.phone),
+                      // Renamed 'Phone' label to 'Contact Info' to match model
+                      const Text(
+                        'Contact Info',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                      Text(supplier.contactInfo),
                     ],
                   ),
                 ),
@@ -147,7 +159,10 @@ class _SupplierScreenState extends ConsumerState<SupplierScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      const Text('Address', style: TextStyle(color: Colors.grey)),
+                      const Text(
+                        'Address',
+                        style: TextStyle(color: Colors.grey),
+                      ),
                       Text(
                         supplier.address,
                         overflow: TextOverflow.ellipsis,
@@ -164,7 +179,6 @@ class _SupplierScreenState extends ConsumerState<SupplierScreen> {
     );
   }
   // --- End of Supplier Card Widget ---
-
 
   @override
   Widget build(BuildContext context) {
@@ -196,9 +210,13 @@ class _SupplierScreenState extends ConsumerState<SupplierScreen> {
         data: (suppliers) {
           // Filtering logic
           final filteredSuppliers = suppliers.where((supplier) {
-            return supplier.name.toLowerCase().contains(searchQuery.toLowerCase()) ||
-                supplier.email.toLowerCase().contains(searchQuery.toLowerCase()) ||
-                supplier.phone.contains(searchQuery);
+            return supplier.name.toLowerCase().contains(
+                  searchQuery.toLowerCase(),
+                ) ||
+                supplier.email.toLowerCase().contains(
+                  searchQuery.toLowerCase(),
+                ) ||
+                supplier.contactInfo.contains(searchQuery);
           }).toList();
 
           // Pagination calculations
@@ -230,16 +248,23 @@ class _SupplierScreenState extends ConsumerState<SupplierScreen> {
                     child: TextField(
                       controller: _searchController,
                       decoration: InputDecoration(
-                        labelText: 'Search by name, email, or phone',
+                        // Updated search label to reflect contactInfo change
+                        labelText: 'Search by name, email, or contact info',
                         prefixIcon: const Icon(Icons.search),
                         suffixIcon: _searchController.text.isNotEmpty
                             ? IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () {
-                            _searchController.clear();
-                            ref.read(supplierSearchQueryProvider.notifier).state = '';
-                          },
-                        )
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  ref
+                                          .read(
+                                            supplierSearchQueryProvider
+                                                .notifier,
+                                          )
+                                          .state =
+                                      '';
+                                },
+                              )
                             : null,
                         border: const OutlineInputBorder(),
                       ),
@@ -298,7 +323,9 @@ class _SupplierScreenState extends ConsumerState<SupplierScreen> {
                 final cardIndex = index - 2;
                 final supplier = paginatedSuppliers[cardIndex];
 
-                final hasListPadding = cardIndex == 0 ? const EdgeInsets.only(top: 16, left: 16, right: 16) : const EdgeInsets.symmetric(horizontal: 16);
+                final hasListPadding = cardIndex == 0
+                    ? const EdgeInsets.only(top: 16, left: 16, right: 16)
+                    : const EdgeInsets.symmetric(horizontal: 16);
 
                 return Padding(
                   padding: hasListPadding,
@@ -314,7 +341,7 @@ class _SupplierScreenState extends ConsumerState<SupplierScreen> {
           if (msg.contains('401') ||
               msg.contains('unauthorized') ||
               msg.contains('token')) {
-            return TokenErrorWidget();
+            return const TokenErrorWidget();
           }
           return Center(child: Text('Error: $error'));
         },

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../provider/material_provider.dart';
+import '../../provider/material_provider.dart';
 
 class CreateMaterialScreen extends ConsumerStatefulWidget {
   final String heading; // ⭐ dynamic heading

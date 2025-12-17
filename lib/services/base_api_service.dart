@@ -11,6 +11,8 @@ class BaseApiService {
       BaseOptions(
         baseUrl: 'https://pastry-pros-backend.vercel.app/api',
         headers: {"Accept": "application/json"},
+        connectTimeout: Duration(seconds: 10),
+        receiveTimeout: Duration(seconds: 10),
       ),
     );
     _setupInterceptors();

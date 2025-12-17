@@ -57,7 +57,7 @@ class OutstandingPaymentDetailsScreen extends ConsumerWidget {
                           ? Colors.brown
                           : isOverdue
                           ? Colors.red
-                          : Colors.white,
+                          : Colors.blueGrey,
                       size: 40,
                     ),
                     const SizedBox(width: 16),
@@ -77,7 +77,7 @@ class OutstandingPaymentDetailsScreen extends ConsumerWidget {
                                   ? Colors.brown
                                   : isOverdue
                                   ? Colors.red
-                                  : Colors.white,
+                                  : Colors.blueGrey,
                               fontSize: 16,
                             ),
                           ),
@@ -204,7 +204,6 @@ class OutstandingPaymentDetailsScreen extends ConsumerWidget {
                   label: const Text('Record Payment'),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: Theme.of(context).primaryColor,
                   ),
                 ),
               )
