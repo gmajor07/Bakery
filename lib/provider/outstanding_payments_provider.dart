@@ -16,7 +16,7 @@ class OutstandingPaginationState {
 
   OutstandingPaginationState({
     this.currentPage = 1,
-    this.itemsPerPage = 15,
+    this.itemsPerPage = 10,
     this.hasMore = true,
   });
 

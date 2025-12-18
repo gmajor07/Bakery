@@ -226,108 +226,110 @@ class _PurchaseOrderDetailScreenState
     );
   }
 
+// ⭐ NEW WIDGET: Mobile-optimized items list
   Widget _buildItemsTable(WidgetRef ref) {
     final inventoryAsync = ref.watch(inventoryItemsProvider);
-    final textTheme = Theme.of(context).textTheme.bodyMedium; // Base text style
 
     return inventoryAsync.when(
       data: (inventoryItems) {
-        // Map inventory items for quick lookup
         final inventoryMap = {
           for (var item in inventoryItems)
             item.id: PurchaseInventoryItem.fromInventoryItem(item),
         };
 
-        // 🚨 FIX: Formatter for Quantity (no currency symbol)
         final qtyFormatter = NumberFormat('#,##0');
-        // Formatter for Currency/Cost (with commas)
         final costFormatter = NumberFormat('#,##0');
 
-        return Card(
-          elevation: 4,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              columnSpacing: 24,
-              dataRowMinHeight: 48,
-              dataRowMaxHeight: 56,
-              // 🚨 FIX: Ensure heading text color is visible in dark theme
-              headingTextStyle: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-              columns: const [
-                DataColumn(label: Text('Item')),
-                DataColumn(label: Text('Qty'), numeric: true),
-                DataColumn(label: Text('Uit')),
-                DataColumn(label: Text('Unit Cost'), numeric: true),
-                DataColumn(label: Text('Total'), numeric: true),
-              ],
-              rows: _order.items.map((item) {
-                // Safely parse and format numbers
-                final qty = item.quantity.toInt();
-                final price = item.price.toInt();
-                final total = qty * price;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          // Use map to generate a list of widgets (cards)
+          children: _order.items.map((item) {
+            final qty = item.quantity.toInt();
+            final price = item.price.toInt();
+            final total = qty * price;
 
-                final inventoryItem =
-                    inventoryMap[item.inventoryItemId] ??
-                        PurchaseInventoryItem(
-                          id: 0,
-                          name: item.itemName,
-                          unit: 'N/A',
-                        );
+            final inventoryItem =
+                inventoryMap[item.inventoryItemId] ??
+                    PurchaseInventoryItem(
+                      id: 0,
+                      name: item.itemName,
+                      unit: 'N/A',
+                    );
 
-                return DataRow(
-                  cells: [
-                    DataCell(
-                      SizedBox(
-                        width: 150,
-                        child: Text(
-                          inventoryItem.name,
-                          overflow: TextOverflow.ellipsis,
-                          style: textTheme, // 🚨 FIX: Apply theme text style
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12.0),
+              child: Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Item Name (Prominent)
+                      Text(
+                        inventoryItem.name,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    // 🚨 FIX: Format QTY
-                    DataCell(
-                      Text(
-                        qtyFormatter.format(qty),
-                        style: textTheme, // 🚨 FIX: Apply theme text style
+                      const SizedBox(height: 12),
+
+                      // Quantity, Unit, Unit Cost Row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _buildItemDetailColumn(
+                            'Qty',
+                            '${qtyFormatter.format(qty)} ${inventoryItem.unit}',
+                          ),
+                          _buildItemDetailColumn(
+                            'Unit Cost',
+                            costFormatter.format(price),
+                            alignment: CrossAxisAlignment.end,
+                          ),
+                        ],
                       ),
-                    ),
-                    DataCell(
-                      Text(
-                        inventoryItem.unit,
-                        style: textTheme, // 🚨 FIX: Apply theme text style
+                      const Divider(height: 24),
+
+                      // Total Row (Footer)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Item Total',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w500,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          Text(
+                            'TSh ${costFormatter.format(total)}',
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    DataCell(
-                      Text(
-                        costFormatter.format(price),
-                        style: textTheme, // 🚨 FIX: Apply theme text style
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        costFormatter.format(total),
-                        style: textTheme?.copyWith(fontWeight: FontWeight.bold), // 🚨 FIX: Apply theme text style
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
-            ),
-          ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
         );
       },
       loading: () => const Center(child: LinearProgressIndicator()),
       error: (e, _) {
-        // Log the error for debug purposes
         debugPrint("❌ Error loading inventory: $e");
         return Padding(
           padding: const EdgeInsets.all(16.0),
@@ -340,6 +342,31 @@ class _PurchaseOrderDetailScreenState
     );
   }
 
+  // Helper for the Item Detail Column inside the list
+  Widget _buildItemDetailColumn(
+      String label,
+      String value, {
+        CrossAxisAlignment alignment = CrossAxisAlignment.start,
+      }) {
+    return Column(
+      crossAxisAlignment: alignment,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
   Widget _buildActionButtons(BuildContext context, WidgetRef ref) {
     final isPending = _order.status.toLowerCase() == 'pending';
     final isApproved = _order.status.toLowerCase() == 'approved';

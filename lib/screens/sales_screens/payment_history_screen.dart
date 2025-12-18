@@ -681,45 +681,119 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
     );
   }
 
-  void _showPaymentDetails(BuildContext context, PaymentRecord payment) {
-    // ... (Detail dialog logic remains the same)
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Payment Details'),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildDetailRow(
-                'Receipt Number',
-                payment.receiptNumber.toString(),
-              ),
-              _buildDetailRow('Sale ID', payment.saleId.toString()),
-              _buildDetailRow('Customer', payment.customerName),
-              _buildDetailRow(
-                'Amount',
-                'TSh ${NumberFormat('#,##0').format(payment.amount)}',
-              ),
-              _buildDetailRow(
-                'Payment Date',
-                DateFormat('MMM dd, yyyy - HH:mm').format(payment.paymentDate),
-              ),
-              if (payment.notes != null && payment.notes!.isNotEmpty)
-                _buildDetailRow('Notes', payment.notes!),
-            ],
+// Helper function for building the detail rows (Optional, but keeps the main function clean)
+  Widget _buildDetailTile(String title, String value) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontWeight: FontWeight.w400,
+          fontSize: 14,
+          color: Colors.grey, // Or Theme.of(context).colorScheme.onSurfaceVariant
+        ),
+      ),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 4.0),
+        child: Text(
+          value,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
       ),
     );
   }
 
+// Modernized main function
+  void _showPaymentDetails(BuildContext context, PaymentRecord payment) {
+    final ThemeData theme = Theme.of(context);
+    final NumberFormat currencyFormat = NumberFormat('#,##0');
+    final DateFormat dateFormat = DateFormat('MMM dd, yyyy - HH:mm');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true, // Allows the sheet to take up more screen space
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25.0)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min, // Essential for bottom sheet height
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 1. Sheet Handle/Title Section
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16.0),
+                  decoration: BoxDecoration(
+                    color: theme.dividerColor.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+
+              Text(
+                'Payment Details',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Divider(height: 32),
+
+              // 2. Details List
+              _buildDetailTile(
+                'Receipt Number',
+                '#${payment.receiptNumber}',
+              ),
+              _buildDetailTile('Sale ID', payment.saleId.toString()),
+              _buildDetailTile('Customer', payment.customerName),
+
+              _buildDetailTile(
+                'Amount Paid',
+                'TSh ${currencyFormat.format(payment.amount)}',
+              ),
+              _buildDetailTile(
+                'Payment Date',
+                dateFormat.format(payment.paymentDate),
+              ),
+
+              if (payment.notes != null && payment.notes!.isNotEmpty)
+                _buildDetailTile('Notes', payment.notes!),
+
+              // 3. Action Button
+              Padding(
+                padding: const EdgeInsets.only(top: 20.0),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text(
+                      'Done',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ),
+                ),
+              ),
+              // Ensure padding for the soft keyboard
+              SizedBox(height: MediaQuery.of(context).viewInsets.bottom),
+            ],
+          ),
+        );
+      },
+    );
+  }
   Widget _buildDetailRow(String label, String value) {
     // ... (Detail row logic remains the same)
     return Padding(

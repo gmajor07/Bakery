@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../auth/auth_provider.dart';
 import '../models/material_received.dart';
@@ -27,7 +28,9 @@ class MaterialApiService {
     if (token == null) throw Exception('Token is null');
 
     try {
-      print('📤 Fetching material receipts...');
+      if (kDebugMode) {
+        print('📤 Fetching material receipts...');
+      }
       final response = await _dio.get(
         '/inventory',
         queryParameters: {
@@ -66,7 +69,9 @@ class MaterialApiService {
         } else if (raw['receipts'] is Map && raw['receipts']['data'] is List) {
           list = raw['receipts']['data'];
         } else {
-          print('⚠️ Could not find valid list in response keys: ${raw.keys}');
+          if (kDebugMode) {
+            print('⚠️ Could not find valid list in response keys: ${raw.keys}');
+          }
         }
       }
 
@@ -74,7 +79,9 @@ class MaterialApiService {
     } on DioException catch (e) {
       final error =
           e.response?.data?['message'] ?? e.message ?? 'Unknown error';
-      print('❌ Error fetching receipts: $error');
+      if (kDebugMode) {
+        print('❌ Error fetching receipts: $error');
+      }
 
       if (e.response?.statusCode == 401) {
         await ref.read(authProvider.notifier).logout();
@@ -83,7 +90,9 @@ class MaterialApiService {
 
       throw Exception(error);
     } catch (e, st) {
-      print('❌ Unexpected error: $e\n$st');
+      if (kDebugMode) {
+        print('❌ Unexpected error: $e\n$st');
+      }
       throw Exception('Error loading receipts: $e');
     }
   }
@@ -193,12 +202,15 @@ class MaterialApiService {
     required double currentQuantity,
     required int minLevel,
     required double cost,
+    required int maxLevel,
   }) async {
     final token = await ref.read(authProvider.notifier).getAccessToken();
     if (token == null) throw Exception('Token is null');
 
     try {
-      print('🟢 Creating material: $name');
+      if (kDebugMode) {
+        print('🟢 Creating material: $name');
+      }
 
       final response = await _dio.post(
         '/inventory',
@@ -209,6 +221,7 @@ class MaterialApiService {
           'currentQuantity': currentQuantity,
           'minLevel': minLevel,
           'cost': cost,
+          'maxLevel': maxLevel,
         },
         options: Options(
           headers: {
@@ -218,14 +231,20 @@ class MaterialApiService {
         ),
       );
 
-      print('✅ Material created: ${response.data}');
+      if (kDebugMode) {
+        print('✅ Material created: ${response.data}');
+      }
       return MaterialItem.fromJson(response.data);
     } on DioException catch (e) {
-      print('❌ DioException during createMaterial: ${e.message}');
+      if (kDebugMode) {
+        print('❌ DioException during createMaterial: ${e.message}');
+      }
       if (e.response != null) print('❌ Dio response: ${e.response?.data}');
       rethrow;
     } catch (e) {
-      print('❌ Unexpected error during createMaterial: $e');
+      if (kDebugMode) {
+        print('❌ Unexpected error during createMaterial: $e');
+      }
       rethrow;
     }
   }

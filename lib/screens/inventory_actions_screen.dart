@@ -14,7 +14,7 @@ class InventoryActionsScreen extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final primaryColor = colorScheme.primary;
     final onPrimary = colorScheme.onPrimary;
-    final background = colorScheme.surface;
+    final background = colorScheme.background;
 
     final screenWidth = MediaQuery.of(context).size.width;
     final crossAxisCount = screenWidth >= 768 ? 3 : 2;

@@ -17,7 +17,13 @@ class PaymentApiService {
 
   Future<List<OutstandingPayment>> fetchOutstandingSales() async {
     try {
-      final resp = await _dio.get('/sales?isCredit=true');
+      final resp = await _dio.get(
+        '/sales',
+        queryParameters: {
+          'isCredit': true,
+          'limit': 10000, // Fetch up to 10k sales to get all data
+        },
+      );
 
       final raw = resp.data;
 

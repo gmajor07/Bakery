@@ -35,6 +35,8 @@ class MaterialsNotifier extends StateNotifier<AsyncValue<List<MaterialItem>>> {
     required String unit,
     required double currentQuantity,
     required int minLevel,
+    // ⭐ NEW: maxLevel parameter is now explicitly required in the notifier
+    required int maxLevel,
     required double cost,
   }) async {
     final service = ref.read(materialsApiServiceProvider);
@@ -46,6 +48,8 @@ class MaterialsNotifier extends StateNotifier<AsyncValue<List<MaterialItem>>> {
         unit: unit,
         currentQuantity: currentQuantity,
         minLevel: minLevel,
+        // ⭐ UPDATED: Pass maxLevel to the service method
+        maxLevel: maxLevel,
         cost: cost,
       );
 

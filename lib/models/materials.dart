@@ -2,8 +2,10 @@ class MaterialItem {
   final int id;
   final String name;
   final String unit;
-  final double quantity; // This should now be correct (e.g., 33.0)
+  final double quantity;
   final int minLevel;
+  // ⭐ NEW: Add maxLevel field
+  final int maxLevel;
   final double cost;
   final String status;
   final bool lowStock;
@@ -14,6 +16,8 @@ class MaterialItem {
     required this.unit,
     required this.quantity,
     required this.minLevel,
+    // ⭐ NEW: Add maxLevel to constructor
+    required this.maxLevel,
     required this.cost,
     required this.status,
     this.lowStock = false,
@@ -26,7 +30,6 @@ class MaterialItem {
       return int.tryParse(val.toString()) ?? 0;
     }
 
-    // Simplified parseDouble, removing the unused 'multiplier' parameter for cleaner logic
     double parseDouble(dynamic val) {
       if (val == null) return 0.0;
       if (val is num) return val.toDouble();
@@ -34,14 +37,17 @@ class MaterialItem {
     }
 
     // 🎯 FIX: Divide the incoming quantity by 1000 to correct the value.
-    // Assuming the back-end sends 33000 for a quantity of 33.
     final rawQty = parseDouble(json['currentQuantity']);
     final qty = rawQty / 1000;
 
     // The cost parsing still applies the multiplier if needed by the backend structure.
+    // NOTE: If the cost is also divided by 1000 in the backend, this multiplier should be removed.
+    // Keeping it based on your original snippet logic.
     final cost = parseDouble(json['cost']) * 1000;
 
     final minLvl = parseInt(json['minLevel']);
+    // ⭐ NEW: Parse maxLevel from JSON
+    final maxLvl = parseInt(json['maxLevel']);
 
     // Check low stock and status against the CORRECTED quantity (qty)
     final isLow = qty > 0 && qty < minLvl;
@@ -53,10 +59,11 @@ class MaterialItem {
       unit: json['unit']?.toString() ?? '',
       quantity: qty, // Use the corrected value
       minLevel: minLvl,
+      // ⭐ NEW: Assign maxLevel
+      maxLevel: maxLvl,
       cost: cost,
       status: status,
       lowStock: isLow,
     );
   }
 }
-// The rest of the MaterialsScreen implementation remains the same.

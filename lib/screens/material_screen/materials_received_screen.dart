@@ -25,8 +25,7 @@ class _MaterialsReceivedScreenState
 
   // Local state for client-side search/filter (like purchase orders)
   String searchQuery = '';
-  QuickDateFilter selectedQuickFilter =
-      QuickDateFilter.all; // Changed from last7Days to all
+  QuickDateFilter selectedQuickFilter = QuickDateFilter.all;
   DateTimeRange? customDateRange;
 
   @override
@@ -41,7 +40,7 @@ class _MaterialsReceivedScreenState
 
     // Schedule provider updates after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _applyQuickFilter(QuickDateFilter.all); // Changed from last7Days to all
+      _applyQuickFilter(QuickDateFilter.all);
       ref.invalidate(materialsProvider);
     });
   }
@@ -83,7 +82,7 @@ class _MaterialsReceivedScreenState
 
     // Update Riverpod state
     ref.read(selectedMaterialDateRangeProvider.notifier).state =
-        filter == QuickDateFilter.custom ? customRange : _getDateRange(filter);
+    filter == QuickDateFilter.custom ? customRange : _getDateRange(filter);
   }
 
   Future<void> _selectDateRange(BuildContext context) async {
@@ -92,8 +91,8 @@ class _MaterialsReceivedScreenState
       firstDate: DateTime(2000),
       lastDate: DateTime.now().add(const Duration(days: 365)),
       initialDateRange:
-          customDateRange ??
-          _getDateRange(QuickDateFilter.all), // Changed from last7Days to all
+      customDateRange ??
+          _getDateRange(QuickDateFilter.all),
       helpText: 'Select Date Range',
       saveText: 'Apply',
     );
@@ -167,8 +166,8 @@ class _MaterialsReceivedScreenState
       // Search filter
       final matchesSearch =
           searchQuery.isEmpty ||
-          receipt.supplierName.toLowerCase().contains(searchQuery) ||
-          receipt.purchaseOrderId.toString().contains(searchQuery);
+              receipt.supplierName.toLowerCase().contains(searchQuery) ||
+              receipt.purchaseOrderId.toString().contains(searchQuery);
 
       // Status filter
       bool matchesStatus = true;
@@ -192,12 +191,22 @@ class _MaterialsReceivedScreenState
         matchesDate =
             (startOfReceiptDay.isAtSameMomentAs(startOfRangeDay) ||
                 startOfReceiptDay.isAfter(startOfRangeDay)) &&
-            (startOfReceiptDay.isAtSameMomentAs(endOfRangeDay) ||
-                startOfReceiptDay.isBefore(endOfRangeDay));
+                (startOfReceiptDay.isAtSameMomentAs(endOfRangeDay) ||
+                    startOfReceiptDay.isBefore(endOfRangeDay));
       }
 
       return matchesSearch && matchesStatus && matchesDate;
     }).toList();
+  }
+
+  // ⭐️ NEW: Navigation function
+  void _navigateToDetails(BuildContext context, int receiptId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MaterialDetailsScreen(receiptId: receiptId),
+      ),
+    );
   }
 
   @override
@@ -208,8 +217,8 @@ class _MaterialsReceivedScreenState
 
     final hasFilters =
         selectedRange != null ||
-        searchQuery.isNotEmpty ||
-        selectedStatus != null;
+            searchQuery.isNotEmpty ||
+            selectedStatus != null;
 
     return Scaffold(
       appBar: AppBar(
@@ -247,7 +256,7 @@ class _MaterialsReceivedScreenState
                     return _buildReceiptsList(filtered);
                   },
                   loading: () =>
-                      const Center(child: CircularProgressIndicator()),
+                  const Center(child: CircularProgressIndicator()),
                   error: (err, _) => _buildErrorWidget(err),
                 ),
               ),
@@ -274,14 +283,14 @@ class _MaterialsReceivedScreenState
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: searchQuery.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => searchQuery = '');
-                          ref.read(materialSearchQueryProvider.notifier).state =
-                              '';
-                        },
-                      )
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => searchQuery = '');
+                    ref.read(materialSearchQueryProvider.notifier).state =
+                    '';
+                  },
+                )
                     : null,
                 border: const OutlineInputBorder(),
               ),
@@ -334,12 +343,12 @@ class _MaterialsReceivedScreenState
       items: statuses
           .map(
             (s) => DropdownMenuItem(
-              value: s,
-              child: Text(
-                s == null ? "All Status" : s[0].toUpperCase() + s.substring(1),
-              ),
-            ),
-          )
+          value: s,
+          child: Text(
+            s == null ? "All Status" : s[0].toUpperCase() + s.substring(1),
+          ),
+        ),
+      )
           .toList(),
       onChanged: (value) {
         ref.read(selectedMaterialStatusProvider.notifier).state = value;
@@ -408,7 +417,7 @@ class _MaterialsReceivedScreenState
         ),
         child: DataTable(
           headingRowColor: WidgetStateColor.resolveWith(
-            (states) => Theme.of(
+                (states) => Theme.of(
               context,
             ).colorScheme.surfaceContainerHighest.withOpacity(0.5),
           ),
@@ -449,17 +458,14 @@ class _MaterialsReceivedScreenState
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
-            DataColumn(
-              label: Text(
-                'Actions',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
+            // ❌ REMOVED: Actions Column
           ],
           rows: receipts.map((r) {
             final dateStr = DateFormat('dd/MM/yyyy').format(r.receivedDate);
 
             return DataRow(
+              // ⭐️ NEW: Add onTap behavior to the whole row
+              onSelectChanged: (_) => _navigateToDetails(context, r.id),
               cells: [
                 DataCell(Text(r.purchaseOrderId.toString())),
                 DataCell(Text(dateStr)),
@@ -496,21 +502,7 @@ class _MaterialsReceivedScreenState
                     ),
                   ),
                 ),
-                DataCell(
-                  IconButton(
-                    icon: const Icon(Icons.visibility_outlined),
-                    tooltip: 'View details',
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              MaterialDetailsScreen(receiptId: r.id),
-                        ),
-                      );
-                    },
-                  ),
-                ),
+                // ❌ REMOVED: Actions DataCell
               ],
             );
           }).toList(),
@@ -529,76 +521,72 @@ class _MaterialsReceivedScreenState
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
           elevation: 2,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header with order number and status
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Order #${r.purchaseOrderId}',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _getStatusColor(r.status).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: _getStatusColor(r.status)),
-                      ),
-                      child: Text(
-                        r.status,
-                        style: TextStyle(
-                          color: _getStatusColor(r.status),
+          // ⭐️ NEW: Wrap Card content in InkWell for tap functionality
+          child: InkWell(
+            onTap: () => _navigateToDetails(context, r.id),
+            borderRadius: BorderRadius.circular(12), // Match Card's default rounding
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header with order number and status
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Order #${r.purchaseOrderId}',
+                        style: const TextStyle(
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          fontSize: 12,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // Receipt details
-                _buildMobileDetailRow('Date', dateStr),
-                _buildMobileDetailRow('Supplier', r.supplierName),
-                _buildMobileDetailRow(
-                  'Total',
-                  NumberFormat('#,##0').format(r.total),
-                ),
-                _buildMobileDetailRow('Received By', r.receivedBy),
-
-                // View button
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              MaterialDetailsScreen(receiptId: r.id),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
                         ),
-                      );
-                    },
-                    icon: const Icon(Icons.visibility_outlined),
-                    label: const Text('View received items'),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(120, 36),
+                        decoration: BoxDecoration(
+                          color: _getStatusColor(r.status).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: _getStatusColor(r.status)),
+                        ),
+                        child: Text(
+                          r.status,
+                          style: TextStyle(
+                            color: _getStatusColor(r.status),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Receipt details
+                  _buildMobileDetailRow('Date', dateStr),
+                  _buildMobileDetailRow('Supplier', r.supplierName),
+                  _buildMobileDetailRow(
+                    'Total',
+                    NumberFormat('#,##0').format(r.total),
+                  ),
+                  _buildMobileDetailRow('Received By', r.receivedBy),
+
+                  // ⭐️ REPLACED BUTTON: Use a trailing arrow icon instead
+                  const SizedBox(height: 8),
+                  const Align(
+                    alignment: Alignment.centerRight,
+                    child: Icon(
+                      Icons.arrow_forward_ios,
+                      size: 16,
+                      color: Colors.grey,
                     ),
                   ),
-                ),
-              ],
+
+                  // ❌ REMOVED: View button
+                ],
+              ),
             ),
           ),
         );
@@ -633,6 +621,8 @@ class _MaterialsReceivedScreenState
       ),
     );
   }
+
+  // ... (Other helper widgets remain unchanged)
 
   Widget _buildEmptyState(bool hasFilters) {
     return RefreshIndicator(

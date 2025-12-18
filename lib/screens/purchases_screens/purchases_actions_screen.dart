@@ -15,7 +15,7 @@ class PurchasesActionsScreen extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     final primaryColor = colorScheme.primary;
-    final backgroundColor = colorScheme.surface; // Changed from .surface
+    final backgroundColor = colorScheme.background; // Changed from .surface
     final onPrimary = colorScheme.onPrimary;
     final textBodyColor = textTheme.bodyMedium?.color;
 

@@ -123,7 +123,7 @@ class _RecordPaymentDialogState extends ConsumerState<RecordPaymentDialog> {
 
             // Summary Section
             Text(
-              'Receipt: #${widget.receiptNumber}',
+              'Receipt: #${widget.receiptNumber}', // <-- Note the $ here
               style: TextStyle(color: colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 8),
@@ -165,9 +165,9 @@ class _RecordPaymentDialogState extends ConsumerState<RecordPaymentDialog> {
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               // ⬅️ MODERN INPUT DECORATION
               decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.attach_money),
+                prefixIcon: const Icon(Icons.money),
                 labelText: 'Amount Paid',
-                hintText: 'e.g., 50000',
+                hintText: 'e.g., 50,000',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),

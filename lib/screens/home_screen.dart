@@ -74,7 +74,7 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
         : Colors.brown[800]?.withOpacity(0.7); // Brown for light mode
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: colorScheme.primary,
         title: Text(
@@ -87,6 +87,7 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.restart_alt),
+            color: Colors.white38,
             tooltip: 'Refresh App',
             onPressed: () {
               AppRestart.restartApp(context);
@@ -491,8 +492,8 @@ class _DashboardBody extends ConsumerWidget {
                     ActionCard(
                       color: primaryColor,
                       label: 'Products',
-                      subtitle: 'Manage produce',
-                      icon: LucideIcons.badgeCheck,
+                      subtitle: 'Manage products',
+                      icon: LucideIcons.box,
                       onTap: () {
                         Navigator.push(
                           context,

@@ -25,22 +25,36 @@ class _CreateMaterialScreenState extends ConsumerState<CreateMaterialScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _quantityController = TextEditingController();
   final TextEditingController _minLevelController = TextEditingController();
+  // ⭐ NEW: Max Level Controller
+  final TextEditingController _maxLevelController = TextEditingController();
   final TextEditingController _costController = TextEditingController();
 
-  String _selectedUnit = 'kg'; // default unit
+  // ⭐ CHANGED: Initial value is null to start with a blank/hint
+  String? _selectedUnit;
   bool _isLoading = false;
 
+  // ⭐ CHANGED: Updated the display names to be cleaner, e.g., 'kg' instead of 'kilograms (kg)'
   final List<String> units = [
-    "kilograms (kg)",
-    "grams (g)",
-    "liters (l)",
-    "milliliters (ml)",
-    "piece (pcs)",
+    "kg",
+    "g",
+    "l",
+    "ml",
+    "pcs",
     "pair",
+    "m", // Added common units
+    "box",
   ];
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    // ⭐ CHANGED: Validate form and check if unit is selected
+    if (!_formKey.currentState!.validate() || _selectedUnit == null) {
+      if (_selectedUnit == null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('❌ Please select a unit')));
+      }
+      return;
+    }
     setState(() => _isLoading = true);
 
     try {
@@ -49,9 +63,11 @@ class _CreateMaterialScreenState extends ConsumerState<CreateMaterialScreen> {
           .createMaterial(
             name: _nameController.text.trim(),
             type: widget.type, // ⭐ type controlled by parent screen
-            unit: _selectedUnit,
+            unit: _selectedUnit!, // _selectedUnit is guaranteed not null here
             currentQuantity: double.tryParse(_quantityController.text) ?? 0,
             minLevel: int.tryParse(_minLevelController.text) ?? 0,
+            // ⭐ NEW: Pass maxLevel
+            maxLevel: int.tryParse(_maxLevelController.text) ?? 0,
             cost: double.tryParse(_costController.text) ?? 0,
           );
 
@@ -87,14 +103,23 @@ class _CreateMaterialScreenState extends ConsumerState<CreateMaterialScreen> {
 
               const SizedBox(height: 12),
 
-              // ⭐ UNIT DROPDOWN
+              // ⭐ UNIT DROPDOWN - Starts with a blank/hint
               DropdownButtonFormField<String>(
-                value: units.first,
+                // value: _selectedUnit, // Removed value, as it can be null
                 decoration: const InputDecoration(labelText: 'Unit'),
-                items: units
-                    .map((u) => DropdownMenuItem(value: u, child: Text(u)))
-                    .toList(),
-                onChanged: (v) => setState(() => _selectedUnit = v!),
+                // ⭐ Added the 'Please Select' item with a null value
+                items: [
+                  const DropdownMenuItem(
+                    value: null,
+                    child: Text('Please Select Unit'),
+                  ),
+                  ...units
+                      .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+                      .toList(),
+                ],
+                onChanged: (String? v) => setState(() => _selectedUnit = v),
+                // ⭐ Validator for unit selection
+                validator: (v) => v == null ? 'Required' : null,
               ),
 
               const SizedBox(height: 12),
@@ -113,6 +138,15 @@ class _CreateMaterialScreenState extends ConsumerState<CreateMaterialScreen> {
                 controller: _minLevelController,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(labelText: 'Minimum Level'),
+              ),
+
+              const SizedBox(height: 12),
+
+              // ⭐ NEW: Max Level Input
+              TextFormField(
+                controller: _maxLevelController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Maximum Level'),
               ),
 
               const SizedBox(height: 12),

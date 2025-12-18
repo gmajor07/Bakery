@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart'; // ⬅️ NEW: Import for number formatting
+import 'package:intl/intl.dart';
 // Import your necessary files
+import '../models/product.dart';
 import '../auth/auth_provider.dart';
 import '../provider/products_provider.dart';
 import '../provider/products_search_provider.dart';
@@ -9,7 +10,7 @@ import '../theme.dart';
 import '../widgets/token_error_widget.dart';
 
 
-// ⭐️ ADDED: Helper functions for formatting (If these exist in a utility file, you should remove them here)
+// Helper functions for formatting
 String formatCurrency(double amount) {
   final formatter = NumberFormat.currency(
     locale: 'en_TZ', // Example locale
@@ -24,41 +25,7 @@ String formatNumber(int number) {
 }
 
 
-class Product {
-  final int id;
-  final String name;
-  final String description;
-  final double price;
-  final int quantity;
-  final String status; // new field
-
-  Product({
-    required this.id,
-    required this.name,
-    required this.description,
-    required this.price,
-    required this.quantity,
-    required this.status,
-  });
-
-  factory Product.fromJson(Map<String, dynamic> json) {
-    return Product(
-      id: json['id'] ?? 0,
-      name: json['name'] ?? '',
-      description: json['description'] ?? '',
-      price: (json['price'] is num)
-          ? (json['price'] as num).toDouble()
-          : double.tryParse(json['price'].toString()) ?? 0.0,
-      quantity: json['quantity'] ?? 0,
-      status: json['status']?.toString().toLowerCase() ?? 'active',
-    );
-  }
-
-  bool get isInStock => quantity > 0;
-}
-
-
-// Pagination provider
+// Pagination providers
 final paginationProvider = StateProvider<int>((ref) => 0);
 final itemsPerPageProvider = StateProvider<int>((ref) => 10);
 
@@ -73,6 +40,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   late TextEditingController _searchController;
   String? _token;
   bool _isLoadingToken = true;
+
+  // Set a threshold for "Low Stock"
+  static const int _lowStockThreshold = 5;
 
   @override
   void initState() {
@@ -115,100 +85,126 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     }
   }
 
-  // --- New Widget for Product Card View ---
-  Widget _buildProductCard(dynamic product, BuildContext context) {
-    // Assuming 'product' is the instance of your Product model
+  // ⭐ MODIFIED WIDGET: Product Card
+  Widget _buildProductCard(Product product, BuildContext context) {
+    final theme = Theme.of(context);
 
-    final stockValue = product.quantity;
-    final stockText = stockValue > 0
-        ? 'In Stock'
-        : 'Out of Stock';
+    // 1. New Stock Logic
+    final bool isLowStock = product.quantity > 0 && product.quantity <= _lowStockThreshold;
+    final bool isZeroStock = product.quantity == 0;
 
-    final stockColor = product.isInStock ? Colors.brown : Colors.red;
+    final String stockText;
+    final Color stockColor;
+    final IconData stockIcon;
+
+    if (isZeroStock) {
+      stockText = 'Out of Stock';
+      stockColor = theme.colorScheme.error; // Red for zero stock
+      stockIcon = Icons.remove_shopping_cart_outlined;
+    } else if (isLowStock) {
+      stockText = 'Low Stock';
+      stockColor = Colors.orange; // Orange for low stock
+      stockIcon = Icons.inventory_2_outlined;
+    } else {
+      stockText = 'In Stock';
+      // 2. Color Change: Cyan/Tertiary replaced with blueGrey
+      stockColor = Colors.blueGrey.shade600;
+      stockIcon = Icons.inventory_2_outlined;
+    }
+
     final statusColor = product.status == 'active'
-        ? AppTheme.primaryBrown
-        : Colors.grey;
+        ? theme.colorScheme.primary
+        : theme.colorScheme.onSurfaceVariant;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        leading: Icon(
+          stockIcon, // Use dynamic icon based on stock
+          color: stockColor, // Use dynamic stock color
+          size: 32,
+        ),
+        title: Text(
+          product.name,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Product Name
+            const SizedBox(height: 4),
+            // Subtitle Row for Description (Ellipsis added)
             Text(
-              product.name,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primaryBrown,
+              product.description,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 8),
-
-            // Price and Stock
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Price
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Price', style: TextStyle(color: Colors.grey)),
-                    Text(
-                      // ⭐️ FORMAT THE PRICE HERE
-                      formatCurrency(product.price),
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                  ],
-                ),
-                // Stock
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const Text('Stock', style: TextStyle(color: Colors.grey)),
-                    Text(
-                      stockText,
-                      style: TextStyle(
-                        color: stockColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    // ⭐️ ADDED: Display formatted quantity below status
-                    Text(
-                      '(${formatNumber(product.quantity)} units)',
-                      style: TextStyle(
-                        color: product.isInStock
-                            ? Colors.grey[600]
-                            : stockColor,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const Divider(height: 24),
-            // Status
+            // Status and Quantity Row
             Row(
               children: [
-                const Text('Status: ', style: TextStyle(color: Colors.grey)),
+                // Status Chip
+                Chip(
+                  label: Text(
+                    product.status[0].toUpperCase() + product.status.substring(1),
+                    style: TextStyle(
+                      color: statusColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  ),
+                  backgroundColor: statusColor.withOpacity(0.1),
+                  side: BorderSide(color: statusColor.withOpacity(0.5)),
+                  padding: EdgeInsets.zero,
+                ),
+                const SizedBox(width: 8),
+                // Quantity Tag
                 Text(
-                  product.status[0].toUpperCase() + product.status.substring(1),
-                  style: TextStyle(
-                    color: statusColor,
-                    fontWeight: FontWeight.w600,
+                  '| ${formatNumber(product.quantity)} units',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
             ),
           ],
         ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              formatCurrency(product.price),
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            Text(
+              stockText, // Use dynamic stock text
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: stockColor, // Use dynamic stock color
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        onTap: () {
+          // TODO: Implement navigation to Product Detail Screen
+        },
       ),
     );
   }
-  // --- End of New Widget ---
+  // --- End of Modified Widget ---
 
   @override
   Widget build(BuildContext context) {
@@ -226,11 +222,24 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       );
     }
 
-    // Replace dynamic with the actual type of your Product model if possible
     final productsAsync = ref.watch(productsProvider(_token!));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Products')),
+      appBar: AppBar(
+        title: const Text('Inventory Products'),
+        elevation: 0,
+      ),
+      // ⭐ ADDED: Floating Action Button
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          // TODO: Implement logic to navigate to Add Product screen
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Add Product button pressed!')),
+          );
+        },
+        icon: const Icon(Icons.add),
+        label: const Text('Add Product'),
+      ),
       body: productsAsync.when(
         data: (products) {
           final filteredProducts = products.where((product) {
@@ -250,72 +259,80 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
             endIndex,
           );
 
-          // FIX: Wrap the entire contents in a SingleChildScrollView
-          return SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Search Section
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      labelText: 'Search products',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          ref
-                              .read(
-                            productSearchQueryProvider.notifier,
-                          )
-                              .state =
-                          '';
-                        },
-                      )
-                          : null,
-                      border: const OutlineInputBorder(),
-                    ),
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ⭐ REVERTED: Search input back to TextField
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    labelText: 'Search products',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        ref
+                            .read(
+                          productSearchQueryProvider.notifier,
+                        )
+                            .state =
+                        '';
+                      },
+                    )
+                        : null,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
+              ),
 
-                // Results and Pagination Info
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Showing ${startIndex + 1}-$endIndex of $totalItems products',
+              // Results and Pagination Info
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Showing ${startIndex + 1}-$endIndex of $totalItems results',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
-                      if (searchQuery.isNotEmpty)
-                        Text('Filtered by: "$searchQuery"'),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
+              ),
 
-                const SizedBox(height: 16),
-
-                // FIX: Products List (Replaced DataTable)
-                Padding(
+              // Products List
+              Expanded(
+                child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: paginatedProducts.isEmpty
-                      ? const Center(
+                      ? Center(
                     child: Padding(
-                      padding: EdgeInsets.all(32.0),
-                      child: Text(
-                        'No products found matching your search.',
-                        style: TextStyle(fontStyle: FontStyle.italic),
+                      padding: const EdgeInsets.all(32.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey),
+                          const SizedBox(height: 16),
+                          Text(
+                            searchQuery.isEmpty
+                                ? 'No products currently available.'
+                                : 'No products found matching "$searchQuery".',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontStyle: FontStyle.italic,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                       ),
                     ),
                   )
                       : ListView.builder(
-                    // These two properties are crucial for ListView inside SingleChildScrollView
-                    shrinkWrap: true,
-                    primary: false,
                     itemCount: paginatedProducts.length,
                     itemBuilder: (context, index) {
                       final product = paginatedProducts[index];
@@ -323,43 +340,47 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     },
                   ),
                 ),
+              ),
 
-                // Pagination Controls
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Previous Button
-                      ElevatedButton.icon(
-                        onPressed: currentPage > 0 ? _previousPage : null,
-                        icon: const Icon(Icons.arrow_back),
-                        label: const Text('Previous'),
-                      ),
-
-                      const SizedBox(width: 16),
-
-                      // Page Info
-                      Text(
-                        'Page ${currentPage + 1} of $totalPages',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-
-                      const SizedBox(width: 16),
-
-                      // Next Button
-                      ElevatedButton.icon(
-                        onPressed: currentPage < totalPages - 1
-                            ? () => _nextPage(totalItems, itemsPerPage)
-                            : null,
-                        icon: const Icon(Icons.arrow_forward),
-                        label: const Text('Next'),
-                      ),
-                    ],
+              // Pagination Controls (Fixed and Modernized)
+              Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainer,
+                  border: Border(
+                    top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
                   ),
                 ),
-              ],
-            ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Previous Button (Icon before Label)
+                    OutlinedButton.icon(
+                      onPressed: currentPage > 0 ? _previousPage : null,
+                      icon: const Icon(Icons.chevron_left),
+                      label: const Text('Previous'),
+                    ),
+
+                    // Page Info
+                    Text(
+                      'Page ${currentPage + 1} of $totalPages',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+
+                    // Next Button (Label before Icon)
+                    OutlinedButton.icon(
+                      onPressed: currentPage < totalPages - 1
+                          ? () => _nextPage(totalItems, itemsPerPage)
+                          : null,
+                      label: const Text('Next'),
+                      icon: const Icon(Icons.chevron_right),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),

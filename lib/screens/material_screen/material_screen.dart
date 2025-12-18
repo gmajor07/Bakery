@@ -1,21 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart'; // ⭐️ NEW: Import for number formatting
+
+// Import your necessary files
+import '../../provider/material_pagination_provider.dart';
 import '../../provider/material_provider.dart';
 import '../../provider/materials_search_provider.dart';
+// Assuming this file exists and contains ClientPaginationFilters
 import '../../widgets/token_error_widget.dart';
 import 'create_material_screen.dart';
 
+// ⭐️ CONSTANT FOR FONT SIZE
+const double _kDataFontSize = 15.0;
+
 class MaterialsScreen extends ConsumerWidget {
   const MaterialsScreen({super.key});
+
+  // ⭐️ CURRENCY FORMATTER (TSh with 0 decimal places)
+  static final _currencyFormat = NumberFormat.currency(
+    locale: 'en_TZ',
+    symbol: 'TSh',
+    decimalDigits: 0,
+  );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final materialsAsync = ref.watch(materialsProvider);
     final searchQuery = ref.watch(materialSearchQueryProvider).toLowerCase();
+
+    // ⭐️ WATCH CLIENT-SIDE PAGINATION STATE
+    final paginationFilters = ref.watch(materialClientPaginationProvider);
+
     final isTablet = MediaQuery.of(context).size.width >= 768;
 
     Future<void> refresh() async {
       await ref.read(materialsProvider.notifier).fetchMaterials();
+      // Reset pagination on refresh
+      ref.read(materialClientPaginationProvider.notifier).state =
+          ClientPaginationFilters();
     }
 
     return Scaffold(
@@ -23,7 +45,6 @@ class MaterialsScreen extends ConsumerWidget {
         title: const Text('Materials List'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
-          // Add button in app bar for mobile
           if (!isTablet)
             IconButton(
               onPressed: () => _navigateToCreateScreen(context, ref),
@@ -32,8 +53,6 @@ class MaterialsScreen extends ConsumerWidget {
             ),
         ],
       ),
-
-      // Floating Action Button - Show only on tablet or when search is empty
       floatingActionButton: isTablet || searchQuery.isEmpty
           ? FloatingActionButton(
               onPressed: () => _navigateToCreateScreen(context, ref),
@@ -47,7 +66,7 @@ class MaterialsScreen extends ConsumerWidget {
             return _buildEmptyState(context, refresh, ref);
           }
 
-          // 🔍 Filter materials based on search
+          // 1. Filter materials based on search
           final filteredMaterials = materials.where((item) {
             return item.name.toLowerCase().contains(searchQuery) ||
                 item.unit.toLowerCase().contains(searchQuery) ||
@@ -58,6 +77,22 @@ class MaterialsScreen extends ConsumerWidget {
             return _buildNoSearchResults(context, searchQuery, refresh);
           }
 
+          // 2. Apply Client-Side Pagination
+          final totalItems = filteredMaterials.length;
+          final totalPages = (totalItems / paginationFilters.limit).ceil();
+          final startIndex =
+              (paginationFilters.page - 1) * paginationFilters.limit;
+          final endIndex = startIndex + paginationFilters.limit;
+
+          final pageMaterials = filteredMaterials.sublist(
+            startIndex,
+            endIndex > totalItems ? totalItems : endIndex,
+          );
+
+          final isLastPage =
+              paginationFilters.page >= totalPages && totalPages > 0;
+          final isFirstPage = paginationFilters.page <= 1;
+
           return RefreshIndicator(
             onRefresh: refresh,
             child: Column(
@@ -66,20 +101,117 @@ class MaterialsScreen extends ConsumerWidget {
                 _buildSearchField(ref),
 
                 // Results Count
-                _buildResultsCount(filteredMaterials.length),
+                _buildResultsCount(
+                  totalItems,
+                  startIndex,
+                  endIndex > totalItems ? totalItems : endIndex,
+                  searchQuery,
+                ),
 
                 // Materials List/Table
                 Expanded(
                   child: isTablet
-                      ? _buildTableView(context, filteredMaterials)
-                      : _buildMobileView(filteredMaterials),
+                      ? _buildTableView(context, pageMaterials)
+                      : _buildMobileView(pageMaterials),
                 ),
+
+                // ⭐️ PAGINATION CONTROLS
+                if (totalItems > paginationFilters.limit)
+                  _buildPagination(
+                    ref,
+                    paginationFilters,
+                    isFirstPage,
+                    isLastPage,
+                    totalPages,
+                  ),
               ],
             ),
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => _buildErrorWidget(context, error, ref),
+      ),
+    );
+  }
+
+  // ⭐️ MODIFIED: To reflect current page view
+  Widget _buildResultsCount(
+    int totalItems,
+    int startIndex,
+    int endIndex,
+    String searchQuery,
+  ) {
+    final displayedEnd = endIndex > totalItems ? totalItems : endIndex;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Showing ${startIndex + 1}-$displayedEnd of $totalItems material${totalItems != 1 ? 's' : ''}',
+            style: TextStyle(color: Colors.grey[600], fontSize: 14),
+          ),
+          if (searchQuery.isNotEmpty)
+            Text(
+              'Filtered',
+              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ⭐️ NEW: Pagination Widget
+  Widget _buildPagination(
+    WidgetRef ref,
+    ClientPaginationFilters filters,
+    bool isFirstPage,
+    bool isLastPage,
+    int totalPages,
+  ) {
+    void nextPage() {
+      if (!isLastPage) {
+        ref
+            .read(materialClientPaginationProvider.notifier)
+            .update((s) => s.copyWith(page: s.page + 1));
+      }
+    }
+
+    void previousPage() {
+      if (!isFirstPage) {
+        ref
+            .read(materialClientPaginationProvider.notifier)
+            .update((s) => s.copyWith(page: s.page - 1));
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          ElevatedButton.icon(
+            onPressed: previousPage,
+            icon: const Icon(Icons.arrow_back),
+            label: const Text('Previous'),
+          ),
+
+          const SizedBox(width: 16),
+
+          Text(
+            'Page ${filters.page} of $totalPages',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+
+          const SizedBox(width: 16),
+
+          ElevatedButton.icon(
+            onPressed: nextPage,
+            icon: const Icon(Icons.arrow_forward),
+            label: const Text('Next'),
+          ),
+        ],
       ),
     );
   }
@@ -96,27 +228,22 @@ class MaterialsScreen extends ConsumerWidget {
             icon: const Icon(Icons.clear),
             onPressed: () {
               ref.read(materialSearchQueryProvider.notifier).state = '';
+              // ⭐️ RESET PAGE ON CLEAR
+              ref
+                  .read(materialClientPaginationProvider.notifier)
+                  .update((state) => state.copyWith(page: 1));
             },
           ),
           border: const OutlineInputBorder(),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16),
         ),
-        onChanged: (value) =>
-            ref.read(materialSearchQueryProvider.notifier).state = value,
-      ),
-    );
-  }
-
-  Widget _buildResultsCount(int count) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Text(
-            '$count material${count != 1 ? 's' : ''} found',
-            style: TextStyle(color: Colors.grey[600], fontSize: 14),
-          ),
-        ],
+        onChanged: (value) {
+          ref.read(materialSearchQueryProvider.notifier).state = value;
+          // ⭐️ RESET PAGE ON SEARCH
+          ref
+              .read(materialClientPaginationProvider.notifier)
+              .update((state) => state.copyWith(page: 1));
+        },
       ),
     );
   }
@@ -173,6 +300,8 @@ class MaterialsScreen extends ConsumerWidget {
             ),
           ],
           rows: materials.map((item) {
+            final quantityText = NumberFormat('#,##0').format(item.quantity);
+
             return DataRow(
               cells: [
                 DataCell(
@@ -180,15 +309,41 @@ class MaterialsScreen extends ConsumerWidget {
                     message: item.name,
                     child: Text(
                       item.name,
+                      style: const TextStyle(
+                        fontSize: _kDataFontSize,
+                      ), // ⭐️ FONT SIZE
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
                     ),
                   ),
                 ),
-                DataCell(Text(item.unit)),
-                DataCell(Text(item.quantity.toStringAsFixed)),
-                DataCell(Text(item.minLevel.toString())),
-                DataCell(Text('Tsh ${item.cost.toStringAsFixed(0)}')),
+                DataCell(
+                  Text(
+                    item.unit,
+                    style: const TextStyle(fontSize: _kDataFontSize),
+                  ),
+                ), // ⭐️ FONT SIZE
+                DataCell(
+                  Text(
+                    quantityText,
+                    style: const TextStyle(fontSize: _kDataFontSize),
+                  ),
+                ), // ⭐️ FONT SIZE
+                DataCell(
+                  Text(
+                    item.minLevel.toString(),
+                    style: const TextStyle(fontSize: _kDataFontSize),
+                  ),
+                ), // ⭐️ FONT SIZE
+                DataCell(
+                  Text(
+                    _currencyFormat.format(item.cost), // ⭐️ PRICE FORMAT
+                    style: const TextStyle(
+                      fontSize: _kDataFontSize,
+                      fontWeight: FontWeight.bold,
+                    ), // ⭐️ FONT SIZE & BOLD
+                  ),
+                ),
                 DataCell(
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -229,6 +384,9 @@ class MaterialsScreen extends ConsumerWidget {
       itemCount: materials.length,
       itemBuilder: (context, index) {
         final item = materials[index];
+        final costText = _currencyFormat.format(item.cost); // ⭐️ PRICE FORMAT
+        final quantityText = NumberFormat('#,##0').format(item.quantity);
+
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
           elevation: 2,
@@ -245,7 +403,7 @@ class MaterialsScreen extends ConsumerWidget {
                       child: Text(
                         item.name,
                         style: const TextStyle(
-                          fontSize: 16,
+                          fontSize: 17.0,
                           fontWeight: FontWeight.bold,
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -289,15 +447,13 @@ class MaterialsScreen extends ConsumerWidget {
                   childAspectRatio: 3,
                   children: [
                     _buildDetailItem('Unit', item.unit),
-                    _buildDetailItem(
-                      'Quantity',
-                      item.quantity.toStringAsFixed(3),
-                    ),
+                    _buildDetailItem('Quantity', quantityText),
                     _buildDetailItem('Min Level', item.minLevel.toString()),
                     _buildDetailItem(
                       'Cost',
-                      'Tsh ${item.cost.toStringAsFixed(0)}',
-                    ),
+                      costText,
+                      isCost: true,
+                    ), // ⭐️ PRICE FORMATTING
                   ],
                 ),
               ],
@@ -308,15 +464,18 @@ class MaterialsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildDetailItem(String label, String value) {
+  Widget _buildDetailItem(String label, String value, {bool isCost = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
         const SizedBox(height: 2),
         Text(
           value,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          style: TextStyle(
+            fontSize: _kDataFontSize,
+            fontWeight: isCost ? FontWeight.bold : FontWeight.w500,
+          ),
         ),
       ],
     );
@@ -411,7 +570,7 @@ class MaterialsScreen extends ConsumerWidget {
         msg.contains('unauthorized') ||
         msg.contains('token') ||
         msg.contains('expired')) {
-      return TokenErrorWidget();
+      return const TokenErrorWidget();
     }
 
     return Center(
@@ -456,12 +615,15 @@ class MaterialsScreen extends ConsumerWidget {
       context,
       MaterialPageRoute(
         builder: (_) => const CreateMaterialScreen(
-          heading: "Add  Material",
+          heading: "Add Material",
           type: "raw_material",
           screenTitle: '',
         ),
       ),
     );
-    ref.read(materialsProvider.notifier).fetchMaterials();
+    // ⭐️ FIX: Invalidate main data provider AND reset pagination
+    ref.invalidate(materialsProvider);
+    ref.read(materialClientPaginationProvider.notifier).state =
+        ClientPaginationFilters();
   }
 }

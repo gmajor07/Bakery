@@ -13,7 +13,7 @@ class ReportsActionScreen extends StatelessWidget {
 
     const crossAxisCount = 2;
     final primaryColor = colorScheme.primary;
-    final backgroundColor = colorScheme.surface; // Use background color
+    final backgroundColor = colorScheme.background; // Use background color
     final onPrimary = colorScheme.onPrimary;
     final textBodyColor = textTheme.bodyMedium?.color; // Get body text color
 
