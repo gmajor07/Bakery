@@ -160,7 +160,7 @@ class OutstandingPaymentDetailsScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 12),
                     _buildDetailRow(
-                      'Receipt Number',
+                      'Receipt #',
                       payment.receiptNumber.toString(),
                     ),
                     _buildDetailRow('Customer', payment.customer),

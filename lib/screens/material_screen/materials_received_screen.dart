@@ -25,8 +25,12 @@ class _MaterialsReceivedScreenState
 
   // Local state for client-side search/filter (like purchase orders)
   String searchQuery = '';
-  QuickDateFilter selectedQuickFilter = QuickDateFilter.all;
+  // ⭐️ MODIFIED: Default filter starts as today
+  QuickDateFilter selectedQuickFilter = QuickDateFilter.today;
   DateTimeRange? customDateRange;
+
+  // ⭐️ NEW: Date Formatter for 'Dec 23, 4:00 PM'
+  final DateFormat _dateTimeFormatter = DateFormat('MMM dd, h:mm a');
 
   @override
   void initState() {
@@ -40,7 +44,8 @@ class _MaterialsReceivedScreenState
 
     // Schedule provider updates after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _applyQuickFilter(QuickDateFilter.all);
+      // ⭐️ MODIFIED: Apply 'Today' filter on start
+      _applyQuickFilter(QuickDateFilter.today);
       ref.invalidate(materialsProvider);
     });
   }
@@ -60,13 +65,13 @@ class _MaterialsReceivedScreenState
     _searchController.clear();
     setState(() {
       searchQuery = '';
+      // ⭐️ MODIFIED: After clearing, reset the filter to 'All Time'
       selectedQuickFilter = QuickDateFilter.all;
       customDateRange = null;
     });
 
     // Clear Riverpod states
     ref.read(materialSearchQueryProvider.notifier).state = '';
-    ref.read(selectedMaterialStatusProvider.notifier).state = null;
     ref.read(selectedMaterialDateRangeProvider.notifier).state = null;
   }
 
@@ -90,14 +95,17 @@ class _MaterialsReceivedScreenState
       context: context,
       firstDate: DateTime(2000),
       lastDate: DateTime.now().add(const Duration(days: 365)),
+      // ⭐️ MODIFIED: Use the currently selected range as initial
       initialDateRange:
       customDateRange ??
-          _getDateRange(QuickDateFilter.all),
+          _getDateRange(selectedQuickFilter) ??
+          _getDateRange(QuickDateFilter.today),
       helpText: 'Select Date Range',
       saveText: 'Apply',
     );
 
     if (picked != null) {
+      // Normalize start to start of day, end to end of day
       final normalizedRange = DateTimeRange(
         start: DateTime(
           picked.start.year,
@@ -159,43 +167,32 @@ class _MaterialsReceivedScreenState
 
   // Client-side filtering (like purchase orders)
   List<MaterialReceipt> _applyFilters(List<MaterialReceipt> receipts) {
-    final selectedStatus = ref.watch(selectedMaterialStatusProvider);
+    // ❌ REMOVED: selectedStatus watch
     final selectedRange = ref.watch(selectedMaterialDateRangeProvider);
 
     return receipts.where((receipt) {
       // Search filter
+      // ⭐️ MODIFIED: Search only by supplierName and purchaseOrderId
       final matchesSearch =
           searchQuery.isEmpty ||
               receipt.supplierName.toLowerCase().contains(searchQuery) ||
               receipt.purchaseOrderId.toString().contains(searchQuery);
 
-      // Status filter
-      bool matchesStatus = true;
-      if (selectedStatus != null && selectedStatus.isNotEmpty) {
-        matchesStatus =
-            receipt.status.toLowerCase() == selectedStatus.toLowerCase();
-      }
+      // ❌ REMOVED: Status filter logic
 
       // Date filter
       bool matchesDate = true;
       if (selectedRange != null) {
-        final receiptDate = DateTime.parse(receipt.receivedDate.toString());
-        final startOfReceiptDay = DateTime(
-          receiptDate.year,
-          receiptDate.month,
-          receiptDate.day,
-        );
-        final startOfRangeDay = selectedRange.start;
-        final endOfRangeDay = selectedRange.end;
+        // Use the full DateTime for accurate time-based filtering if range is not null
+        final receiptDate = receipt.receivedDate;
+        final startOfRange = selectedRange.start;
+        final endOfRange = selectedRange.end;
 
-        matchesDate =
-            (startOfReceiptDay.isAtSameMomentAs(startOfRangeDay) ||
-                startOfReceiptDay.isAfter(startOfRangeDay)) &&
-                (startOfReceiptDay.isAtSameMomentAs(endOfRangeDay) ||
-                    startOfReceiptDay.isBefore(endOfRangeDay));
+        matchesDate = receiptDate.isAfter(startOfRange.subtract(const Duration(seconds: 1))) &&
+            receiptDate.isBefore(endOfRange.add(const Duration(seconds: 1)));
       }
 
-      return matchesSearch && matchesStatus && matchesDate;
+      return matchesSearch && matchesDate; // ❌ REMOVED: && matchesStatus
     }).toList();
   }
 
@@ -209,16 +206,23 @@ class _MaterialsReceivedScreenState
     );
   }
 
+  // ⭐️ NEW: Status string formatter
+  String _capitalizeStatus(String status) {
+    if (status.isEmpty) return status;
+    return status[0].toUpperCase() + status.substring(1).toLowerCase();
+  }
+
   @override
   Widget build(BuildContext context) {
     final asyncReceipts = ref.watch(materialsProvider);
     final selectedRange = ref.watch(selectedMaterialDateRangeProvider);
-    final selectedStatus = ref.watch(selectedMaterialStatusProvider);
+    // ❌ REMOVED: selectedStatus watch
 
     final hasFilters =
         selectedRange != null ||
             searchQuery.isNotEmpty ||
-            selectedStatus != null;
+            // Show clear if not on default Today filter
+            selectedQuickFilter != QuickDateFilter.today;
 
     return Scaffold(
       appBar: AppBar(
@@ -228,7 +232,8 @@ class _MaterialsReceivedScreenState
           if (hasFilters)
             IconButton(
               icon: const Icon(Icons.clear_all),
-              onPressed: _clearFilters,
+              // ⭐️ MODIFIED: Clear should reset to Today filter
+              onPressed: () => _applyQuickFilter(QuickDateFilter.today),
               tooltip: 'Clear Filters',
             ),
         ],
@@ -240,7 +245,8 @@ class _MaterialsReceivedScreenState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Filters Section
-              _buildFiltersSection(context, selectedStatus),
+              // ❌ REMOVED: Passing selectedStatus
+              _buildFiltersSection(context),
               const SizedBox(height: 16),
 
               // Receipts List Data
@@ -267,7 +273,8 @@ class _MaterialsReceivedScreenState
     );
   }
 
-  Widget _buildFiltersSection(BuildContext context, String? selectedStatus) {
+  // ❌ MODIFIED: Removed Row wrapper and placed Date Picker logic into Quick Date Filters
+  Widget _buildFiltersSection(BuildContext context) {
     return Card(
       elevation: 2,
       child: Padding(
@@ -297,62 +304,11 @@ class _MaterialsReceivedScreenState
             ),
             const SizedBox(height: 12),
 
-            // Row for Status and Date Picker
-            Row(
-              children: [
-                // Status Filter
-                Expanded(child: _buildStatusFilter(selectedStatus)),
-                const SizedBox(width: 8),
-                // Date Picker Button
-                SizedBox(
-                  width: 50,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: () => _selectDateRange(context),
-                    style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4.0),
-                      ),
-                    ),
-                    child: const Icon(Icons.date_range),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Quick Date Filter Chips
+            // Quick Date Filter Chips (now includes the Custom Range button)
             _buildQuickDateFilters(),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildStatusFilter(String? selected) {
-    const statuses = [null, "pending", "completed", "cancelled"];
-
-    return DropdownButtonFormField<String?>(
-      value: selected,
-      decoration: const InputDecoration(
-        labelText: "Status",
-        border: OutlineInputBorder(),
-      ),
-      isExpanded: true,
-      items: statuses
-          .map(
-            (s) => DropdownMenuItem(
-          value: s,
-          child: Text(
-            s == null ? "All Status" : s[0].toUpperCase() + s.substring(1),
-          ),
-        ),
-      )
-          .toList(),
-      onChanged: (value) {
-        ref.read(selectedMaterialStatusProvider.notifier).state = value;
-      },
     );
   }
 
@@ -362,16 +318,47 @@ class _MaterialsReceivedScreenState
       QuickDateFilter.today,
       QuickDateFilter.last7Days,
       QuickDateFilter.thisMonth,
-      QuickDateFilter.custom,
+      QuickDateFilter.custom, // Custom filter is now a chip/button
     ];
 
     final primaryColor = Theme.of(context).colorScheme.primary;
+    final isCustomSelected = selectedQuickFilter == QuickDateFilter.custom;
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: filters.map((filter) {
           final isSelected = filter == selectedQuickFilter;
+
+          // Special handling for the Custom Range chip
+          if (filter == QuickDateFilter.custom) {
+            return Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: ActionChip(
+                avatar: Icon(
+                  Icons.date_range,
+                  size: 20,
+                  color: isCustomSelected ? primaryColor : Colors.grey[700],
+                ),
+                label: Text(_getFilterName(filter)),
+                side: BorderSide(
+                  color: isCustomSelected
+                      ? primaryColor
+                      : Colors.grey.shade300,
+                ),
+                backgroundColor: isCustomSelected
+                    ? primaryColor.withOpacity(0.15)
+                    : Colors.transparent,
+                labelStyle: TextStyle(
+                  color: isCustomSelected ? primaryColor : Colors.grey[700],
+                  fontWeight: isCustomSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+                onPressed: () => _selectDateRange(context),
+              ),
+            );
+          }
+
+          // Regular filter chips
           return Padding(
             padding: const EdgeInsets.only(right: 8.0),
             child: FilterChip(
@@ -384,9 +371,7 @@ class _MaterialsReceivedScreenState
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
               onSelected: (selected) {
-                if (filter == QuickDateFilter.custom) {
-                  _selectDateRange(context);
-                } else if (selected) {
+                if (selected) {
                   _applyQuickFilter(filter);
                 } else if (filter == selectedQuickFilter) {
                   _applyQuickFilter(QuickDateFilter.all);
@@ -461,7 +446,10 @@ class _MaterialsReceivedScreenState
             // ❌ REMOVED: Actions Column
           ],
           rows: receipts.map((r) {
-            final dateStr = DateFormat('dd/MM/yyyy').format(r.receivedDate);
+            // ⭐️ MODIFIED: Use new date formatter
+            final dateStr = _dateTimeFormatter.format(r.receivedDate);
+            // ⭐️ MODIFIED: Capitalize status
+            final capitalizedStatus = _capitalizeStatus(r.status);
 
             return DataRow(
               // ⭐️ NEW: Add onTap behavior to the whole row
@@ -493,7 +481,7 @@ class _MaterialsReceivedScreenState
                       border: Border.all(color: _getStatusColor(r.status)),
                     ),
                     child: Text(
-                      r.status,
+                      capitalizedStatus, // ⭐️ USED CAPITALIZED STATUS
                       style: TextStyle(
                         color: _getStatusColor(r.status),
                         fontWeight: FontWeight.bold,
@@ -516,7 +504,10 @@ class _MaterialsReceivedScreenState
       itemCount: receipts.length,
       itemBuilder: (context, index) {
         final r = receipts[index];
-        final dateStr = DateFormat('dd/MM/yyyy').format(r.receivedDate);
+        // ⭐️ MODIFIED: Use new date formatter
+        final dateStr = _dateTimeFormatter.format(r.receivedDate);
+        // ⭐️ MODIFIED: Capitalize status
+        final capitalizedStatus = _capitalizeStatus(r.status);
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
@@ -552,7 +543,7 @@ class _MaterialsReceivedScreenState
                           border: Border.all(color: _getStatusColor(r.status)),
                         ),
                         child: Text(
-                          r.status,
+                          capitalizedStatus, // ⭐️ USED CAPITALIZED STATUS
                           style: TextStyle(
                             color: _getStatusColor(r.status),
                             fontWeight: FontWeight.bold,
@@ -659,7 +650,8 @@ class _MaterialsReceivedScreenState
                   Text(
                     hasFilters
                         ? 'Try clearing your filters or using different search terms.'
-                        : 'Pull down to refresh and load materials received.',
+                    // ⭐️ MODIFIED: Hint for filter based on default
+                        : 'Currently showing Today\'s materials. Try the "All Time" filter or pull down to refresh.',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[600],
@@ -671,8 +663,9 @@ class _MaterialsReceivedScreenState
                   if (hasFilters)
                     ElevatedButton.icon(
                       icon: const Icon(Icons.clear_all, size: 18),
-                      label: const Text('Clear all filters'),
-                      onPressed: _clearFilters,
+                      // ⭐️ MODIFIED: Clear should reset to Today filter
+                      label: const Text('Reset to Today'),
+                      onPressed: () => _applyQuickFilter(QuickDateFilter.today),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 20,

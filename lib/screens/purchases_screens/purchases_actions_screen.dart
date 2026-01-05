@@ -74,7 +74,7 @@ class PurchasesActionsScreen extends StatelessWidget {
                     ActionCard(
                       color: primaryColor,
                       label: 'Material Received',
-                      subtitle: 'Confirm items',
+                      subtitle: 'View Purchases ',
                       icon: LucideIcons.car,
                       onTap: () {
                         Navigator.push(

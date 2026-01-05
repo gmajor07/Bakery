@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // For TextInputFormatter
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -7,22 +8,45 @@ import '../../models/purchase_order.dart';
 import '../../provider/purchase_orders_provider.dart';
 import '../../purchases_model/inventory_item.dart';
 import '../../purchases_model/unit_type.dart';
-// Note: You must ensure the following models/providers exist in your project:
-// - Supplier
-// - InventoryItem
-// - UnitType
-// - suppliersProvider (AsyncValue<List<Supplier>>)
-// - inventoryItemsProvider (AsyncValue<List<InventoryItem>>)
-// - unitTypesProvider (AsyncValue<List<UnitType>>)
 
 // 💡 NEW PROVIDERS for State Persistence and Search
-// These should ideally be defined in a dedicated provider file (e.g., purchase_orders_provider.dart)
 final purchaseOrderDraftProvider =
 StateProvider<Map<String, dynamic>>((ref) => {
   'supplierId': null,
   'items': <Map<String, dynamic>>[],
 });
 final purchaseItemSearchQueryProvider = StateProvider<String>((ref) => '');
+
+// 🎯 NEW CLASS: Custom Formatter for adding commas to large numbers
+class CommaTextInputFormatter extends TextInputFormatter {
+  final NumberFormat formatter = NumberFormat('#,##0');
+
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
+    if (newValue.text.isEmpty) {
+      return newValue.copyWith(text: '');
+    }
+
+    // Remove all non-digit characters from the new text
+    final String cleanText = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
+
+    // Convert to number, format, and return
+    final int? value = int.tryParse(cleanText);
+    if (value == null) {
+      return oldValue;
+    }
+
+    final String formattedText = formatter.format(value);
+
+    return TextEditingValue(
+      text: formattedText,
+      selection: TextSelection.collapsed(offset: formattedText.length),
+    );
+  }
+}
 
 class CreatePurchaseOrderScreen extends ConsumerStatefulWidget {
   const CreatePurchaseOrderScreen({super.key});
@@ -36,16 +60,18 @@ class _CreatePurchaseOrderScreenState
     extends ConsumerState<CreatePurchaseOrderScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _searchController = TextEditingController();
+  final List<String> manualUnits = ['pieces', 'kg', 'g', 'l', 'ml'];
 
   // Form State Variables
   int? selectedSupplierId;
   List<Map<String, dynamic>> items = [];
-  // ❌ Removed: String notes = '';
   double totalCost = 0.0;
   bool _isCreating = false;
 
   // 🚨 Number formatter for Unit Price and currency (no decimals, with commas)
   final _priceFormatter = NumberFormat('#,##0');
+  // 🎯 Number formatter for quantity
+  final _qtyFormatter = CommaTextInputFormatter();
 
   @override
   void initState() {
@@ -84,7 +110,7 @@ class _CreatePurchaseOrderScreenState
       items.add({
         'inventoryItemId': null,
         'quantity': 1,
-        'unit': null,
+        'unit': null, // Unit starts null/blank
         'price': 0.0,
       });
       _calculateTotal();
@@ -106,7 +132,8 @@ class _CreatePurchaseOrderScreenState
     setState(() {
       totalCost = items.fold(
         0.0,
-            (sum, item) => sum + ((item['quantity'] ?? 0) * (item['price'] ?? 0.0)),
+            (sum, item) =>
+        sum + ((item['quantity'] ?? 0) * (item['price'] ?? 0.0)),
       );
     });
   }
@@ -131,7 +158,7 @@ class _CreatePurchaseOrderScreenState
       builder: (context) => AlertDialog(
         title: const Text('Cancel Order Creation?'),
         content: const Text(
-            'Are you sure you want to exit? Your current data will be saved as a draft.'),
+            'Are you sure you want to exit? Your current order will be saved as a draft.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false), // No
@@ -179,7 +206,7 @@ class _CreatePurchaseOrderScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Please fill all required fields in the form and items.',
+            'Please fill all required fields.',
           ),
           backgroundColor: Colors.red,
         ),
@@ -455,6 +482,9 @@ class _CreatePurchaseOrderScreenState
       decimalDigits: 0,
     ).format(rowTotal);
 
+    // 🎯 Use formatted quantity for initial display
+    final formattedQuantity = _priceFormatter.format(item['quantity'] ?? 0);
+
     return Card(
       elevation: 2,
       margin: const EdgeInsets.only(bottom: 12),
@@ -523,8 +553,8 @@ class _CreatePurchaseOrderScreenState
                 Expanded(
                   flex: 3,
                   child: TextFormField(
-                    // 3. Focus Fix: No ValueKey needed for Qty
-                    initialValue: item['quantity'].toString(),
+                    // 🎯 USE FORMATTED QUANTITY
+                    initialValue: formattedQuantity,
                     decoration: const InputDecoration(
                       labelText: "Qty",
                       border: OutlineInputBorder(),
@@ -535,12 +565,23 @@ class _CreatePurchaseOrderScreenState
                       errorMaxLines: 1,
                     ),
                     keyboardType: TextInputType.number,
+                    // 🎯 APPLY COMMAS FORMATTER
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      _qtyFormatter,
+                    ],
                     onChanged: (v) {
-                      item['quantity'] = int.tryParse(v) ?? 0;
+                      // Remove commas before parsing
+                      final cleanValue = v.replaceAll(',', '');
+                      item['quantity'] = int.tryParse(cleanValue) ?? 0;
                       _calculateTotal();
                     },
-                    validator: (v) =>
-                    (int.tryParse(v ?? '') ?? 0) < 1 ? "Min 1" : null,
+                    validator: (v) {
+                      final cleanValue = v?.replaceAll(',', '');
+                      return (int.tryParse(cleanValue ?? '') ?? 0) < 1
+                          ? "Min 1"
+                          : null;
+                    },
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -548,35 +589,34 @@ class _CreatePurchaseOrderScreenState
                 // Unit dropdown
                 Expanded(
                   flex: 4,
-                  child: unitsAsync.when(
-                    data: (units) {
-                      final unitList = units.cast<UnitType>();
-
-                      return DropdownButtonFormField<String>(
-                        value: item['unit'],
-                        items: unitList
-                            .map<DropdownMenuItem<String>>(
-                              (u) => DropdownMenuItem<String>(
-                            value: u.name,
-                            child: Text(u.name),
-                          ),
-                        )
-                            .toList(),
-                        onChanged: (val) {
-                          setState(() => item['unit'] = val);
-                        },
-                        decoration: const InputDecoration(
-                          labelText: "Unit",
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 10,
-                          ),
-                        ),
-                      );
+                  child: DropdownButtonFormField<String?>(
+                    // Ensure the initial value is null or exists in the list
+                    value: item['unit'] as String?,
+                    decoration: const InputDecoration(
+                      labelText: "Unit",
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 10,
+                      ),
+                    ),
+                    // 2. Map your manual list to DropdownMenuItems
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text("Select Unit", style: TextStyle(color: Colors.grey)),
+                      ),
+                      ...manualUnits.map((unit) => DropdownMenuItem<String?>(
+                        value: unit,
+                        child: Text(unit),
+                      )),
+                    ],
+                    onChanged: (val) {
+                      setState(() => item['unit'] = val);
                     },
-                    loading: () => const LinearProgressIndicator(),
-                    error: (e, _) => const Text("Error loading units"),
+                    // Validation logic
+                    validator: (val) =>
+                    item['inventoryItemId'] != null && val == null ? "Select unit" : null,
                   ),
                 ),
               ],
@@ -592,7 +632,8 @@ class _CreatePurchaseOrderScreenState
                   flex: 5,
                   child: TextFormField(
                     // 🚨 Price Fix: Key forces rebuild when item ID changes
-                    key: ValueKey('price_field_${item['inventoryItemId'] ?? index}'),
+                    key: ValueKey(
+                        'price_field_${item['inventoryItemId'] ?? index}'),
 
                     // Display the formatted price from the state
                     initialValue: _priceFormatter.format(item['price'] ?? 0.0),
@@ -680,8 +721,9 @@ class _CreatePurchaseOrderScreenState
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // 🎯 CHANGE LABEL TO "Total Cost"
           const Text(
-            "Total Order Cost:",
+            "Total Cost:",
             style: TextStyle(
               fontWeight: FontWeight.w500,
               fontSize: 18,
@@ -740,7 +782,6 @@ class _CreatePurchaseOrderScreenState
       }
     }
   }
-
 
 // ------------------------- UPDATED ACTION BUTTONS -------------------------
 

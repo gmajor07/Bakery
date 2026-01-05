@@ -58,7 +58,7 @@ class ReportsActionScreen extends StatelessWidget {
                     ActionCard(
                       color: primaryColor,
                       label: 'Sales ',
-                      subtitle: 'Track revenue',
+                      subtitle: 'Sales Reports',
                       icon: Icons.ssid_chart_rounded,
                       onTap: () {
                         // TODO: Navigate to Sales Reports screen
@@ -71,7 +71,7 @@ class ReportsActionScreen extends StatelessWidget {
                     ActionCard(
                       color: primaryColor,
                       label: 'Purchases',
-                      subtitle: 'Analyze procurement history.',
+                      subtitle: 'Purchases Reports',
                       icon: Icons.shopping_bag_rounded,
                       onTap: () {
                         // TODO: Navigate to Purchases Reports screen
@@ -84,7 +84,7 @@ class ReportsActionScreen extends StatelessWidget {
                     ActionCard(
                       color: primaryColor,
                       label: 'Inventory ',
-                      subtitle: 'Monitor stock and valuation.',
+                      subtitle: 'Inventory Reports',
                       icon: Icons.assessment_rounded,
                       onTap: () {
                         // TODO: Navigate to Inventory Reports screen
@@ -97,7 +97,7 @@ class ReportsActionScreen extends StatelessWidget {
                     ActionCard(
                       color: primaryColor,
                       label: 'Production ',
-                      subtitle: 'Review material usage.',
+                      subtitle: 'Production Reports',
                       icon: Icons.precision_manufacturing_rounded,
                       onTap: () {
                         // TODO: Navigate to Production Reports screen
@@ -110,7 +110,7 @@ class ReportsActionScreen extends StatelessWidget {
                     ActionCard(
                       color: primaryColor,
                       label: 'Accounting ',
-                      subtitle: 'View balance sheets and ledger.',
+                      subtitle: 'Accounting Reports',
                       icon: Icons.account_balance_rounded,
                       onTap: () {
                         // TODO: Navigate to Accounting Reports screen

@@ -21,7 +21,7 @@ class _SupplierCreationScreenState
   // Form Controllers
   final _nameController = TextEditingController();
   final _contactInfoController =
-      TextEditingController(); // ⬅️ Renamed from _phoneController
+  TextEditingController(); // ⬅️ Renamed from _phoneController
   final _emailController = TextEditingController();
   final _addressController = TextEditingController();
 
@@ -38,6 +38,7 @@ class _SupplierCreationScreenState
 
   // --- Form Submission Logic ---
   Future<void> _submitForm() async {
+    // ⭐️ MODIFIED: Only validate fields that are truly required (Name)
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -61,11 +62,11 @@ class _SupplierCreationScreenState
     }
 
     final supplierData = {
-      'name': _nameController.text,
-      // ⬅️ Updated key and value source to contactInfo
-      'contactInfo': _contactInfoController.text,
-      'email': _emailController.text,
-      'address': _addressController.text,
+      'name': _nameController.text.trim(),
+      // Use null for empty strings for optional fields if your backend prefers it
+      'contactInfo': _contactInfoController.text.trim(),
+      'email': _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
+      'address': _addressController.text.trim().isEmpty ? null : _addressController.text.trim(),
       'status': 'active', // ⬅️ Hardcoded status to 'active'
     };
 
@@ -128,41 +129,54 @@ class _SupplierCreationScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Name
+              // Name (REQUIRED)
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: 'Name *'),
                 validator: (value) =>
-                    value!.isEmpty ? 'Name cannot be empty.' : null,
+                value!.isEmpty ? 'Name cannot be empty.' : null,
               ),
               const SizedBox(height: 16),
 
-              // Contact Info (formerly Phone)
+              // Contact Info (Phone) (REQUIRED)
               TextFormField(
                 controller: _contactInfoController, // ⬅️ Used new controller
                 decoration: const InputDecoration(
-                  labelText: 'Contact Info',
-                ), // ⬅️ Updated label
+                  labelText: 'Phone *',
+                ),
                 keyboardType:
-                    TextInputType.text, // ⬅️ Changed type to generic Text
+                TextInputType.text,
+                // ⭐️ ADDED: Basic validation for contact info (assuming required)
+                validator: (value) =>
+                value!.isEmpty ? 'Contact information is required.' : null,
               ),
               const SizedBox(height: 16),
 
-              // Email
+              // Email (OPTIONAL)
               TextFormField(
                 controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email *'),
+                // ⭐️ MODIFIED: Removed '*' from label
+                decoration: const InputDecoration(labelText: 'Email'),
                 keyboardType: TextInputType.emailAddress,
-                validator: (value) =>
-                    value!.isEmpty ? 'Email cannot be empty.' : null,
+                // ⭐️ MODIFIED: Removed validation, making it optional
+                validator: (value) {
+                  // Optional email validation: Check format only if value is provided
+                  if (value != null && value.isNotEmpty && !value.contains('@')) {
+                    return 'Enter a valid email address';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
 
-              // Address
+              // Address (OPTIONAL)
               TextFormField(
                 controller: _addressController,
+                // ⭐️ MODIFIED: Label is unchanged, validation removed
                 decoration: const InputDecoration(labelText: 'Address'),
                 maxLines: 2,
+                // ⭐️ MODIFIED: Removed validation, making it optional
+                validator: null,
               ),
               const SizedBox(height: 24),
 
@@ -174,13 +188,13 @@ class _SupplierCreationScreenState
                 ),
                 child: _isLoading
                     ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 3,
-                        ),
-                      )
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 3,
+                  ),
+                )
                     : const Text('Create Supplier'),
               ),
             ],

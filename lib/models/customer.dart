@@ -3,19 +3,21 @@ class Customer {
   final String name;
   final String email;
   final String phone;
+  final String address; // ⭐️ ADDED: Customer's address
   final double creditLimit;
   final String status;
   final bool isDefault;
-  final double currentCredit; // ⬅️ The new field
+  final double currentCredit;
 
   Customer({
     required this.id,
     required this.name,
     required this.email,
     required this.phone,
+    required this.address, // ⭐️ ADDED: Required in constructor
     required this.creditLimit,
     required this.status,
-    required this.currentCredit, // ⬅️ Include as required named parameter
+    required this.currentCredit,
     this.isDefault = false,
   });
 
@@ -31,9 +33,10 @@ class Customer {
       name: json['name'] ?? '—',
       email: json['email'] ?? '—',
       phone: json['phone'] ?? '—',
+      address: json['address'] ?? '—', // ⭐️ ADDED: Read from JSON
       // Safe parsing for financial fields
       creditLimit: parseToDouble(json['creditLimit']),
-      currentCredit: parseToDouble(json['currentCredit']), // ⬅️ CRUCIAL FIX: Read from JSON
+      currentCredit: parseToDouble(json['currentCredit']), // Read from JSON
       status: json['status'] ?? 'Unknown',
       isDefault: json['isDefault'] ?? false,
     );

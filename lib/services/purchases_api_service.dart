@@ -64,7 +64,7 @@ class PurchaseOrdersApiService {
     DateTime? startDate,
     DateTime? endDate,
     int page = 1, // default to first page
-    int limit = 50,
+    int limit = 10000,
   }) async {
     final token = await ref.read(authProvider.notifier).getAccessToken();
     if (token == null) throw const AuthException('Token is null');

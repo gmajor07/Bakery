@@ -44,6 +44,20 @@ class SaleItem {
           0.0,
     );
   }
+  // Add inside SaleItem class
+
+  double get subtotal {
+    return items.fold(
+      0.0,
+          (sum, item) => sum + (item.price * item.quantity),
+    );
+  }
+
+  double get vat {
+    // Change 0.18 if your VAT rate is different
+    return subtotal * 0.18;
+  }
+
 
   // 💡 NEW GETTER: Provides the payment method type as a string
   String get paymentMethod {

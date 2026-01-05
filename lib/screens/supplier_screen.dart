@@ -146,7 +146,7 @@ class _SupplierScreenState extends ConsumerState<SupplierScreen> {
                       const SizedBox(height: 8),
                       // Renamed 'Phone' label to 'Contact Info' to match model
                       const Text(
-                        'Contact Info',
+                        'Phone',
                         style: TextStyle(color: Colors.grey),
                       ),
                       Text(supplier.contactInfo),
@@ -238,7 +238,6 @@ class _SupplierScreenState extends ConsumerState<SupplierScreen> {
             child: ListView.builder(
               itemCount: paginatedSuppliers.length + 3,
               itemBuilder: (context, index) {
-                // ... (rest of the ListView.builder logic remains the same)
 
                 // 1. Search Bar (Header)
                 if (index == 0) {
@@ -248,7 +247,7 @@ class _SupplierScreenState extends ConsumerState<SupplierScreen> {
                       controller: _searchController,
                       decoration: InputDecoration(
                         // Updated search label to reflect contactInfo change
-                        labelText: 'Search by name, email, or contact info',
+                        labelText: 'Search by name, email, or phone ',
                         prefixIcon: const Icon(Icons.search),
                         suffixIcon: _searchController.text.isNotEmpty
                             ? IconButton(

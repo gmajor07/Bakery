@@ -1,8 +1,62 @@
 // customer_creation_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart'; // Needed for TextInputFormatter
+import 'package:intl/intl.dart'; // Needed for NumberFormat
 
 import '../provider/customer_provider.dart';
+
+// ⭐️ NEW: Custom TextInputFormatter for thousands separation
+class CreditLimitFormatter extends TextInputFormatter {
+  final NumberFormat _formatter = NumberFormat.decimalPattern('en_US');
+
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
+    if (newValue.text.isEmpty) {
+      return newValue.copyWith(text: '');
+    }
+
+    // Remove non-digit characters for parsing (like commas)
+    final String cleanText = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
+
+    // Parse the cleaned text to a number
+    double? number = double.tryParse(cleanText);
+
+    if (number == null) {
+      // Return the old value if the input is not a valid number (e.g., if a non-digit was entered)
+      return oldValue;
+    }
+
+    // Format the number back with thousands separators
+    final String newText = _formatter.format(number);
+
+    // Calculate the new cursor position
+    TextSelection newSelection = newValue.selection;
+    int offsetDifference = newText.length - newValue.text.length;
+
+    newSelection = newSelection.copyWith(
+      baseOffset: newSelection.baseOffset + offsetDifference,
+      extentOffset: newSelection.extentOffset + offsetDifference,
+    );
+
+    // Handle cursor position when deleting characters
+    if (oldValue.text.length > newValue.text.length) {
+      // Simple correction for deletions
+      newSelection = newSelection.copyWith(
+        baseOffset: newSelection.baseOffset < 0 ? 0 : newSelection.baseOffset,
+        extentOffset: newSelection.extentOffset < 0 ? 0 : newSelection.extentOffset,
+      );
+    }
+
+    return TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: newText.length),
+    );
+  }
+}
 
 class CustomerCreationScreen extends ConsumerStatefulWidget {
   const CustomerCreationScreen({super.key});
@@ -38,9 +92,9 @@ class _CustomerCreationScreenState extends ConsumerState<CustomerCreationScreen>
       return;
     }
 
-    // Safely parse credit limit
+    // ⭐️ MODIFIED: Safely parse credit limit by removing thousands separators (commas)
     final double creditLimit = _isCredit
-        ? double.tryParse(_creditLimitController.text) ?? 0.0
+        ? double.tryParse(_creditLimitController.text.replaceAll(RegExp(r'[^\d.]'), '')) ?? 0.0
         : 0.0;
 
     // 1. Build the request body map (matching your POST request body)
@@ -128,7 +182,7 @@ class _CustomerCreationScreenState extends ConsumerState<CustomerCreationScreen>
 
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Name *'),
+                decoration: const InputDecoration(labelText: 'Customer Full name *'),
                 validator: (value) => value == null || value.isEmpty ? 'Name is required' : null,
               ),
               const SizedBox(height: 16),
@@ -193,6 +247,10 @@ class _CustomerCreationScreenState extends ConsumerState<CustomerCreationScreen>
                     onChanged: isLoading ? null : (bool value) {
                       setState(() {
                         _isCredit = value;
+                        // Reset text if credit is disabled
+                        if (!value) {
+                          _creditLimitController.text = '0';
+                        }
                       });
                     },
                   ),
@@ -210,12 +268,21 @@ class _CustomerCreationScreenState extends ConsumerState<CustomerCreationScreen>
                     prefixText: 'TSh ',
                   ),
                   keyboardType: TextInputType.number,
+                  // ⭐️ ADDED: Input formatters
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly, // Allow only digits initially
+                    CreditLimitFormatter(),
+                  ],
                   validator: (value) {
                     if (!_isCredit) return null; // If credit is disabled, validation is skipped
-                    if (value == null || value.isEmpty) {
+
+                    // ⭐️ MODIFIED: Remove commas before validating
+                    final cleanValue = value?.replaceAll(RegExp(r'[^\d.]'), '');
+
+                    if (cleanValue == null || cleanValue.isEmpty) {
                       return 'Credit Limit is required when credit is allowed';
                     }
-                    if (double.tryParse(value) == null || double.tryParse(value)! <= 0) {
+                    if (double.tryParse(cleanValue) == null || double.tryParse(cleanValue)! <= 0) {
                       return 'Enter a valid positive number';
                     }
                     return null;

@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../auth/auth_provider.dart';
 import '../services/settings_api_service.dart';
 

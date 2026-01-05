@@ -55,7 +55,7 @@ class InventoryActionsScreen extends StatelessWidget {
                     ActionCard(
                       color: primaryColor,
                       label: 'Materials',
-                      subtitle: 'Track ingredients',
+                      subtitle: 'Material ingredients',
                       icon: LucideIcons.cakeSlice,
                       onTap: () {
                         Navigator.push(
@@ -107,8 +107,8 @@ class InventoryActionsScreen extends StatelessWidget {
                     // 4. Stock Adjustments
                     ActionCard(
                       color: primaryColor,
-                      label: 'Stock Adjustments',
-                      subtitle: 'Record stock',
+                      label: 'Adjustments',
+                      subtitle: 'Manage adjustments',
                       icon: LucideIcons.history,
                       onTap: () {
                         Navigator.push(

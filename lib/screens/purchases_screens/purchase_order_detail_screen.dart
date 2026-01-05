@@ -53,7 +53,6 @@ class _PurchaseOrderDetailScreenState
   }
 
   // Helper function to determine the background color based on status
-  // 🚨 FIX: Made it theme-aware by blending it with the background or using a lighter shade.
   static Color _statusBackgroundColor(String status) {
     return _statusColor(status).withOpacity(0.1);
   }
@@ -139,7 +138,7 @@ class _PurchaseOrderDetailScreenState
     );
   }
 
-  // 🚨 MODIFIED: Ensure header text color is visible in dark theme
+  // MODIFIED: Ensure header text color is visible in dark theme
   Widget _buildHeader(String title) {
     return Text(
       title,
@@ -152,7 +151,7 @@ class _PurchaseOrderDetailScreenState
     );
   }
 
-  // 🚨 MODIFIED: Ensure status is capitalized
+  // MODIFIED: Ensure status is capitalized
   Widget _buildStatusBadge(String status) {
     final displayStatus = _capitalizeFirstLetter(status);
 
@@ -174,7 +173,7 @@ class _PurchaseOrderDetailScreenState
     );
   }
 
-  // 🚨 MODIFIED: Ensure label/value text colors are visible in dark theme
+  // MODIFIED: Ensure label/value text colors are visible in dark theme
   Widget _buildLabelValue(
       String label,
       String value,
@@ -189,7 +188,7 @@ class _PurchaseOrderDetailScreenState
           Icon(
             icon,
             size: 20,
-            // 🚨 FIX: Use theme-aware color for icons
+            // FIX: Use theme-aware color for icons
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
           const SizedBox(width: 12),
@@ -202,7 +201,7 @@ class _PurchaseOrderDetailScreenState
                   style: TextStyle(
                     fontWeight: isTotal ? FontWeight.bold : FontWeight.w600,
                     fontSize: 16,
-                    // 🚨 FIX: Use theme-aware color for labels
+                    // FIX: Use theme-aware color for labels
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
@@ -212,7 +211,7 @@ class _PurchaseOrderDetailScreenState
                   style: TextStyle(
                     fontSize: isTotal ? 18 : 15,
                     fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-                    // 🚨 FIX: Use onSurface for primary value text color
+                    // FIX: Use onSurface for primary value text color
                     color: isTotal
                         ? Theme.of(context).colorScheme.primary // Keep primary for total
                         : Theme.of(context).colorScheme.onSurface,
@@ -226,7 +225,7 @@ class _PurchaseOrderDetailScreenState
     );
   }
 
-// ⭐ NEW WIDGET: Mobile-optimized items list
+// NEW WIDGET: Mobile-optimized items list
   Widget _buildItemsTable(WidgetRef ref) {
     final inventoryAsync = ref.watch(inventoryItemsProvider);
 
@@ -425,7 +424,13 @@ class _PurchaseOrderDetailScreenState
                 ),
                 onPressed: _isSubmitting
                     ? null
-                    : () => _handleUpdateStatus(ref, 'approved'),
+                // 🎯 MODIFIED: Now calls confirmation dialog before updating status
+                    : () => _showConfirmationDialog(
+                  context,
+                  'Approve Order?',
+                  'Are you sure you want to approve this purchase order?',
+                      () => _handleUpdateStatus(ref, 'approved'),
+                ),
               ),
             ),
 
@@ -467,12 +472,12 @@ class _PurchaseOrderDetailScreenState
               ),
               label: Text(
                 'Order Finalized',
-                // 🚨 FIX: Use onSurface for text color
+                // FIX: Use onSurface for text color
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
-              // 🚨 FIX: Use theme-aware background color
+              // FIX: Use theme-aware background color
               backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
             ),
         ],
@@ -504,14 +509,14 @@ class _PurchaseOrderDetailScreenState
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.secondary,
+                backgroundColor: Theme.of(context).colorScheme.primary,
               ),
               onPressed: () {
                 Navigator.of(context).pop(); // Close dialog
                 onConfirm(); // Execute action
               },
               child: Text(
-                title.contains('Cancel') ? 'Yes, Cancel' : 'Yes, Confirm',
+                title.contains('Cancel') ? 'Yes, Cancel' : title.contains('Approve') ? 'Yes, Approve' : 'Yes, Confirm',
               ),
             ),
           ],
@@ -533,8 +538,8 @@ class _PurchaseOrderDetailScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Order status updated to ${_capitalizeFirstLetter(status)}!',
-          ), // 🚨 FIX: Capitalize status in SnackBar
+            'Purchase Order ${_capitalizeFirstLetter(status)} successfully!',
+          ), // FIX: Capitalize status in SnackBar
         ),
       );
 
@@ -551,6 +556,12 @@ class _PurchaseOrderDetailScreenState
     } finally {
       setState(() => _isSubmitting = false);
     }
+    // Return to the previous screen if the order was successfully completed/cancelled
+    if (status.toLowerCase() == 'cancelled' || status.toLowerCase() == 'completed') {
+      if (mounted) {
+        Navigator.of(context).pop(true); // Pop and indicate success to refresh list
+      }
+    }
   }
 
   Future<void> _handleReceiveGoods(WidgetRef ref) async {
@@ -563,7 +574,7 @@ class _PurchaseOrderDetailScreenState
     try {
       final payloadItems = _order.items.map((i) {
         // Convert quantity to INT, not double
-        final qty = int.tryParse(i.quantity.toString()) ?? i.quantity.toInt();
+        final qty = i.quantity.toInt();
         final inventoryId = i.inventoryItemId;
 
         return {
@@ -611,6 +622,11 @@ class _PurchaseOrderDetailScreenState
       ).showSnackBar(
         const SnackBar(content: Text('Goods received successfully!')),
       );
+
+      // Pop back to the list screen
+      if (mounted) {
+        Navigator.of(context).pop(true); // Pop and indicate success to refresh list
+      }
     } catch (e) {
       if (kDebugMode) {
         print("❌ Goods receipt failed: $e");

@@ -35,9 +35,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
       setState(() => searchQuery = _searchController.text.toLowerCase());
     });
 
-    // 🎯 INITIAL FILTER: Set initial date filter
+    // 🎯 MODIFIED INITIAL FILTER: Set initial date filter to TODAY
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _applyQuickFilter(QuickDateFilter.all);
+      _applyQuickFilter(QuickDateFilter.today); // ⭐️ CHANGE: Default to Today
     });
   }
 
@@ -139,6 +139,12 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
   // ----------------------------------------------------------------------
   // ⭐️ MODIFIED: Helper Formatting Functions
   // ----------------------------------------------------------------------
+
+  // ⭐️ NEW: Format quantity with thousands separator
+  String _formatQuantity(int qty) {
+    final formatter = NumberFormat('#,##0', 'en_US');
+    return formatter.format(qty);
+  }
 
   String _formatCurrency(double amount) {
     final formatter = NumberFormat('#,##0', 'en_US');
@@ -294,7 +300,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         // ⭐️ ADDED: Clear Filter Button in AppBar
         actions: [
-          if (searchQuery.isNotEmpty || selectedDateRange != null)
+          if (searchQuery.isNotEmpty || selectedQuickFilter != QuickDateFilter.today) // ⭐️ MODIFIED: Show clear if not on default filter
             IconButton(
               icon: const Icon(Icons.clear_all),
               onPressed: _clearFilters,
@@ -473,12 +479,12 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                 (states) => Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
           ),
           columns: const [
-            DataColumn(label: Text('Product', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Quantity', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Date', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Cost', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Profit Margin', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
+            DataColumn(label: Text('Product', style: TextStyle(fontWeight: FontWeight.w700))),
+            DataColumn(label: Text('Quantity', style: TextStyle(fontWeight: FontWeight.w700))),
+            DataColumn(label: Text('Date', style: TextStyle(fontWeight: FontWeight.w700))),
+            DataColumn(label: Text('Cost', style: TextStyle(fontWeight: FontWeight.w700))),
+            DataColumn(label: Text('Profit Margin', style: TextStyle(fontWeight: FontWeight.w700))),
+            DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.w700))),
           ],
           rows: filteredItems.map((item) => _buildTabletDataRow(item)).toList(),
         ),
@@ -501,7 +507,8 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
           // ⭐️ TAPPING FIX: Added onTap to DataCell for navigation
           onTap: () => _navigateToDetail(item.id),
         ),
-        DataCell(Text(item.quantity.toString())),
+        // ⭐️ FORMATTING FIX: Use _formatQuantity
+        DataCell(Text(_formatQuantity(item.quantity))),
         DataCell(Text(_formatDate(item.date))),
         // ⭐️ FORMATTING FIX
         DataCell(Text(
@@ -602,7 +609,8 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                 physics: const NeverScrollableScrollPhysics(),
                 childAspectRatio: 3,
                 children: [
-                  _buildDetailItem('Quantity', item.quantity.toString()), // 🎯 USES RESTORED METHOD
+                  // ⭐️ FORMATTING FIX: Use _formatQuantity
+                  _buildDetailItem('Quantity', _formatQuantity(item.quantity)),
                   _buildDetailItem('Date', _formatDate(item.date)), // 🎯 USES RESTORED METHOD
                   // ⭐️ FORMATTING FIX
                   _buildDetailItem('Cost', _formatCurrency(item.cost)), // 🎯 USES RESTORED METHOD

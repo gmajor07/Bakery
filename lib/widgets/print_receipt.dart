@@ -2,8 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart'; // Import for PdfColors
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
+import 'package:printing/printing.dart';
+import '../models/sale_item.dart';
 
 // Helper to format currency consistently
 String _formatCurrency(double amount) {
@@ -11,38 +11,72 @@ String _formatCurrency(double amount) {
   return 'TSh ${formatter.format(amount)}';
 }
 
-// 🎯 RENAMED & MODIFIED: Function now saves the PDF and returns the file path.
-Future<String?> generateSaleReceiptPdf(Map<String, dynamic> sale) async {
+// 🎯 RENAMED & MODIFIED: Function now generates PDF bytes.
+Future<Uint8List> generateSaleReceiptPdf(dynamic sale) async {
   final pdf = pw.Document();
-  final dateRaw = sale['date'] ?? DateTime.now().toIso8601String();
-  DateTime date;
-  try {
-    date = DateTime.parse(dateRaw.toString());
-  } catch (_) {
-    date = DateTime.now();
+
+  // Extract fields based on type
+  int id;
+  String customerName;
+  String dateFormatted;
+  bool isCredit;
+  List items;
+  double subtotal;
+  double vatAmount;
+  double grandTotal;
+
+  if (sale is SaleItem) {
+    id = sale.id;
+    customerName = sale.customer;
+    DateTime date;
+    try {
+      date = DateTime.parse(sale.date);
+    } catch (_) {
+      date = DateTime.now();
+    }
+    dateFormatted = DateFormat('yyyy-MM-dd HH:mm').format(date);
+    isCredit = sale.isCredit;
+    items = sale.items
+        .map(
+          (item) => {
+            'name': item.name,
+            'quantity': item.quantity,
+            'price': item.price,
+          },
+        )
+        .toList();
+    subtotal = sale.subtotal;
+    vatAmount = sale.amount - sale.subtotal; // Assuming amount includes VAT
+    grandTotal = sale.amount;
+  } else {
+    // Map
+    id = sale['id'] ?? 0;
+    customerName =
+        (sale['customer'] == null || (sale['customer'] as String).isEmpty)
+        ? 'Walk-in Customer'
+        : sale['customer'].toString();
+    final dateRaw = sale['date'] ?? DateTime.now().toIso8601String();
+    DateTime date;
+    try {
+      date = DateTime.parse(dateRaw.toString());
+    } catch (_) {
+      date = DateTime.now();
+    }
+    dateFormatted = DateFormat('yyyy-MM-dd HH:mm').format(date);
+    isCredit = sale['isCredit'] == true;
+    items = sale['items'] is List ? sale['items'] as List : [];
+    subtotal = (sale['subtotal'] is num)
+        ? (sale['subtotal'] as num).toDouble()
+        : items.fold<double>(0, (s, it) {
+            final price = (it['price'] ?? it['unit_price'] ?? 0);
+            final qty = (it['quantity'] ?? it['qty'] ?? 0);
+            return s + ((price as num).toDouble() * (qty as num).toDouble());
+          });
+    vatAmount = (sale['vat'] is num) ? (sale['vat'] as num).toDouble() : 0.0;
+    grandTotal = (sale['total'] is num)
+        ? (sale['total'] as num).toDouble()
+        : subtotal + vatAmount;
   }
-  final dateFormatted = DateFormat('yyyy-MM-dd HH:mm').format(date);
-  final customerName =
-      (sale['customer'] == null || (sale['customer'] as String).isEmpty)
-      ? 'Walk-in Customer'
-      : sale['customer'].toString();
-
-  // --- Calculation Logic (remains the same) ---
-  final List items = sale['items'] is List ? sale['items'] as List : [];
-  final subtotal = (sale['subtotal'] is num)
-      ? (sale['subtotal'] as num).toDouble()
-      : items.fold<double>(0, (s, it) {
-          final price = (it['price'] ?? it['unit_price'] ?? 0);
-          final qty = (it['quantity'] ?? it['qty'] ?? 0);
-          return s + ((price as num).toDouble() * (qty as num).toDouble());
-        });
-
-  final vat = (sale['vat'] is num)
-      ? (sale['vat'] as num).toDouble()
-      : ((sale['isCredit'] == true) ? subtotal * 0.18 : 0.0);
-  final grandTotal = (sale['total'] is num)
-      ? (sale['total'] as num).toDouble()
-      : subtotal + vat;
 
   // Define custom styles
   final headerStyle = pw.TextStyle(
@@ -56,6 +90,13 @@ Future<String?> generateSaleReceiptPdf(Map<String, dynamic> sale) async {
     fontWeight: pw.FontWeight.bold,
     color: PdfColors.brown700,
   );
+
+  final paymentMethod = isCredit
+      ? 'Credit'
+      : vatAmount > 0
+      ? 'Cash (VAT Applied)'
+      : 'Cash (No VAT)';
+  final vatPercent = subtotal > 0 ? (vatAmount / subtotal * 100).round() : 0;
 
   pdf.addPage(
     pw.Page(
@@ -100,17 +141,14 @@ Future<String?> generateSaleReceiptPdf(Map<String, dynamic> sale) async {
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Text('Receipt #: ${sale['id'] ?? ''}'),
+                    pw.Text('Receipt #: $id'),
                     pw.Text('Customer: $customerName'),
                   ],
                 ),
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.end,
                   children: [
-                    pw.Text(
-                      'Payment: ${sale['isCredit'] == true ? "Credit" : "Cash"}',
-                      style: boldStyle,
-                    ),
+                    pw.Text('Payment: $paymentMethod', style: boldStyle),
                   ],
                 ),
               ],
@@ -172,7 +210,12 @@ Future<String?> generateSaleReceiptPdf(Map<String, dynamic> sale) async {
                 crossAxisAlignment: pw.CrossAxisAlignment.end,
                 children: [
                   _buildSummaryRow('Subtotal:', subtotal, boldStyle),
-                  if (vat > 0) _buildSummaryRow('VAT (18%):', vat, boldStyle),
+                  if (vatAmount > 0)
+                    _buildSummaryRow(
+                      'VAT (${vatPercent}%):',
+                      vatAmount,
+                      boldStyle,
+                    ),
                   pw.Divider(height: 1),
                   pw.SizedBox(height: 5),
                   _buildSummaryRow('GRAND TOTAL:', grandTotal, totalStyle),
@@ -206,20 +249,9 @@ Future<String?> generateSaleReceiptPdf(Map<String, dynamic> sale) async {
     ),
   );
 
-  // --- Save PDF to file (remains the same) ---
-  try {
-    final bytes = await pdf.save();
-    final output = await getTemporaryDirectory();
-    final fileName = 'receipt_${sale['id'] ?? 'temp'}.pdf';
-    final file = File('${output.path}/$fileName');
-    await file.writeAsBytes(bytes);
-    return file.path;
-  } catch (e) {
-    if (kDebugMode) {
-      print('Error saving PDF: $e');
-    }
-    return null;
-  }
+  // --- Return PDF bytes ---
+  final bytes = await pdf.save();
+  return bytes;
 }
 
 // Helper widget for building the summary rows

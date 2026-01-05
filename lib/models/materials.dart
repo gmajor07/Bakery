@@ -36,14 +36,11 @@ class MaterialItem {
       return (double.tryParse(val.toString()) ?? 0.0);
     }
 
-    // 🎯 FIX: Divide the incoming quantity by 1000 to correct the value.
-    final rawQty = parseDouble(json['currentQuantity']);
-    final qty = rawQty / 1000;
+    // ❌ REMOVED: Division by 1000. Use the raw parsed value directly.
+    final qty = parseDouble(json['currentQuantity']);
 
-    // The cost parsing still applies the multiplier if needed by the backend structure.
-    // NOTE: If the cost is also divided by 1000 in the backend, this multiplier should be removed.
-    // Keeping it based on your original snippet logic.
-    final cost = parseDouble(json['cost']) * 1000;
+    // ❌ REMOVED: Multiplication by 1000. Use the raw parsed value directly.
+    final cost = parseDouble(json['cost']);
 
     final minLvl = parseInt(json['minLevel']);
     // ⭐ NEW: Parse maxLevel from JSON
@@ -57,7 +54,7 @@ class MaterialItem {
       id: parseInt(json['id']),
       name: json['name']?.toString() ?? '',
       unit: json['unit']?.toString() ?? '',
-      quantity: qty, // Use the corrected value
+      quantity: qty, // Use the raw parsed value
       minLevel: minLvl,
       // ⭐ NEW: Assign maxLevel
       maxLevel: maxLvl,

@@ -73,17 +73,16 @@ class CustomerDetailScreen extends ConsumerWidget {
                   customer.phone,
                 ),
 
-
-                const Divider(height: 24),
-
-                // Financial and Status Info
-                _buildFinancialRow(
+                // ⭐️ ADDED: Address Info
+                _buildInfoRow(
                   context,
-                  'Credit Limit',
-                  customer.creditLimit,
-                  Icons.account_balance_wallet,
+                  Icons.location_on,
+                  'Address',
+                  customer.address, // ⬅️ ASSUMED FIELD: Must exist on your Customer model
                 ),
 
+
+                const Divider(height: 24),
                 // ⭐️ NEW: Total Credit/Loan/Outstanding Balance (Assuming 'totalCredit' is a property on your Customer model)
                 // If 'totalCredit' is not a field, you must add it to your Customer model.
                 _buildFinancialRow(
@@ -91,6 +90,14 @@ class CustomerDetailScreen extends ConsumerWidget {
                   'Total Credit',
                   customer.currentCredit, // ⬅️ ASSUMED FIELD
                   Icons.money,
+                ),
+
+                // Financial and Status Info
+                _buildFinancialRow(
+                  context,
+                  'Credit Limit',
+                  customer.creditLimit,
+                  Icons.account_balance_wallet,
                 ),
 
                 const Divider(height: 24),
@@ -110,6 +117,9 @@ class CustomerDetailScreen extends ConsumerWidget {
       String label,
       String value,
       ) {
+    // Handle empty or null values gracefully for display
+    final displayValue = value.isEmpty ? 'N/A' : value;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
@@ -129,7 +139,7 @@ class CustomerDetailScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  value,
+                  displayValue,
                   style: Theme.of(context).textTheme.bodyLarge,
                 ),
               ],
