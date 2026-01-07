@@ -9,6 +9,7 @@ class MaterialItem {
   final double cost;
   final String status;
   final bool lowStock;
+  final String type; // Add type field
 
   MaterialItem({
     required this.id,
@@ -21,6 +22,7 @@ class MaterialItem {
     required this.cost,
     required this.status,
     this.lowStock = false,
+    required this.type, // Add type to constructor
   });
 
   factory MaterialItem.fromJson(Map<String, dynamic> json) {
@@ -61,6 +63,7 @@ class MaterialItem {
       cost: cost,
       status: status,
       lowStock: isLow,
+      type: json['type']?.toString() ?? '', // Add type parsing
     );
   }
 }

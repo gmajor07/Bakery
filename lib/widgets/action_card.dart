@@ -41,7 +41,7 @@ class ActionCard extends StatelessWidget {
 
     // Determine colors based on useDefaultColors flag
     final surfaceColor = useDefaultColors!
-        ? colorScheme.surface
+        ? colorScheme.background
         : colorScheme.onSurface.withOpacity(0.05);
     final cardTextColor = textColor ??
         (useDefaultColors!

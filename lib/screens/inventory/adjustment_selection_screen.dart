@@ -1,20 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../widgets/action_card.dart';
+import '../../widgets/action_card.dart';
 import 'adjustment_screen.dart';
-import 'material_screen/material_screen.dart';
-import 'product_screen.dart';
-import 'inventory_screen.dart';
+import 'product_adjustment_screen.dart';
 
-class InventoryActionsScreen extends StatelessWidget {
-  const InventoryActionsScreen({super.key});
+class AdjustmentTypeSelectionScreen extends StatelessWidget {
+  const AdjustmentTypeSelectionScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final primaryColor = colorScheme.primary;
     final onPrimary = colorScheme.onPrimary;
-    final background = colorScheme.background;
+    final background = colorScheme.surface;
 
     final screenWidth = MediaQuery.of(context).size.width;
     final crossAxisCount = screenWidth >= 768 ? 3 : 2;
@@ -23,7 +21,7 @@ class InventoryActionsScreen extends StatelessWidget {
       backgroundColor: background,
       appBar: AppBar(
         title: Text(
-          'Inventory Management',
+          'Select Adjustment Type',
           style: TextStyle(color: onPrimary, fontWeight: FontWeight.bold),
         ),
         backgroundColor: primaryColor,
@@ -38,10 +36,9 @@ class InventoryActionsScreen extends StatelessWidget {
             children: [
               Text(
                 'Quick Actions',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).textTheme.bodyMedium?.color,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
               Expanded(
@@ -51,17 +48,19 @@ class InventoryActionsScreen extends StatelessWidget {
                   mainAxisSpacing: 16,
                   childAspectRatio: 1.2,
                   children: [
-                    // 2. Materials (Raw Ingredients)
+                    // 1. Material Adjustments
                     ActionCard(
                       color: primaryColor,
                       label: 'Materials',
-                      subtitle: 'Material ingredients',
+                      subtitle: 'Adjust Materials',
                       icon: LucideIcons.cakeSlice,
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const MaterialsScreen(),
+                            builder: (_) => const MaterialAdjustmentsScreen(
+                              type: 'raw_material',
+                            ),
                           ),
                         );
                       },
@@ -69,34 +68,19 @@ class InventoryActionsScreen extends StatelessWidget {
                       textAlignment: TextAlign.center,
                     ),
 
-                    // 3. Supplies (Non-raw items)
+                    // 2. Supply Adjustments (uses same screen as Materials)
                     ActionCard(
                       color: primaryColor,
                       label: 'Supplies',
-                      subtitle: 'Manage supplies',
+                      subtitle: 'Adjust Supplies',
                       icon: LucideIcons.cake,
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const InventoryScreen(),
-                          ),
-                        );
-                      },
-                      contentAlignment: CrossAxisAlignment.center,
-                      textAlignment: TextAlign.center,
-                    ),
-                    // 1. Products (Finished Goods)
-                    ActionCard(
-                      color: primaryColor,
-                      label: 'Products',
-                      subtitle: 'Manage stock levels',
-                      icon: LucideIcons.box,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ProductsScreen(),
+                            builder: (_) => const MaterialAdjustmentsScreen(
+                              type: 'supplies',
+                            ),
                           ),
                         );
                       },
@@ -104,17 +88,17 @@ class InventoryActionsScreen extends StatelessWidget {
                       textAlignment: TextAlign.center,
                     ),
 
-                    // 4. Stock Adjustments
+                    // 3. Product Adjustments
                     ActionCard(
                       color: primaryColor,
-                      label: 'Adjustments',
-                      subtitle: 'Manage adjustments',
-                      icon: LucideIcons.history,
+                      label: 'Products',
+                      subtitle: 'Adjust Products',
+                      icon: LucideIcons.box,
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const AdjustmentsScreen(),
+                            builder: (_) => const ProductAdjustmentsScreen(),
                           ),
                         );
                       },

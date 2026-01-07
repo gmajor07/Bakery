@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart'; // Needed for TextInputFormatter
 import 'package:intl/intl.dart'; // Needed for NumberFormat
 
-import '../provider/customer_provider.dart';
+import '../../provider/customer_provider.dart';
 
 // ⭐️ NEW: Custom TextInputFormatter for thousands separation
 class CreditLimitFormatter extends TextInputFormatter {

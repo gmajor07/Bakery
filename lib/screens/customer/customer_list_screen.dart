@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Adjust imports based on your project structure
 import 'package:intl/intl.dart'; // Import for formatting
-import '../auth/auth_provider.dart';
-import '../models/customer.dart';
-import '../provider/customers_provider.dart';
-import '../provider/customer_search_provider.dart';
-import '../theme.dart';
-import '../widgets/token_error_widget.dart';
+import '../../auth/auth_provider.dart';
+import '../../models/customer.dart';
+import '../../provider/customers_provider.dart';
+import '../../provider/customer_search_provider.dart';
+import '../../theme.dart';
+import '../../widgets/token_error_widget.dart';
 import 'customer_creation_screen.dart';
 import 'customer_detail_screen.dart'; // Import the detail screen
 

@@ -1,36 +1,35 @@
-// lib/screens/purchases_screens/purchases_actions_screen.dart
-import 'package:bak/screens/purchases_screens/purchases_order_screen.dart';
-import 'package:bak/screens/supplier_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../widgets/action_card.dart';
-import '../material_screen/materials_received_screen.dart';
+import '../material_screen/material_screen.dart';
+import '../product_screen.dart';
+import 'adjustment_selection_screen.dart';
+import 'inventory_screen.dart';
 
-class PurchasesActionsScreen extends StatelessWidget {
-  const PurchasesActionsScreen({super.key});
+class InventoryActionsScreen extends StatelessWidget {
+  const InventoryActionsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
     final primaryColor = colorScheme.primary;
-    final backgroundColor = colorScheme.surface; // Changed from .surface
     final onPrimary = colorScheme.onPrimary;
-    final textBodyColor = textTheme.bodyMedium?.color;
+    final background = colorScheme.surface;
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final crossAxisCount = screenWidth >= 768 ? 3 : 2;
 
     return Scaffold(
-      backgroundColor: backgroundColor, // Now using background color
+      backgroundColor: background,
       appBar: AppBar(
         title: Text(
-          'Purchases Management',
+          'Inventory Management',
           style: TextStyle(color: onPrimary, fontWeight: FontWeight.bold),
         ),
         backgroundColor: primaryColor,
         centerTitle: true,
         elevation: 0,
       ),
-
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -39,30 +38,65 @@ class PurchasesActionsScreen extends StatelessWidget {
             children: [
               Text(
                 'Quick Actions',
-                style: textTheme.titleLarge?.copyWith(
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: textBodyColor,
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
                 ),
               ),
               const SizedBox(height: 16),
               Expanded(
                 child: GridView.count(
-                  crossAxisCount: 2,
+                  crossAxisCount: crossAxisCount,
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
                   childAspectRatio: 1.2,
                   children: [
-                    // 1. Purchase Orders
+                    // 2. Materials (Raw Ingredients)
                     ActionCard(
                       color: primaryColor,
-                      label: 'Purchase Orders',
-                      subtitle: 'Manage PO',
+                      label: 'Materials',
+                      subtitle: 'Material ingredients',
+                      icon: LucideIcons.cakeSlice,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MaterialsScreen(),
+                          ),
+                        );
+                      },
+                      contentAlignment: CrossAxisAlignment.center,
+                      textAlignment: TextAlign.center,
+                    ),
+
+                    // 3. Supplies (Non-raw items)
+                    ActionCard(
+                      color: primaryColor,
+                      label: 'Supplies',
+                      subtitle: 'Manage supplies',
+                      icon: LucideIcons.cake,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const InventoryScreen(),
+                          ),
+                        );
+                      },
+                      contentAlignment: CrossAxisAlignment.center,
+                      textAlignment: TextAlign.center,
+                    ),
+                    // 1. Products (Finished Goods)
+                    ActionCard(
+                      color: primaryColor,
+                      label: 'Products',
+                      subtitle: 'Manage stock levels',
                       icon: LucideIcons.box,
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const PurchaseOrdersScreen(),
+                            builder: (_) => const ProductsScreen(),
                           ),
                         );
                       },
@@ -70,35 +104,19 @@ class PurchasesActionsScreen extends StatelessWidget {
                       textAlignment: TextAlign.center,
                     ),
 
-                    // 2. Material Receiving
+                    // 4. Stock Adjustments Card
                     ActionCard(
                       color: primaryColor,
-                      label: 'Material Received',
-                      subtitle: 'View Purchases ',
-                      icon: LucideIcons.car,
+                      label: 'Adjustments',
+                      subtitle: 'Manage adjustments',
+                      icon: LucideIcons.history,
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const MaterialsReceivedScreen(),
-                          ),
-                        );
-                      },
-                      contentAlignment: CrossAxisAlignment.center,
-                      textAlignment: TextAlign.center,
-                    ),
-
-                    // 3. Suppliers
-                    ActionCard(
-                      color: primaryColor,
-                      label: 'Suppliers',
-                      subtitle: 'Manage suppliers',
-                      icon: LucideIcons.userCog,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const SupplierScreen(),
+                            // 🎯 CHANGE THIS: Point to the selection screen
+                            builder: (_) =>
+                                const AdjustmentTypeSelectionScreen(),
                           ),
                         );
                       },

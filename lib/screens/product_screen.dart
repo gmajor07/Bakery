@@ -101,7 +101,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       );
     }
 
-    final productsAsync = ref.watch(productsProvider(_token!));
+    final productsAsync = ref.watch(productsProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Products List'), elevation: 0),
@@ -174,7 +174,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: () =>
-                      ref.refresh(productsProvider(_token!).future),
+                      ref.refresh(productsProvider.future),
                   color: Theme.of(context).colorScheme.primary,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),

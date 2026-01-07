@@ -212,7 +212,7 @@ Future<Uint8List> generateSaleReceiptPdf(dynamic sale) async {
                   _buildSummaryRow('Subtotal:', subtotal, boldStyle),
                   if (vatAmount > 0)
                     _buildSummaryRow(
-                      'VAT (${vatPercent}%):',
+                      'VAT ($vatPercent%):',
                       vatAmount,
                       boldStyle,
                     ),

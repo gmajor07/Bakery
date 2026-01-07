@@ -38,7 +38,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   Future<void> _refreshProducts() async {
     final token = ref.read(authProvider).accessToken;
     if (token != null) {
-      ref.invalidate(productsProvider(token));
+      ref.invalidate(productsProvider);
     }
   }
 
@@ -59,7 +59,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     }
 
     // Watch products and cart providers for auto refresh
-    final productsAsync = ref.watch(productsProvider(token));
+    final productsAsync = ref.watch(productsProvider);
     final cart = ref.watch(cartProvider);
     final totalItems = cart.values.fold<int>(
       0,

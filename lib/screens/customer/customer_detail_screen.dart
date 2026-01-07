@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import '../models/customer.dart';
+import '../../models/customer.dart';
 // Import your theme or use Theme.of(context)
 
 // ⭐️ Formatting Helpers (Can be shared with CustomerScreen)

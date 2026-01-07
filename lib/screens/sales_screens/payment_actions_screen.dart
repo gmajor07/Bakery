@@ -13,7 +13,7 @@ class SalesActionsScreen extends StatelessWidget {
     // 1. Access theme colors
     final colorScheme = Theme.of(context).colorScheme;
     final primaryColor = colorScheme.primary;
-    final backgroundColor = colorScheme.background; // Changed from .surface
+    final backgroundColor = colorScheme.surface; // Changed from .surface
     final onPrimary = colorScheme.onPrimary;
     final textBodyColor = Theme.of(context).textTheme.bodyMedium?.color;
 

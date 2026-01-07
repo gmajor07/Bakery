@@ -79,7 +79,7 @@ class MaterialApiService {
               raw['totalCount'] ?? raw['totalRecords'] ?? list.length;
         } else {
           // Fallback: assume the entire response is the list
-          list = raw.values.whereType<List>().expand((v) => v as List).toList();
+          list = raw.values.whereType<List>().expand((v) => v).toList();
           totalRecords = list.length;
         }
       } else if (raw is List) {

@@ -1,5 +1,3 @@
-// lib/screens/bakery_home_screen.dart
-import 'package:bak/screens/customer_list_screen.dart';
 import 'package:bak/screens/pos_screens/pos_screen.dart';
 import 'package:bak/screens/reports_action_screen.dart';
 import 'package:flutter/material.dart';
@@ -9,12 +7,13 @@ import '../auth/auth_provider.dart';
 import '../provider/user_provider.dart';
 import '../widgets/action_card.dart';
 import 'app_restart.dart';
+import 'customer/customer_list_screen.dart';
 import 'product_screen.dart';
 import 'purchases_screens/purchases_order_screen.dart';
 import 'sales_screens/payment_actions_screen.dart';
 import 'production_screen.dart';
 import 'purchases_screens/purchases_actions_screen.dart';
-import 'inventory_actions_screen.dart';
+import 'inventory/inventory_actions_screen.dart';
 import 'sales_screens/sales_history_screen.dart';
 
 const String customHomeIconPath = 'assets/icons/bakery_icon.png';
@@ -74,7 +73,7 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
         : Colors.brown[800]?.withOpacity(0.7); // Brown for light mode
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         backgroundColor: colorScheme.primary,
         title: Text(

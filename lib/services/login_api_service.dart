@@ -30,7 +30,7 @@ class LoginApiService {
       await ref.read(authProvider.notifier).saveTokens(access, refresh);
 
       return response.data;
-    } on DioException catch (e) {
+    } on DioException {
       rethrow;
     }
   }

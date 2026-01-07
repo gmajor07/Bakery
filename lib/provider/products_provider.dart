@@ -8,11 +8,8 @@ final productsApiServiceProvider = Provider<ProductsApiService>((ref) {
   return ProductsApiService(ref);
 });
 
-// 🔹 Parameterized provider that accepts token
-final productsProvider = FutureProvider.family<List<Product>, String>((
-  ref,
-  token,
-) async {
+// 🔹 Provider for products
+final productsProvider = FutureProvider<List<Product>>((ref) async {
   final token = await ref.read(authProvider.notifier).getAccessToken();
   if (token == null) throw Exception('Token is null');
   final api = ProductsApiService(ref);

@@ -7,14 +7,11 @@ import '../../auth/auth_provider.dart';
 import '../../models/purchase_order.dart';
 import '../../provider/purchase_orders_provider.dart';
 import '../../purchases_model/inventory_item.dart';
-import '../../purchases_model/unit_type.dart';
 
 // 💡 NEW PROVIDERS for State Persistence and Search
-final purchaseOrderDraftProvider =
-StateProvider<Map<String, dynamic>>((ref) => {
-  'supplierId': null,
-  'items': <Map<String, dynamic>>[],
-});
+final purchaseOrderDraftProvider = StateProvider<Map<String, dynamic>>(
+  (ref) => {'supplierId': null, 'items': <Map<String, dynamic>>[]},
+);
 final purchaseItemSearchQueryProvider = StateProvider<String>((ref) => '');
 
 // 🎯 NEW CLASS: Custom Formatter for adding commas to large numbers
@@ -23,9 +20,9 @@ class CommaTextInputFormatter extends TextInputFormatter {
 
   @override
   TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue,
-      TextEditingValue newValue,
-      ) {
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
     if (newValue.text.isEmpty) {
       return newValue.copyWith(text: '');
     }
@@ -132,8 +129,7 @@ class _CreatePurchaseOrderScreenState
     setState(() {
       totalCost = items.fold(
         0.0,
-            (sum, item) =>
-        sum + ((item['quantity'] ?? 0) * (item['price'] ?? 0.0)),
+        (sum, item) => sum + ((item['quantity'] ?? 0) * (item['price'] ?? 0.0)),
       );
     });
   }
@@ -144,7 +140,8 @@ class _CreatePurchaseOrderScreenState
     if (_isCreating) return false;
 
     // Check if any data has been entered
-    final hasData = selectedSupplierId != null ||
+    final hasData =
+        selectedSupplierId != null ||
         items.any((i) => i['inventoryItemId'] != null);
 
     if (!hasData) {
@@ -158,7 +155,8 @@ class _CreatePurchaseOrderScreenState
       builder: (context) => AlertDialog(
         title: const Text('Cancel Order Creation?'),
         content: const Text(
-            'Are you sure you want to exit? Your current order will be saved as a draft.'),
+          'Are you sure you want to exit? Your current order will be saved as a draft.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false), // No
@@ -190,9 +188,11 @@ class _CreatePurchaseOrderScreenState
       'supplierId': selectedSupplierId,
       // Only save items that have an inventory selected, or the first empty one
       'items': items
-          .where((i) =>
-      i['inventoryItemId'] != null ||
-          (items.indexOf(i) == 0 && items.length == 1))
+          .where(
+            (i) =>
+                i['inventoryItemId'] != null ||
+                (items.indexOf(i) == 0 && items.length == 1),
+          )
           .toList(),
     };
     ref.read(purchaseOrderDraftProvider.notifier).state = draftPayload;
@@ -205,9 +205,7 @@ class _CreatePurchaseOrderScreenState
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Please fill all required fields.',
-          ),
+          content: Text('Please fill all required fields.'),
           backgroundColor: Colors.red,
         ),
       );
@@ -246,12 +244,12 @@ class _CreatePurchaseOrderScreenState
             .where((i) => i['inventoryItemId'] != null) // Only send valid items
             .map(
               (i) => {
-            "inventoryItemId": i['inventoryItemId'],
-            "quantity": i['quantity'],
-            "unit": i['unit'],
-            "price": i['price'],
-          },
-        )
+                "inventoryItemId": i['inventoryItemId'],
+                "quantity": i['quantity'],
+                "unit": i['unit'],
+                "price": i['price'],
+              },
+            )
             .toList(),
       };
 
@@ -392,12 +390,12 @@ class _CreatePurchaseOrderScreenState
         prefixIcon: const Icon(Icons.search),
         suffixIcon: _searchController.text.isNotEmpty
             ? IconButton(
-          icon: const Icon(Icons.clear),
-          onPressed: () {
-            _searchController.clear();
-            ref.read(purchaseItemSearchQueryProvider.notifier).state = '';
-          },
-        )
+                icon: const Icon(Icons.clear),
+                onPressed: () {
+                  _searchController.clear();
+                  ref.read(purchaseItemSearchQueryProvider.notifier).state = '';
+                },
+              )
             : null,
         border: const OutlineInputBorder(),
       ),
@@ -425,7 +423,7 @@ class _CreatePurchaseOrderScreenState
           items: supplierList
               .map<DropdownMenuItem<int>>(
                 (s) => DropdownMenuItem<int>(value: s.id, child: Text(s.name)),
-          )
+              )
               .toList(),
           onChanged: (val) => setState(() => selectedSupplierId = val),
           decoration: const InputDecoration(
@@ -448,11 +446,11 @@ class _CreatePurchaseOrderScreenState
   }
 
   Widget _buildItemRow(
-      int index,
-      Map<String, dynamic> item,
-      AsyncValue<List<dynamic>> itemsAsync,
-      AsyncValue<List<dynamic>> unitsAsync,
-      ) {
+    int index,
+    Map<String, dynamic> item,
+    AsyncValue<List<dynamic>> itemsAsync,
+    AsyncValue<List<dynamic>> unitsAsync,
+  ) {
     final searchQuery = ref.watch(purchaseItemSearchQueryProvider);
 
     final List<InventoryItem> allInventoryItems =
@@ -466,8 +464,8 @@ class _CreatePurchaseOrderScreenState
         .cast<InventoryItem?>()
         .firstWhere(
           (i) => i?.id == item['inventoryItemId'],
-      orElse: () => null,
-    );
+          orElse: () => null,
+        );
 
     // Fix for DropdownButton assertion: ensure selected item is in the filtered list
     if (selectedInventoryItem != null &&
@@ -503,17 +501,17 @@ class _CreatePurchaseOrderScreenState
                       items: filteredInventoryItems
                           .map<DropdownMenuItem<int>>(
                             (i) => DropdownMenuItem<int>(
-                          value: i.id,
-                          child: Text(
-                            i.name,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      )
+                              value: i.id,
+                              child: Text(
+                                i.name,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )
                           .toList(),
                       onChanged: (val) {
                         final selected = allInventoryItems.firstWhere(
-                              (i) => i.id == val,
+                          (i) => i.id == val,
                         );
                         setState(() {
                           item['inventoryItemId'] = val;
@@ -604,19 +602,26 @@ class _CreatePurchaseOrderScreenState
                     items: [
                       const DropdownMenuItem<String?>(
                         value: null,
-                        child: Text("Select Unit", style: TextStyle(color: Colors.grey)),
+                        child: Text(
+                          "Select Unit",
+                          style: TextStyle(color: Colors.grey),
+                        ),
                       ),
-                      ...manualUnits.map((unit) => DropdownMenuItem<String?>(
-                        value: unit,
-                        child: Text(unit),
-                      )),
+                      ...manualUnits.map(
+                        (unit) => DropdownMenuItem<String?>(
+                          value: unit,
+                          child: Text(unit),
+                        ),
+                      ),
                     ],
                     onChanged: (val) {
                       setState(() => item['unit'] = val);
                     },
                     // Validation logic
                     validator: (val) =>
-                    item['inventoryItemId'] != null && val == null ? "Select unit" : null,
+                        item['inventoryItemId'] != null && val == null
+                        ? "Select unit"
+                        : null,
                   ),
                 ),
               ],
@@ -633,7 +638,8 @@ class _CreatePurchaseOrderScreenState
                   child: TextFormField(
                     // 🚨 Price Fix: Key forces rebuild when item ID changes
                     key: ValueKey(
-                        'price_field_${item['inventoryItemId'] ?? index}'),
+                      'price_field_${item['inventoryItemId'] ?? index}',
+                    ),
 
                     // Display the formatted price from the state
                     initialValue: _priceFormatter.format(item['price'] ?? 0.0),
@@ -752,7 +758,8 @@ class _CreatePurchaseOrderScreenState
       builder: (context) => AlertDialog(
         title: const Text('Discard Order Draft?'),
         content: const Text(
-            'Are you sure you want to cancel and discard this purchase order? All entered data will be lost.'),
+          'Are you sure you want to cancel and discard this purchase order? All entered data will be lost.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false), // No
@@ -783,7 +790,7 @@ class _CreatePurchaseOrderScreenState
     }
   }
 
-// ------------------------- UPDATED ACTION BUTTONS -------------------------
+  // ------------------------- UPDATED ACTION BUTTONS -------------------------
 
   Widget _buildActionButtons() {
     return Row(
@@ -799,13 +806,13 @@ class _CreatePurchaseOrderScreenState
           onPressed: _isCreating ? null : _createOrder,
           icon: _isCreating
               ? const SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: Colors.white,
-            ),
-          )
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
               : const Icon(Icons.send_rounded),
           label: Text(_isCreating ? "Creating..." : "Create PO"),
           style: ElevatedButton.styleFrom(

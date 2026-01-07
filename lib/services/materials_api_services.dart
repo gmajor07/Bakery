@@ -153,6 +153,7 @@ class MaterialApiService {
 
       final response = await _dio.get(
         '/inventory',
+        queryParameters: {'type': 'raw_material'},
         options: Options(
           headers: {
             'Authorization': 'Bearer $token',
@@ -172,10 +173,14 @@ class MaterialApiService {
       if (response.statusCode == 200 && data != null) {
         if (data is List) {
           print('🔹 Response is a List with ${data.length} items');
-          return data.map((item) {
+          final materials = data.map((item) {
             print('🔹 Parsing item: $item');
             return MaterialItem.fromJson(item);
           }).toList();
+          // Filter for raw_material type
+          return materials
+              .where((item) => item.type == 'raw_material')
+              .toList();
         } else {
           print('⚠️ Unexpected response type: ${data.runtimeType}');
           throw Exception('Unexpected response type: ${data.runtimeType}');

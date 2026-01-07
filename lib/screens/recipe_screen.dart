@@ -4,7 +4,6 @@ import '../models/product_recipe.dart';
 import '../provider/products_provider.dart';
 import '../services/inventory_api_service.dart';
 import '../models/inventory_item.dart';
-import '../widgets/token_error_widget.dart';
 
 class RecipeScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> productData;

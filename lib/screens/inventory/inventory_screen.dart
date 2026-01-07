@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 // NOTE: You must ensure this import path is correct for your project
-import '../provider/inventory_provider.dart';
-import '../widgets/token_error_widget.dart';
-import 'material_screen/create_material_screen.dart';
+import '../../provider/inventory_provider.dart';
+import '../../widgets/token_error_widget.dart';
+import '../material_screen/create_material_screen.dart';
+
 
 // --- TOP-LEVEL PROVIDERS AND HELPER FUNCTIONS ---
 
