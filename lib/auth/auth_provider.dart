@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>(
-  (ref) => AuthNotifier(ref),
+      (ref) => AuthNotifier(ref),
 );
 
 class AuthState {
@@ -42,16 +42,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _loadTokens();
   }
 
-  get dio => null;
-
   Future<void> _loadTokens() async {
     final access = await _storage.read(key: 'accessToken');
     final refresh = await _storage.read(key: 'refreshToken');
 
+    if (kDebugMode) {
+      print("AuthNotifier: Loaded tokens -> Access=$access, Refresh=$refresh");
+    }
+
     if (access != null && access.isNotEmpty) {
-      if (kDebugMode) {
-        print("✅ Loaded saved tokens: Access=$access, Refresh=$refresh");
-      }
       state = AuthState(
         isAuthenticated: true,
         accessToken: access,
@@ -64,14 +63,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> saveTokens(String access, String? refresh) async {
+    print("AuthNotifier: Saving access token: $access");
+    print("AuthNotifier: Saving refresh token: $refresh");
+
     await _storage.write(key: 'accessToken', value: access);
+
     if (refresh != null && refresh.isNotEmpty) {
       await _storage.write(key: 'refreshToken', value: refresh);
     }
 
-    if (kDebugMode) {
-      print("💾 Tokens saved: Access=$access, Refresh=$refresh");
-    }
+    final storedRefresh = await _storage.read(key: 'refreshToken');
+    print("AuthNotifier: Stored refresh token: $storedRefresh");
 
     state = state.copyWith(
       isAuthenticated: true,
@@ -84,15 +86,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       await _storage.delete(key: 'accessToken');
       await _storage.delete(key: 'refreshToken');
-      if (kDebugMode) {
-        print("🚪 Logged out successfully");
-      }
+      print("AuthNotifier: Logged out successfully");
       state = const AuthState(isAuthenticated: false, isLoading: false);
     } catch (e) {
-      if (kDebugMode) {
-        print("❌ Error during logout: $e");
-      }
-      // Still update state even if storage deletion fails
+      print("AuthNotifier: Error during logout: $e");
       state = const AuthState(isAuthenticated: false, isLoading: false);
     }
   }

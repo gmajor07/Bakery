@@ -95,10 +95,7 @@ class ApiService {
     required Map<String, dynamic> customerData,
     required String token, // Token is still required for non-GET/POST/PUT requests if not handled by interceptor refresh logic
   }) async {
-    // NOTE: If your BaseApiService handles the token globally, you should
-    // also remove the explicit header here. Assuming POST requires the token
-    // to be explicitly passed if BaseApiService doesn't handle all requests.
-    // However, if other methods were fixed by removal, this should be too:
+
 
     try {
       final response = await _dio.post(

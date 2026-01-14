@@ -31,39 +31,51 @@ class TokenErrorWidget extends ConsumerWidget {
       ),
     );
 
-    final interceptor = TokenInterceptor(ref);
-    final newToken = await interceptor.manualRefresh();
+    try {
+      final interceptor = TokenInterceptor(ref);
+      final newToken = await interceptor.manualRefresh();
 
-    // Close loading dialog
-    if (context.mounted) {
-      Navigator.of(context).pop();
-    }
-
-    if (!context.mounted) return;
-
-    if (newToken != null && newToken.isNotEmpty) {
-      // ✅ Success feedback
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 8),
-              Expanded(child: Text("Session restored! Reloading data...")),
-            ],
-          ),
-          backgroundColor: Colors.green.shade600,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-
-      // Give a moment for the snackbar to show, then close dialog
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Close loading dialog
       if (context.mounted) {
         Navigator.of(context).pop();
       }
-    } else {
-      // ❌ Failure feedback - show error but keep dialog open
+
+      if (!context.mounted) return;
+
+      if (newToken != null && newToken.isNotEmpty) {
+        // ✅ Success feedback
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Expanded(child: Text("Session restored! Reloading data...")),
+              ],
+            ),
+            backgroundColor: Colors.green.shade600,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+
+        // Give a moment for the snackbar to show, then close dialog
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (context.mounted) {
+          Navigator.of(context).pop();
+        }
+      } else {
+        // ❌ Failure feedback - logout
+        _logout(context, ref);
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+
+      if (!context.mounted) return;
+
+      // ❌ Failure feedback - show error and logout
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Row(
@@ -81,6 +93,12 @@ class TokenErrorWidget extends ConsumerWidget {
           duration: const Duration(seconds: 3),
         ),
       );
+
+      // Logout after showing the message
+      await Future.delayed(const Duration(seconds: 1));
+      if (context.mounted) {
+        _logout(context, ref);
+      }
     }
   }
 

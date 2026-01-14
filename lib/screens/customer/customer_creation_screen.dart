@@ -20,7 +20,7 @@ class CreditLimitFormatter extends TextInputFormatter {
     }
 
     // Remove non-digit characters for parsing (like commas)
-    final String cleanText = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
+    final String cleanText = newValue.text.replaceAll(RegExp(r'\D'), '');
 
     // Parse the cleaned text to a number
     double? number = double.tryParse(cleanText);
@@ -127,11 +127,22 @@ class _CustomerCreationScreenState extends ConsumerState<CustomerCreationScreen>
       }
     } catch (e) {
       // 4. Error: Show error message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Failed to create customer: ${e.toString()}')),
-        );
-      }
+      // Show full widget dialog instead of SnackBar
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Error'),
+          content: Text(e.toString()),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+
     }
   }
 

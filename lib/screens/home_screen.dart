@@ -1,5 +1,4 @@
 import 'package:bak/screens/pos_screens/pos_screen.dart';
-import 'package:bak/screens/reports_action_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -8,6 +7,7 @@ import '../provider/user_provider.dart';
 import '../widgets/action_card.dart';
 import 'app_restart.dart';
 import 'customer/customer_list_screen.dart';
+import 'expense_screen.dart';
 import 'product_screen.dart';
 import 'purchases_screens/purchases_order_screen.dart';
 import 'sales_screens/payment_actions_screen.dart';
@@ -35,7 +35,7 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
     const SalesActionsScreen(), // 1: Payments (Sales)
     const PurchasesActionsScreen(), // 2: Purchases
     const _InventoryPage(), // 3: Inventory (wrapped with debug)
-    const ReportsActionScreen(), // 4: Production
+    const ExpensesScreen(), // 4: Production
   ];
 
   @override
@@ -176,7 +176,7 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
                 Expanded(
                   child: _buildNavItem(
                     icon: LucideIcons.printer,
-                    label: 'Report',
+                    label: 'Expenses',
                     index: 4,
                     unselectedIconColor: unselectedIconColor,
                     unselectedTextColor: unselectedTextColor,

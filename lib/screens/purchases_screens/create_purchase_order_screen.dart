@@ -687,7 +687,7 @@ class _CreatePurchaseOrderScreenState
                       children: [
                         const Text(
                           "Row Total",
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                          style: TextStyle(fontSize: 14),
                         ),
                         Text(
                           formattedRowTotal,

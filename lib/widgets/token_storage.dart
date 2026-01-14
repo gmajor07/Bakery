@@ -1,27 +1,29 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:flutter/foundation.dart';
 
 class TokenStorage {
   static const _storage = FlutterSecureStorage();
 
-  // Use consistent keys with auth_provider
   static const String _accessTokenKey = 'accessToken';
   static const String _refreshTokenKey = 'refreshToken';
 
   static Future<void> saveTokens(
     String accessToken,
-    String refreshToken,
+    String? refreshToken,
   ) async {
     try {
+      print("TokenStorage: Saving access=$accessToken, refresh=$refreshToken");
       await _storage.write(key: _accessTokenKey, value: accessToken);
-      await _storage.write(key: _refreshTokenKey, value: refreshToken);
-      if (kDebugMode) {
-        print("💾 TokenStorage: Tokens saved successfully");
+
+      if (refreshToken != null && refreshToken.isNotEmpty) {
+        await _storage.write(key: _refreshTokenKey, value: refreshToken);
+      } else {
+        await _storage.delete(key: _refreshTokenKey);
       }
+
+      final storedRefresh = await _storage.read(key: _refreshTokenKey);
+      print("TokenStorage: Stored refresh token=$storedRefresh");
     } catch (e) {
-      if (kDebugMode) {
-        print("❌ TokenStorage: Failed to save tokens: $e");
-      }
+      print("TokenStorage: Failed to save tokens: $e");
       rethrow;
     }
   }
@@ -29,16 +31,10 @@ class TokenStorage {
   static Future<String?> getAccessToken() async {
     try {
       final token = await _storage.read(key: _accessTokenKey);
-      if (kDebugMode && token != null) {
-        if (kDebugMode) {
-          print("🔑 TokenStorage: Access token retrieved");
-        }
-      }
+      print("TokenStorage: Retrieved access token=$token");
       return token;
     } catch (e) {
-      if (kDebugMode) {
-        print("❌ TokenStorage: Failed to get access token: $e");
-      }
+      print("TokenStorage: Failed to get access token: $e");
       return null;
     }
   }
@@ -46,16 +42,10 @@ class TokenStorage {
   static Future<String?> getRefreshToken() async {
     try {
       final token = await _storage.read(key: _refreshTokenKey);
-      if (kDebugMode && token != null) {
-        if (kDebugMode) {
-          print("🔑 TokenStorage: Refresh token retrieved");
-        }
-      }
+      print("TokenStorage: Retrieved refresh token=$token");
       return token;
     } catch (e) {
-      if (kDebugMode) {
-        print("❌ TokenStorage: Failed to get refresh token: $e");
-      }
+      print("TokenStorage: Failed to get refresh token: $e");
       return null;
     }
   }
@@ -64,21 +54,10 @@ class TokenStorage {
     try {
       await _storage.delete(key: _accessTokenKey);
       await _storage.delete(key: _refreshTokenKey);
-      if (kDebugMode) {
-        print("🗑️ TokenStorage: Tokens cleared");
-      }
+      print("TokenStorage: Tokens cleared");
     } catch (e) {
-      if (kDebugMode) {
-        print("❌ TokenStorage: Failed to clear tokens: $e");
-      }
+      print("TokenStorage: Failed to clear tokens: $e");
       rethrow;
     }
-  }
-
-  /// Check if tokens exist
-  static Future<bool> hasTokens() async {
-    final accessToken = await getAccessToken();
-    final refreshToken = await getRefreshToken();
-    return accessToken != null && refreshToken != null;
   }
 }

@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart'; // Import for PdfColors
-import 'package:printing/printing.dart';
 import '../models/sale_item.dart';
 
 // Helper to format currency consistently

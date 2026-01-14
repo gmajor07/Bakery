@@ -21,7 +21,7 @@ class AdjustmentTypeSelectionScreen extends StatelessWidget {
       backgroundColor: background,
       appBar: AppBar(
         title: Text(
-          'Select Adjustment Type',
+          'Select Adjustment',
           style: TextStyle(color: onPrimary, fontWeight: FontWeight.bold),
         ),
         backgroundColor: primaryColor,

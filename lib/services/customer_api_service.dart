@@ -1,5 +1,3 @@
-// lib/services/customer_api_service.dart
-
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../exceptions.dart';

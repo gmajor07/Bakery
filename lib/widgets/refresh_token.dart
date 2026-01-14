@@ -28,11 +28,14 @@ class TokenInterceptor extends Interceptor {
     _isRefreshing = true;
 
     try {
-      final refreshToken = await TokenStorage.getRefreshToken();
+      final currentAccessToken = await TokenStorage.getAccessToken();
+      print(
+        "TokenInterceptor: current access token retrieved=$currentAccessToken",
+      );
 
-      if (refreshToken == null || refreshToken.isEmpty) {
+      if (currentAccessToken == null || currentAccessToken.isEmpty) {
         if (kDebugMode) {
-          print("❌ No refresh token available");
+          print("❌ No access token available for refresh");
         }
         return null;
       }
@@ -41,32 +44,42 @@ class TokenInterceptor extends Interceptor {
         print("🔄 Attempting token refresh (attempt ${retryCount + 1}/3)");
       }
 
+      final refreshToken =
+          await TokenStorage.getRefreshToken() ?? currentAccessToken;
+
       final dio = Dio(
         BaseOptions(
           baseUrl: 'https://pastry-pros-backend.vercel.app/api',
           connectTimeout: const Duration(seconds: 10),
           receiveTimeout: const Duration(seconds: 10),
+          headers: {'Content-Type': 'application/json'},
         ),
       );
 
       final response = await dio.post(
         '/auth/refresh-token',
-        data: {"refreshToken": refreshToken},
+        data: {'refreshToken': refreshToken}, // Send refresh token in body
       );
 
       if (response.statusCode == 200 && response.data != null) {
         final newAccessToken = response.data["token"];
-        final newRefreshToken = response.data["refreshToken"] ?? refreshToken;
+        final newRefreshToken = response.data["refreshToken"];
 
         if (newAccessToken == null || newAccessToken.isEmpty) {
           throw Exception("Invalid token received from server");
         }
 
-        // Save to both storage systems for consistency
-        await TokenStorage.saveTokens(newAccessToken, newRefreshToken);
+        // Save the new access token and refresh token if provided
+        final currentRefresh =
+            newRefreshToken ?? await TokenStorage.getRefreshToken();
+        await TokenStorage.saveTokens(newAccessToken, currentRefresh);
+        print(
+          "TokenInterceptor: New access token saved after refresh -> $newAccessToken",
+        );
+
         await ref
             .read(authProvider.notifier)
-            .saveTokens(newAccessToken, newRefreshToken);
+            .saveTokens(newAccessToken, currentRefresh);
         ref.read(tokenProvider.notifier).updateToken(newAccessToken);
 
         if (kDebugMode) {

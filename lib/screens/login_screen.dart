@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../services/login_api_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -16,6 +17,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  final _storage = const FlutterSecureStorage();
+
+  Future<void> _saveCredentials(String email, String code) async {
+    await _storage.write(key: 'savedEmail', value: email);
+    await _storage.write(key: 'savedCode', value: code);
+  }
+
+  Future<Map<String, String?>> _getSavedCredentials() async {
+    final email = await _storage.read(key: 'savedEmail');
+    final code = await _storage.read(key: 'savedCode');
+    return {'email': email, 'code': code};
+  }
 
   void _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
@@ -30,6 +43,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       await api.login(email, password);
 
       if (!mounted) return;
+
+      // Ask if user wants to save credentials
+      final shouldSave = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Save Login Credentials?'),
+          content: const Text(
+            'Would you like to save your email and login code for faster login next time?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('No'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Yes'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldSave == true) {
+        await _saveCredentials(email, password);
+      }
+
       Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
       if (!mounted) return;
@@ -67,6 +106,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       return 'Password must be at least 4 characters';
     }
     return null;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedCredentials();
+  }
+
+  Future<void> _loadSavedCredentials() async {
+    final creds = await _getSavedCredentials();
+    if (creds['email'] != null) {
+      _emailController.text = creds['email']!;
+    }
+    if (creds['code'] != null) {
+      _passwordController.text = creds['code']!;
+    }
   }
 
   @override
@@ -167,24 +222,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         padding: const EdgeInsets.only(top: 4.0),
                         child: Text(
                           'Code must be at least 4 characters.',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
                         ),
                       ),
 
                       const SizedBox(height: 20), // Adjusted space
-
                       // Login Button - MODIFIED
                       ElevatedButton(
                         onPressed: _isLoading ? null : _handleLogin,
                         child: _isLoading
                             ? const Text(
-                          'Loading...',
-                          style: TextStyle(
-                            color: Colors.white,
-                          ),
-                        )
+                                'Loading...',
+                                style: TextStyle(color: Colors.white),
+                              )
                             : const Text('Login'),
                       ),
                     ],

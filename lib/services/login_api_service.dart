@@ -1,7 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../auth/auth_provider.dart';
-import '../widgets/refresh_token.dart';
 
 class LoginApiService {
   final WidgetRef ref;
@@ -24,27 +23,29 @@ class LoginApiService {
         data: {'email': email, 'loginCode': code},
       );
 
-      final access = response.data['token'];
-      final refresh = response.data['refreshToken'];
+      print('🔵 FULL LOGIN RESPONSE: ${response.data}');
+
+      final data = response.data;
+
+      final access =
+          data['token'] ?? data['accessToken'] ?? data['data']?['accessToken'];
+
+      final refresh =
+          data['refreshToken'] ??
+          data['refresh_token'] ??
+          data['data']?['refreshToken'] ??
+          access; // Use access token as refresh if not provided
+
+      if (access == null) {
+        throw Exception('Login response missing tokens');
+      }
 
       await ref.read(authProvider.notifier).saveTokens(access, refresh);
 
       return response.data;
-    } on DioException {
+    } on DioException catch (e) {
+      print('❌ Login Dio error: ${e.response?.data}');
       rethrow;
     }
   }
-
-  final dioProvider = Provider<Dio>((ref) {
-    final dio = Dio(
-      BaseOptions(
-        baseUrl: "https://pastry-pros-backend.vercel.app/api",
-        headers: {"Accept": "application/json"},
-      ),
-    );
-
-    dio.interceptors.add(TokenInterceptor(ref));
-
-    return dio;
-  });
 }
