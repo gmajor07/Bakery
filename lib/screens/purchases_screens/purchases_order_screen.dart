@@ -458,8 +458,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                           PurchaseOrderDetailScreen(order: orders[index]),
                     ),
                   );
-                  if (result == true)
+                  if (result == true) {
                     _refreshData(); // Refresh if detail screen causes an update
+                  }
                 },
                 getStatusColor: _getStatusColor,
                 capitalizeStatus: _capitalizeFirstLetter,

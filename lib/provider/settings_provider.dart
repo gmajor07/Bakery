@@ -20,10 +20,25 @@ final settingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
         message.contains('unauthorized') ||
         message.contains('token') ||
         message.contains('expired')) {
-      await auth.logout();
+      // Force logout but keep saved credentials for user to retry
+      await auth.logout(clearCredentials: false);
       throw Exception('Token expired or unauthorized');
     }
 
     rethrow;
   }
+});
+
+/// Provider to extract bakery information from settings
+final bakeryInfoProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  final settings = await ref.watch(settingsProvider.future);
+  return settings['information'] ?? {};
+});
+
+/// Provider to extract configuration from settings
+final bakeryConfigurationProvider = FutureProvider<Map<String, dynamic>>((
+  ref,
+) async {
+  final settings = await ref.watch(settingsProvider.future);
+  return settings['configuration'] ?? {};
 });

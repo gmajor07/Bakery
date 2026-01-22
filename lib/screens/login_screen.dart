@@ -24,6 +24,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     await _storage.write(key: 'savedCode', value: code);
   }
 
+  Future<void> _clearCredentials() async {
+    await _storage.delete(key: 'savedEmail');
+    await _storage.delete(key: 'savedCode');
+  }
+
   Future<Map<String, String?>> _getSavedCredentials() async {
     final email = await _storage.read(key: 'savedEmail');
     final code = await _storage.read(key: 'savedCode');
@@ -67,6 +72,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       if (shouldSave == true) {
         await _saveCredentials(email, password);
+      } else {
+        // Clear credentials if user said No
+        await _clearCredentials();
       }
 
       Navigator.pushReplacementNamed(context, '/home');

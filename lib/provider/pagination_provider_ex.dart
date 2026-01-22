@@ -1,6 +1,5 @@
 // lib/provider/pagination_provider.dart
 
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'pagination_provider.dart'; // Import PaginationState from here
 

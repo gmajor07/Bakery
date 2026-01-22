@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../models/sale_item.dart';
 import '../../provider/sales_provider.dart';
+import '../../provider/settings_provider.dart';
 import '../../widgets/print_receipt.dart';
 import '../../widgets/token_error_widget.dart';
 import 'sale_detail_screen.dart';
@@ -627,7 +628,10 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
                       ),
                     );
                   },
-                  onPrint: () => generateSaleReceiptPdf(sale),
+                  onPrint: () async {
+                    final bakeryInfo = await ref.read(bakeryInfoProvider.future);
+                    await generateSaleReceiptPdf(sale, bakeryInfo: bakeryInfo);
+                  },
                 );
               },
             ),

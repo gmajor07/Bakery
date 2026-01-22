@@ -43,14 +43,16 @@ class ActionCard extends StatelessWidget {
     final surfaceColor = useDefaultColors!
         ? colorScheme.background
         : colorScheme.onSurface.withOpacity(0.05);
-    final cardTextColor = textColor ??
+    final cardTextColor =
+        textColor ??
         (useDefaultColors!
             ? textTheme.bodyMedium?.color
             : colorScheme.onSurface);
     final subtitleColor = cardTextColor?.withOpacity(0.6);
     final iconBgColor = useDefaultColors! ? color.withOpacity(0.9) : color;
     final iconContentColor =
-        iconColor ?? (useDefaultColors! ? colorScheme.onPrimary : colorScheme.onSurface);
+        iconColor ??
+        (useDefaultColors! ? colorScheme.onPrimary : colorScheme.onSurface);
 
     return Material(
       color: surfaceColor,
@@ -70,11 +72,7 @@ class ActionCard extends StatelessWidget {
                   color: iconBgColor,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  icon,
-                  color: iconContentColor,
-                  size: 24,
-                ),
+                child: Icon(icon, color: iconContentColor, size: 24),
               ),
               const SizedBox(height: 12),
               Column(
@@ -93,10 +91,7 @@ class ActionCard extends StatelessWidget {
                   Text(
                     subtitle,
                     textAlign: textAlignment,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: subtitleColor,
-                    ),
+                    style: TextStyle(fontSize: 11, color: subtitleColor),
                   ),
                 ],
               ),

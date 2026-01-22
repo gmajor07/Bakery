@@ -84,12 +84,12 @@ class TokenErrorWidget extends ConsumerWidget {
               SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  "Session refresh failed. Please log in again to continue.",
+                  "Refreshing..log in again to continue.",
                 ),
               ),
             ],
           ),
-          backgroundColor: Colors.red.shade600,
+          backgroundColor: Colors.brown.shade600,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -104,7 +104,8 @@ class TokenErrorWidget extends ConsumerWidget {
 
   // --- Helper function for Logout ---
   void _logout(BuildContext context, WidgetRef ref) async {
-    await ref.read(authProvider.notifier).logout();
+    // Force logout but keep saved credentials for user to retry
+    await ref.read(authProvider.notifier).logout(clearCredentials: false);
 
     // Navigate to Login and clear the navigation stack
     Navigator.of(context).pushAndRemoveUntil(
@@ -117,92 +118,114 @@ class TokenErrorWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Use the theme's color scheme
     final colorScheme = Theme.of(context).colorScheme;
+    final screenSize = MediaQuery.of(context).size;
+    final isSmallScreen = screenSize.height < 600;
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-        child: Card(
-          // Use a slightly larger border radius for a modern feel
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          elevation: 8,
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch, // Stretch buttons
-              children: [
-                // 1. Icon and Title
-                Icon(
-                  Icons
-                      .person_off_outlined, // A slightly more modern, neutral icon
-                  size: 64,
-                  color: colorScheme.error, // Use error color for severity
-                ),
-                const SizedBox(height: 16),
+    // Responsive padding based on screen size
+    final horizontalPadding = screenSize.width < 400 ? 16.0 : 24.0;
+    final cardPadding = isSmallScreen ? 20.0 : 32.0;
+    final spacing = isSmallScreen ? 12.0 : 16.0;
+    final largeSpacing = isSmallScreen ? 16.0 : 32.0;
 
-                // Title
-                Text(
-                  "Session Expired",
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onSurface,
+    return SingleChildScrollView(
+      child: Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 16),
+          child: Card(
+            // Use a slightly larger border radius for a modern feel
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            elevation: 8,
+            child: Padding(
+              padding: EdgeInsets.all(cardPadding),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 1. Icon and Title
+                  Icon(
+                    Icons.person_off_outlined,
+                    size: isSmallScreen ? 48 : 64,
+                    color: colorScheme.error,
                   ),
-                ),
-                const SizedBox(height: 8),
+                  SizedBox(height: spacing),
 
-                // Subtitle/Instructions
-                Text(
-                  "Your authentication session has expired. Try refreshing to restore your session, or log in again if that doesn't work.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: 14,
-                    height: 1.4,
-                  ),
-                ),
-
-                const SizedBox(height: 32),
-
-                // 2. Primary Action: Refresh Token
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        AppTheme.primaryBrown, // Use a custom primary color
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                  // Title
+                  Text(
+                    "Session Expired",
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onSurface,
+                      fontSize: isSmallScreen ? 18 : null,
                     ),
                   ),
-                  onPressed: () => _tryRefresh(context, ref),
-                  child: const Text(
-                    "Try Auto-Refresh",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                ),
+                  SizedBox(height: 8),
 
-                const SizedBox(height: 12),
-
-                // 3. Secondary Action: Log In Again
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.primaryBrown,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: BorderSide(color: AppTheme.primaryBrown, width: 1.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                  // Subtitle/Instructions
+                  Text(
+                    "Your authentication session has expired. Try refreshing to restore your session, or log in again if that doesn't work.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: isSmallScreen ? 12 : 14,
+                      height: 1.4,
                     ),
                   ),
-                  onPressed: () => _logout(context, ref),
-                  child: const Text(
-                    "Log In Again",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+
+                  SizedBox(height: largeSpacing),
+
+                  // 2. Primary Action: Refresh Token
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryBrown,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(
+                        vertical: isSmallScreen ? 10 : 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () => _tryRefresh(context, ref),
+                    child: Text(
+                      "Try Auto-Refresh",
+                      style: TextStyle(
+                        fontSize: isSmallScreen ? 14 : 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
-                ),
-              ],
+
+                  SizedBox(height: spacing),
+
+                  // 3. Secondary Action: Log In Again
+                  OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.primaryBrown,
+                      padding: EdgeInsets.symmetric(
+                        vertical: isSmallScreen ? 10 : 14,
+                      ),
+                      side: BorderSide(
+                        color: AppTheme.primaryBrown,
+                        width: 1.5,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () => _logout(context, ref),
+                    child: Text(
+                      "Log In Again",
+                      style: TextStyle(
+                        fontSize: isSmallScreen ? 14 : 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

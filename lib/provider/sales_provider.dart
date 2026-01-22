@@ -30,7 +30,8 @@ final salesHistoryProvider = FutureProvider<List<SaleItem>>((ref) async {
         message.contains('unauthorized') ||
         message.contains('token') ||
         message.contains('expired')) {
-      await auth.logout();
+      // Force logout due to token failure - keep credentials for retry
+      await auth.logout(clearCredentials: false);
       throw Exception('Token expired or unauthorized');
     }
 
@@ -55,7 +56,8 @@ final saleDetailProvider = FutureProvider.family<SaleItem, int>((
   } catch (e) {
     final msg = e.toString().toLowerCase();
     if (msg.contains('401') || msg.contains('unauthorized')) {
-      await auth.logout();
+      // Force logout due to token failure - keep credentials for retry
+      await auth.logout(clearCredentials: false);
       throw Exception('Token expired or unauthorized');
     }
     rethrow;

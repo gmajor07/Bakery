@@ -75,7 +75,8 @@ flutter:
   assets:
     # ⭐️ ADDED: This line declares the folder containing your custom icons.
     - assets/icons/ 
-    - assets/images/ 
+    - assets/images/
+    - assets/fonts/RobotoMono-Regular.ttf
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

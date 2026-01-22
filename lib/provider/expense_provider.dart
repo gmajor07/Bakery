@@ -42,8 +42,9 @@ final expenseApiServiceProvider = Provider<ExpenseApiService>((ref) {
 /// FutureProvider that fetches the list of Expenses based on current filters.
 final expensesProvider = FutureProvider<List<Expense>>((ref) async {
   final token = await ref.read(authProvider.notifier).getAccessToken();
-  if (token == null)
+  if (token == null) {
     throw Exception("Token missing or expired. Please re-authenticate.");
+  }
 
   // Watch the filter states
   final categoryId = ref.watch(selectedExpenseCategoryProvider);
@@ -95,7 +96,8 @@ class ExpenseCreationNotifier extends AsyncNotifier<void> {
 
     if (token == null || token.isEmpty) {
       state = AsyncValue.error('Token missing or expired', StackTrace.current);
-      await auth.logout();
+      // Force logout but keep saved credentials for retry
+      await auth.logout(clearCredentials: false);
       return;
     }
 
@@ -116,7 +118,8 @@ class ExpenseCreationNotifier extends AsyncNotifier<void> {
       final message = e.toString().toLowerCase();
 
       if (message.contains('401') || message.contains('unauthorized')) {
-        await auth.logout();
+        // Force logout but keep saved credentials for retry
+        await auth.logout(clearCredentials: false);
       }
 
       state = AsyncValue.error(e.toString(), st);

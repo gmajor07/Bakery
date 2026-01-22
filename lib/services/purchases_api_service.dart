@@ -42,7 +42,8 @@ class PurchaseOrdersApiService {
         print("❌ 401 Unauthorized detected. Forcing user logout.");
       }
       // Invalidate Auth State and force logout
-      ref.read(authProvider.notifier).logout();
+      // Force logout due to token failure - keep credentials for retry
+      ref.read(authProvider.notifier).logout(clearCredentials: false);
       // Throw a specific error that the UI can catch to show an alert
       throw const AuthException(
         'Your session has expired. Please log in again.',

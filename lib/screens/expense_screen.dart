@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../models/expense.dart';
 // Assuming these imports are correct based on your previous code structure
@@ -24,7 +25,14 @@ enum QuickDateFilter {
 }
 
 class ExpensesScreen extends ConsumerStatefulWidget {
-  const ExpensesScreen({super.key});
+  final int selectedIndex;
+  final Function(int) onNavItemTapped;
+
+  const ExpensesScreen({
+    super.key,
+    required this.selectedIndex,
+    required this.onNavItemTapped,
+  });
 
   @override
   ConsumerState<ExpensesScreen> createState() => _ExpensesScreenState();
@@ -34,8 +42,8 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   String searchQuery = '';
-  // Initialize filter to 'This Month' as set in the provider init state
-  QuickDateFilter selectedQuickFilter = QuickDateFilter.thisMonth;
+  // Initialize filter to 'Today' to show today's expenses by default
+  QuickDateFilter selectedQuickFilter = QuickDateFilter.today;
   DateTimeRange? customDateRange;
 
   final Color _brownColor = Colors.brown.shade400;
@@ -54,7 +62,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Re-apply filter on screen load to ensure Riverpod state is correct and triggers the fetch
-      _applyQuickFilter(QuickDateFilter.thisMonth);
+      _applyQuickFilter(QuickDateFilter.today);
       ref.invalidate(expensesProvider);
     });
   }
@@ -228,18 +236,16 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
     }).toList();
   }
 
-  Color _paymentMethodColor(String method) {
-    switch (method.toLowerCase()) {
-      case 'cash':
-        return Colors.orange.shade700;
-      case 'card':
-        return Colors.blue.shade700;
-      case 'bank':
-        return Colors.indigo.shade700;
-      case 'mobile':
-        return Colors.deepOrange.shade700;
-      case 'check':
-        return Colors.purple.shade700;
+  Color _statusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'approved':
+        return Colors.green.shade700;
+      case 'pending':
+        return Colors.orange.shade800;
+      case 'cancelled':
+        return Colors.red.shade700;
+      case 'completed':
+        return Colors.brown.shade700;
       default:
         return Colors.grey.shade600;
     }
@@ -254,11 +260,10 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
         searchQuery.isNotEmpty ||
         ref.watch(selectedExpenseCategoryProvider) != null ||
         selectedQuickFilter !=
-            QuickDateFilter.thisMonth; // Check if filters are active
+            QuickDateFilter.today; // Check if filters are active
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Expenses'),
         actions: [
           if (hasFilters)
             IconButton(
@@ -279,30 +284,165 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
         tooltip: 'Add New Expense',
         child: const Icon(Icons.add),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+      body: Stack(
+        children: [
+          // Main content
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
+            child: Column(
+              children: [
+                _buildFilters(),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: asyncExpenses.when(
+                    data: (all) {
+                      final filtered = _applyFilters(all);
+                      final paged = _paginate(filtered, pagination);
+                      return _buildList(paged, filtered.length, pagination);
+                    },
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (error, _) {
+                      final msg = error.toString().toLowerCase();
+                      if (msg.contains('401') ||
+                          msg.contains('unauthorized') ||
+                          msg.contains('token') ||
+                          msg.contains('valid') ||
+                          msg.contains('expired')) {
+                        return const TokenErrorWidget();
+                      }
+                      return Center(child: Text('Error: ${error.toString()}'));
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Bottom navigation menu
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: _buildBottomNavigation(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomNavigation() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final primaryColor = colorScheme.primary;
+    final textOnPrimary = colorScheme.onPrimary;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      decoration: BoxDecoration(
+        color: primaryColor,
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            spreadRadius: 1,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: SizedBox(
+          height: 65,
+          child: Row(
+            children: [
+              // Home
+              Expanded(
+                child: _buildNavItem(
+                  icon: LucideIcons.home,
+                  label: 'Home',
+                  index: 0,
+                  isSelected: widget.selectedIndex == 0,
+                  textOnPrimary: textOnPrimary,
+                ),
+              ),
+              // Payments
+              Expanded(
+                child: _buildNavItem(
+                  icon: LucideIcons.badgeInfo,
+                  label: 'Payments',
+                  index: 1,
+                  isSelected: widget.selectedIndex == 1,
+                  textOnPrimary: textOnPrimary,
+                ),
+              ),
+              // Purchases
+              Expanded(
+                child: _buildNavItem(
+                  icon: LucideIcons.shoppingCart,
+                  label: 'Purchases',
+                  index: 2,
+                  isSelected: widget.selectedIndex == 2,
+                  textOnPrimary: textOnPrimary,
+                ),
+              ),
+              // Inventory
+              Expanded(
+                child: _buildNavItem(
+                  icon: LucideIcons.box,
+                  label: 'Inventory',
+                  index: 3,
+                  isSelected: widget.selectedIndex == 3,
+                  textOnPrimary: textOnPrimary,
+                ),
+              ),
+              // Expenses
+              Expanded(
+                child: _buildNavItem(
+                  icon: LucideIcons.printer,
+                  label: 'Expenses',
+                  index: 4,
+                  isSelected: widget.selectedIndex == 4,
+                  textOnPrimary: textOnPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem({
+    required IconData icon,
+    required String label,
+    required int index,
+    required bool isSelected,
+    required Color textOnPrimary,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => widget.onNavItemTapped(index),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _buildFilters(),
-            const SizedBox(height: 16),
-            Expanded(
-              child: asyncExpenses.when(
-                data: (all) {
-                  final filtered = _applyFilters(all);
-                  final paged = _paginate(filtered, pagination);
-                  return _buildList(paged, filtered.length, pagination);
-                },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, _) {
-                  final msg = error.toString().toLowerCase();
-                  if (msg.contains('401') ||
-                      msg.contains('unauthorized') ||
-                      msg.contains('token') ||
-                      msg.contains('expired')) {
-                    return const TokenErrorWidget();
-                  }
-                  return Center(child: Text('Error: ${error.toString()}'));
-                },
+            Icon(
+              icon,
+              color: isSelected
+                  ? textOnPrimary
+                  : textOnPrimary.withOpacity(0.5),
+              size: 24,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected
+                    ? textOnPrimary
+                    : textOnPrimary.withOpacity(0.5),
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ],
@@ -448,8 +588,9 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
               itemCount: expenses.length,
               itemBuilder: (_, i) => ExpenseCard(
                 expense: expenses[i],
-                paymentMethodColor: _paymentMethodColor,
+                statusColor: _statusColor,
                 cap: _cap,
+                // ❌ ACTION REMOVED: onTap is set to null, preventing navigation to a detail screen.
                 onTap: null,
               ),
             ),
@@ -495,15 +636,16 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
 
 class ExpenseCard extends StatelessWidget {
   final Expense expense;
+  // ❌ MODIFIED: onTap is nullable, allowing null to be passed (no tap action)
   final VoidCallback? onTap;
-  final Color Function(String) paymentMethodColor;
+  final Color Function(String) statusColor;
   final String Function(String) cap;
 
   const ExpenseCard({
     super.key,
     required this.expense,
-    this.onTap,
-    required this.paymentMethodColor,
+    this.onTap, // Make onTap optional
+    required this.statusColor,
     required this.cap,
   });
 
@@ -511,66 +653,42 @@ class ExpenseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final date = DateFormat.yMMMd().format(DateTime.parse(expense.date));
     final amount = 'TSh ${NumberFormat('#,##0').format(expense.amount)}';
-    final methodColor = paymentMethodColor(expense.paymentMethod);
+    final statusColor = this.statusColor(expense.status);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       elevation: 2,
       child: ListTile(
-        onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        onTap: onTap, // Will be null, thus non-interactive
         leading: CircleAvatar(
-          backgroundColor: methodColor.withOpacity(0.1),
-          child: Icon(Icons.payment, color: methodColor),
+          backgroundColor: statusColor.withOpacity(0.1),
+          child: Icon(Icons.receipt, color: statusColor),
         ),
         title: Text(
           'Expense #${expense.id}',
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${expense.category.name}\n$date',
-              style: TextStyle(color: Colors.grey[700]),
-            ),
-            const SizedBox(height: 6),
-            // 👤 Updated By: Now separated and located at the bottom-left
-            Row(
-              children: [
-                Icon(Icons.person_outline, size: 12, color: Colors.grey[600]),
-                const SizedBox(width: 4),
-                Text(
-                  'Updated by: ${expense.updatedByName}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey[600],
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
-            ),
-          ],
+        subtitle: Text(
+          '${expense.category.name}\n$date',
+          style: TextStyle(color: Colors.grey[700]),
         ),
         trailing: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // 💰 Amount: Kept in original position
             Text(
               amount,
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             ),
-            const SizedBox(height: 6),
-            // 💳 Payment Method: Kept in original position, but separated from name
+            const SizedBox(height: 4),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: methodColor,
+                color: statusColor,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                cap(expense.paymentMethod),
+                cap(expense.status),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 11,

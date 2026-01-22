@@ -84,7 +84,8 @@ class MaterialApiService {
       }
 
       if (e.response?.statusCode == 401) {
-        await ref.read(authProvider.notifier).logout();
+        // Force logout due to token failure - keep credentials for retry
+        await ref.read(authProvider.notifier).logout(clearCredentials: false);
         throw Exception('Unauthorized or token expired');
       }
 
@@ -132,7 +133,8 @@ class MaterialApiService {
       print('❌ Error fetching material detail: $error');
 
       if (e.response?.statusCode == 401) {
-        await ref.read(authProvider.notifier).logout();
+        // Force logout due to token failure - keep credentials for retry
+        await ref.read(authProvider.notifier).logout(clearCredentials: false);
         throw Exception('Unauthorized or token expired');
       }
 

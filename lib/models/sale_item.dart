@@ -87,9 +87,9 @@ class SaleItem {
   // Helper method to get status color (Unchanged)
   Color get statusColor {
     if (isCredit) {
-      return outstandingBalance <= 0 ? Colors.green : Colors.orange;
+      return outstandingBalance <= 0 ? Colors.brown : Colors.orange;
     } else {
-      return outstandingBalance <= 0 ? Colors.green : Colors.red;
+      return outstandingBalance <= 0 ? Colors.brown : Colors.red;
     }
   }
 }

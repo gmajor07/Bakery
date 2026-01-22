@@ -19,17 +19,14 @@ class PaymentApiService {
     try {
       final resp = await _dio.get(
         '/sales',
-        queryParameters: {
-          'isCredit': true,
-          'limit': 10000,
-        },
+        queryParameters: {'isCredit': true, 'limit': 10000},
       );
 
       final raw = resp.data;
       final List<dynamic> data = raw['sales'] is List ? raw['sales'] : [];
 
       return data
-          .where((e) => e is Map<String, dynamic>)
+          .whereType<Map<String, dynamic>>()
           .map((e) => OutstandingPayment.fromJson(e))
           .toList();
     } on DioException catch (e) {
@@ -71,10 +68,7 @@ class PaymentApiService {
     required double amount,
   }) async {
     try {
-      await _dio.post(
-        '/sales/$saleId/payments',
-        data: {'amount': amount},
-      );
+      await _dio.post('/sales/$saleId/payments', data: {'amount': amount});
     } on DioException catch (e) {
       print('❌ recordPayment DioError: ${e.message}');
       throw ApiErrorHandler.handle(e);

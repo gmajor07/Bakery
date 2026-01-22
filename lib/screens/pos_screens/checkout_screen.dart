@@ -846,9 +846,22 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 if (kDebugMode) {
                   print("Starting print receipt for sale: ${sale['id']}");
                 }
-                final bytes = await generateSaleReceiptPdf(sale);
+                final bakeryInfo = await ref.read(bakeryInfoProvider.future);
+                final bytes = await generateSaleReceiptPdf(
+                  sale,
+                  bakeryInfo: bakeryInfo,
+                );
                 await Printing.layoutPdf(onLayout: (format) => bytes);
                 if (kDebugMode) print("Print receipt completed successfully");
+
+                // Navigate to POS after receipt is closed
+                if (context.mounted) {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => PosScreen()),
+                    (route) => false,
+                  );
+                }
               } catch (e, stack) {
                 if (kDebugMode) {
                   print("Error printing receipt: $e");

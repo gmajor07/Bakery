@@ -277,7 +277,8 @@ class _CreatePurchaseOrderScreenState
       if (errorText.contains('401') ||
           errorText.contains('unauthorized') ||
           errorText.contains('token')) {
-        await auth.logout();
+        // Force logout due to token failure - keep credentials for retry
+        await auth.logout(clearCredentials: false);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -685,10 +686,7 @@ class _CreatePurchaseOrderScreenState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          "Row Total",
-                          style: TextStyle(fontSize: 14),
-                        ),
+                        const Text("Row Total", style: TextStyle(fontSize: 14)),
                         Text(
                           formattedRowTotal,
                           style: TextStyle(

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>(
-      (ref) => AuthNotifier(ref),
+  (ref) => AuthNotifier(ref),
 );
 
 class AuthState {
@@ -82,11 +82,25 @@ class AuthNotifier extends StateNotifier<AuthState> {
     );
   }
 
-  Future<void> logout() async {
+  /// Logout with optional credential clearing
+  /// [clearCredentials] - if true (manual logout), clear saved credentials
+  ///                      if false (forced logout), keep saved credentials for retry
+  Future<void> logout({bool clearCredentials = true}) async {
     try {
       await _storage.delete(key: 'accessToken');
       await _storage.delete(key: 'refreshToken');
-      print("AuthNotifier: Logged out successfully");
+
+      // Only clear saved login credentials on manual logout
+      if (clearCredentials) {
+        await _storage.delete(key: 'savedEmail');
+        await _storage.delete(key: 'savedCode');
+        print("AuthNotifier: Logged out successfully (credentials cleared)");
+      } else {
+        print(
+          "AuthNotifier: Force logged out (credentials preserved for retry)",
+        );
+      }
+
       state = const AuthState(isAuthenticated: false, isLoading: false);
     } catch (e) {
       print("AuthNotifier: Error during logout: $e");
