@@ -44,7 +44,7 @@ class PurchasesActionsScreen extends StatelessWidget {
                   'Purchases',
                   style: textTheme.headlineMedium?.copyWith(
                     color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],

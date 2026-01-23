@@ -44,7 +44,7 @@ class InventoryActionsScreen extends StatelessWidget {
                   'Inventory',
                   style: textTheme.headlineMedium?.copyWith(
                     color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],

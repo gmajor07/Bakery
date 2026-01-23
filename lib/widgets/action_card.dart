@@ -63,39 +63,72 @@ class ActionCard extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: padding ?? const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: contentAlignment,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: iconBgColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: iconContentColor, size: 24),
-              ),
-              const SizedBox(height: 12),
-              Column(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // Calculate responsive sizes based on available space
+              final availableHeight = constraints.maxHeight;
+              final iconSize = availableHeight > 120 ? 24.0 : 20.0;
+              final iconPadding = availableHeight > 120 ? 10.0 : 8.0;
+              final mainSpacing = availableHeight > 120 ? 10.0 : 6.0;
+              final labelSize = availableHeight > 120 ? 14.0 : 12.0;
+              final subtitleSize = availableHeight > 120 ? 11.0 : 10.0;
+
+              return Column(
                 crossAxisAlignment: contentAlignment,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    label,
-                    textAlign: textAlignment,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 14,
-                      color: cardTextColor,
+                  Container(
+                    padding: EdgeInsets.all(iconPadding),
+                    decoration: BoxDecoration(
+                      color: iconBgColor,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, color: iconContentColor, size: iconSize),
+                  ),
+                  SizedBox(height: mainSpacing),
+                  Flexible(
+                    fit: FlexFit.loose,
+                    child: Column(
+                      crossAxisAlignment: contentAlignment,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            label,
+                            textAlign: textAlignment,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: labelSize,
+                              color: cardTextColor,
+                              height: 1.1,
+                            ),
+                          ),
+                        ),
+                        if (subtitle.isNotEmpty) ...[
+                          SizedBox(height: mainSpacing / 3),
+                          Flexible(
+                            child: Text(
+                              subtitle,
+                              textAlign: textAlignment,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: subtitleSize,
+                                color: subtitleColor,
+                                height: 1.1,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    textAlign: textAlignment,
-                    style: TextStyle(fontSize: 11, color: subtitleColor),
-                  ),
                 ],
-              ),
-            ],
+              );
+            },
           ),
         ),
       ),

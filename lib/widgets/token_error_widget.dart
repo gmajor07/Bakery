@@ -82,11 +82,7 @@ class TokenErrorWidget extends ConsumerWidget {
             children: [
               Icon(Icons.error_outline, color: Colors.white),
               SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  "Refreshing..log in again to continue.",
-                ),
-              ),
+              Expanded(child: Text("Refreshing..log in again to continue.")),
             ],
           ),
           backgroundColor: Colors.brown.shade600,
@@ -130,7 +126,10 @@ class TokenErrorWidget extends ConsumerWidget {
     return SingleChildScrollView(
       child: Center(
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 16),
+          padding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding,
+            vertical: 16,
+          ),
           child: Card(
             // Use a slightly larger border radius for a modern feel
             shape: RoundedRectangleBorder(

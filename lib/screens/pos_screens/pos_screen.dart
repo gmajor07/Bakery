@@ -360,10 +360,11 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                         color: colorScheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize
-                            .min, // Ensures Row only takes space needed by children
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 4,
+                        runSpacing: 4,
                         children: [
                           IconButton(
                             icon: const Icon(Icons.remove, size: 20),

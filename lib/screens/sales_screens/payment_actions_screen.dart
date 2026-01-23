@@ -41,9 +41,9 @@ class SalesActionsScreen extends StatelessWidget {
               children: [
                 Text(
                   'Credit Payments',
-                  style: textTheme.headlineMedium?.copyWith(
+                  style: textTheme.titleLarge?.copyWith(
                     color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],

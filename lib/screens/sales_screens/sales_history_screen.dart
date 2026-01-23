@@ -14,9 +14,9 @@ import 'sale_detail_screen.dart';
 // ----------------------------------------------------------------------
 
 final salesPaginationProvider =
-StateNotifierProvider<SalesPaginationNotifier, SalesPaginationState>(
+    StateNotifierProvider<SalesPaginationNotifier, SalesPaginationState>(
       (ref) => SalesPaginationNotifier(),
-);
+    );
 
 class SalesPaginationState {
   final int currentPage;
@@ -85,7 +85,7 @@ const Color lightBrownBackground = Color(0xFFEEE3D7);
 // 🚨 NEW PROVIDERS for Sales History Filtering (Standardized)
 final selectedSaleStatusProvider = StateProvider<String?>((ref) => null);
 final selectedSaleDateRangeProvider = StateProvider<DateTimeRange?>(
-      (ref) => null,
+  (ref) => null,
 );
 
 class SalesHistoryScreen extends ConsumerStatefulWidget {
@@ -168,7 +168,7 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
 
     // This updates the Riverpod state for filtering
     ref.read(selectedSaleDateRangeProvider.notifier).state =
-    filter == QuickDateFilter.custom ? customRange : _getDateRange(filter);
+        filter == QuickDateFilter.custom ? customRange : _getDateRange(filter);
 
     ref.read(salesPaginationProvider.notifier).reset();
   }
@@ -180,7 +180,7 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
       firstDate: DateTime(now.year - 5),
       lastDate: DateTime(now.year + 1),
       initialDateRange:
-      customDateRange ?? _getDateRange(QuickDateFilter.last7Days),
+          customDateRange ?? _getDateRange(QuickDateFilter.last7Days),
       helpText: 'Select Sale Date Range',
       saveText: 'Apply',
       // 🚨 FIX: Apply Theme Builder for consistent style
@@ -270,8 +270,8 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
 
     final hasFilters =
         selectedRange != null ||
-            searchQuery.isNotEmpty ||
-            selectedStatus != null;
+        searchQuery.isNotEmpty ||
+        selectedStatus != null;
 
     return Scaffold(
       appBar: AppBar(
@@ -357,13 +357,13 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: searchQuery.isNotEmpty
                     ? IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() => searchQuery = '');
-                    ref.read(salesPaginationProvider.notifier).reset();
-                  },
-                )
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => searchQuery = '');
+                          ref.read(salesPaginationProvider.notifier).reset();
+                        },
+                      )
                     : null,
                 border: const OutlineInputBorder(),
               ),
@@ -389,7 +389,10 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
                         borderRadius: BorderRadius.circular(4.0),
                       ),
                     ),
-                    child: const Icon(Icons.date_range),
+                    child: Icon(
+                      Icons.date_range,
+                      color: Theme.of(context).colorScheme.onPrimary,
+                    ),
                   ),
                 ),
               ],
@@ -413,11 +416,11 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
       items: statuses
           .map(
             (s) => DropdownMenuItem(
-          value: s,
-          // 🎯 FIX: Display text is capitalized for better UI
-          child: Text(s == null ? "All Status" : _capitalizeFirstLetter(s)),
-        ),
-      )
+              value: s,
+              // 🎯 FIX: Display text is capitalized for better UI
+              child: Text(s == null ? "All Status" : _capitalizeFirstLetter(s)),
+            ),
+          )
           .toList(),
       onChanged: (val) {
         ref.read(selectedSaleStatusProvider.notifier).state = val;
@@ -444,6 +447,7 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
     ];
 
     final primaryColor = Theme.of(context).colorScheme.primary;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -455,10 +459,12 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
             child: FilterChip(
               label: Text(_getFilterName(filter)),
               selected: isSelected,
-              selectedColor: lightBrownBackground,
+              selectedColor: primaryColor.withOpacity(0.2),
               checkmarkColor: primaryColor,
               labelStyle: TextStyle(
-                color: isSelected ? primaryColor : Colors.grey[700],
+                color: isSelected
+                    ? primaryColor
+                    : (isDarkMode ? Colors.grey[400] : Colors.grey[700]),
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
               onSelected: (selected) {
@@ -529,14 +535,14 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
       // 1. Search Filter
       final matchesSearch =
           searchQuery.isEmpty ||
-              sale.receiptNumber.toString().toLowerCase().contains(searchQuery) ||
-              sale.customer.toLowerCase().contains(searchQuery);
+          sale.receiptNumber.toString().toLowerCase().contains(searchQuery) ||
+          sale.customer.toLowerCase().contains(searchQuery);
 
       // 2. Status Filter
       // 🎯 FIX: Ensure case-insensitive comparison for status
       final matchesStatus =
           selectedStatus == null ||
-              sale.status.toLowerCase() == selectedStatus.toLowerCase();
+          sale.status.toLowerCase() == selectedStatus.toLowerCase();
 
       // 3. Date Filter
       bool matchesDate = true;
@@ -556,8 +562,8 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
         matchesDate =
             (startOfSaleDay.isAtSameMomentAs(startOfRangeDay) ||
                 startOfSaleDay.isAfter(startOfRangeDay)) &&
-                (startOfSaleDay.isAtSameMomentAs(endOfRangeDay) ||
-                    startOfSaleDay.isBefore(endOfRangeDay));
+            (startOfSaleDay.isAtSameMomentAs(endOfRangeDay) ||
+                startOfSaleDay.isBefore(endOfRangeDay));
       }
 
       return matchesSearch && matchesStatus && matchesDate;
@@ -565,12 +571,11 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   }
 
   List<SaleItem> _applyPagination(
-      List<SaleItem> sales,
-      SalesPaginationState pagination,
-      ) {
+    List<SaleItem> sales,
+    SalesPaginationState pagination,
+  ) {
     final startIndex = (pagination.currentPage - 1) * pagination.itemsPerPage;
     final endIndex = startIndex + pagination.itemsPerPage;
-
 
     if (startIndex >= sales.length) {
       // Safety check: if current page is beyond data, go back to last page
@@ -593,15 +598,15 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   // ----------------------------------------------------------------------
 
   Widget _buildSalesList(
-      List<SaleItem> sales,
-      int totalFiltered,
-      SalesPaginationState pagination,
-      ) {
+    List<SaleItem> sales,
+    int totalFiltered,
+    SalesPaginationState pagination,
+  ) {
     if (sales.isEmpty) {
       final hasFilters =
           ref.watch(selectedSaleDateRangeProvider) != null ||
-              searchQuery.isNotEmpty ||
-              ref.watch(selectedSaleStatusProvider) != null;
+          searchQuery.isNotEmpty ||
+          ref.watch(selectedSaleStatusProvider) != null;
       return _buildEmptyState(hasFilters);
     }
 
@@ -629,7 +634,9 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
                     );
                   },
                   onPrint: () async {
-                    final bakeryInfo = await ref.read(bakeryInfoProvider.future);
+                    final bakeryInfo = await ref.read(
+                      bakeryInfoProvider.future,
+                    );
                     await generateSaleReceiptPdf(sale, bakeryInfo: bakeryInfo);
                   },
                 );
@@ -644,9 +651,9 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   }
 
   Widget _buildPaginationInfo(
-      int totalFiltered,
-      SalesPaginationState pagination,
-      ) {
+    int totalFiltered,
+    SalesPaginationState pagination,
+  ) {
     final startItem =
         (pagination.currentPage - 1) * pagination.itemsPerPage + 1;
     final endItem = pagination.currentPage * pagination.itemsPerPage;
@@ -670,9 +677,9 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   }
 
   Widget _buildPaginationControls(
-      int totalFiltered,
-      SalesPaginationState pagination,
-      ) {
+    int totalFiltered,
+    SalesPaginationState pagination,
+  ) {
     final totalPages = (totalFiltered / pagination.itemsPerPage).ceil();
     final isFirstPage = pagination.currentPage == 1;
     final isLastPage = pagination.currentPage >= totalPages;
@@ -822,7 +829,7 @@ class SaleCard extends StatelessWidget {
             // --- Icon/Receipt Number Section (Left) ---
             Icon(
               Icons.receipt_long, // Modern icon
-              color: theme.primaryColor,
+              color: theme.colorScheme.primary,
               size: 28,
             ),
             const SizedBox(width: 16),

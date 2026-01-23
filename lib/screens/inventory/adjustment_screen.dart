@@ -62,9 +62,9 @@ class _MaterialAdjustmentsScreenState
   }
 
   void _applyQuickDateFilter(
-      QuickDateFilter filter, [
-        DateTimeRange? customRange,
-      ]) {
+    QuickDateFilter filter, [
+    DateTimeRange? customRange,
+  ]) {
     final newRange = filter == QuickDateFilter.custom
         ? customRange
         : _getDateRange(filter);
@@ -87,13 +87,15 @@ class _MaterialAdjustmentsScreenState
         newRange.end.day,
       ).add(const Duration(days: 1)).subtract(const Duration(seconds: 1));
 
-      ref.read(adjustmentFiltersProvider.notifier).update(
+      ref
+          .read(adjustmentFiltersProvider.notifier)
+          .update(
             (s) => s.copyWith(
-          startDate: start.toIso8601String(),
-          endDate: end.toIso8601String(),
-          page: 1,
-        ),
-      );
+              startDate: start.toIso8601String(),
+              endDate: end.toIso8601String(),
+              page: 1,
+            ),
+          );
     }
   }
 
@@ -158,10 +160,12 @@ class _MaterialAdjustmentsScreenState
       selectedQuickFilter = QuickDateFilter.all;
       _searchController.clear();
     });
-    ref.read(adjustmentFiltersProvider.notifier).update(
+    ref
+        .read(adjustmentFiltersProvider.notifier)
+        .update(
           (s) =>
-          s.copyWith(search: '', startDate: null, endDate: null, page: 1),
-    );
+              s.copyWith(search: '', startDate: null, endDate: null, page: 1),
+        );
   }
 
   String _getFilterName(QuickDateFilter filter) {
@@ -194,7 +198,8 @@ class _MaterialAdjustmentsScreenState
     final filters = ref.watch(adjustmentFiltersProvider);
     final adjustmentsAsync = ref.watch(adjustmentsProvider);
 
-    final hasFilters = filters.search?.isNotEmpty == true ||
+    final hasFilters =
+        filters.search?.isNotEmpty == true ||
         filters.startDate != null ||
         filters.endDate != null;
 
@@ -229,7 +234,7 @@ class _MaterialAdjustmentsScreenState
           );
         },
         icon: const Icon(Icons.add),
-        label: const Text('Material Adjustment'),
+        label: const Text(' Adjustment'),
       ),
       body: Column(
         children: [
@@ -306,24 +311,25 @@ class _MaterialAdjustmentsScreenState
                 ElevatedButton(
                   onPressed: filters.page > 1
                       ? () {
-                    ref
-                        .read(adjustmentFiltersProvider.notifier)
-                        .update((s) => s.copyWith(page: s.page - 1));
-                  }
+                          ref
+                              .read(adjustmentFiltersProvider.notifier)
+                              .update((s) => s.copyWith(page: s.page - 1));
+                        }
                       : null,
                   child: const Text('Previous'),
                 ),
                 Text('Page ${filters.page}'),
                 ElevatedButton(
-                  onPressed: adjustmentsAsync.maybeWhen(
-                    data: (adjustments) => adjustments.isNotEmpty,
-                    orElse: () => false,
-                  )
+                  onPressed:
+                      adjustmentsAsync.maybeWhen(
+                        data: (adjustments) => adjustments.isNotEmpty,
+                        orElse: () => false,
+                      )
                       ? () {
-                    ref
-                        .read(adjustmentFiltersProvider.notifier)
-                        .update((s) => s.copyWith(page: s.page + 1));
-                  }
+                          ref
+                              .read(adjustmentFiltersProvider.notifier)
+                              .update((s) => s.copyWith(page: s.page + 1));
+                        }
                       : null,
                   child: const Text('Next'),
                 ),
@@ -444,7 +450,9 @@ class MaterialAdjustmentTile extends StatelessWidget {
     final amount = adjustment.amount as num;
     final isIncrease = amount > 0;
 
-    final amountColor = isIncrease ? Colors.brown.shade700 : Colors.red.shade700;
+    final amountColor = isIncrease
+        ? Colors.brown.shade700
+        : Colors.red.shade700;
     final amountText = isIncrease
         ? '+${NumberFormat('#,##0').format(amount.abs())}'
         : NumberFormat('#,##0').format(amount);

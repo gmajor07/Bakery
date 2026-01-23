@@ -35,7 +35,7 @@ class AdjustmentTypeSelectionScreen extends StatelessWidget {
                   'Adjustments',
                   style: textTheme.headlineMedium?.copyWith(
                     color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -65,7 +65,7 @@ class AdjustmentTypeSelectionScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Quick Actions',
+                              'Quick Access',
                               style: textTheme.titleLarge?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: textOnPrimary,
