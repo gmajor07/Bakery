@@ -284,6 +284,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
         tooltip: 'Add New Expense',
         child: const Icon(Icons.add),
       ),
+      floatingActionButtonLocation: const _LiftedFloatingActionButtonLocation(),
       body: Stack(
         children: [
           // Main content
@@ -700,5 +701,19 @@ class ExpenseCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Custom FAB location to lift it above the custom bottom navigation menu
+class _LiftedFloatingActionButtonLocation extends FloatingActionButtonLocation {
+  const _LiftedFloatingActionButtonLocation();
+
+  @override
+  Offset getOffset(ScaffoldPrelayoutGeometry scaffoldGeometry) {
+    // Standard endFloat position
+    final Offset standardOffset =
+        FloatingActionButtonLocation.endFloat.getOffset(scaffoldGeometry);
+    // Lift it up by 70 pixels to clear the custom navigation bar (which is 65 + 16 margin)
+    return Offset(standardOffset.dx, standardOffset.dy - 70);
   }
 }

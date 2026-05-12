@@ -15,6 +15,7 @@ import 'production_screen.dart';
 import 'purchases_screens/purchases_actions_screen.dart';
 import 'inventory/inventory_actions_screen.dart';
 import 'sales_screens/sales_history_screen.dart';
+import 'reports_screen.dart';
 
 const String customHomeIconPath = 'assets/icons/bakery_icon.png';
 
@@ -64,8 +65,16 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.restart_alt),
-            onPressed: () => AppRestart.restartApp(context),
+            icon: const Icon(LucideIcons.barChart3),
+            tooltip: 'Reports',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ReportsScreen(),
+                ),
+              );
+            },
           ),
           IconButton(
             icon: const Icon(LucideIcons.logOut),
