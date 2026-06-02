@@ -140,7 +140,7 @@ class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen> {
               // Category
               categoriesAsync.when(
                 data: (categories) => DropdownButtonFormField<ExpenseCategory>(
-                  value: _selectedCategory,
+                  initialValue: _selectedCategory,
                   decoration: const InputDecoration(
                     labelText: 'Category',
                     border: OutlineInputBorder(),
@@ -170,7 +170,7 @@ class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen> {
 
               // Payment Method
               DropdownButtonFormField<String>(
-                value: _selectedPaymentMethod,
+                initialValue: _selectedPaymentMethod,
                 decoration: const InputDecoration(
                   labelText: 'Payment Method',
                   border: OutlineInputBorder(),

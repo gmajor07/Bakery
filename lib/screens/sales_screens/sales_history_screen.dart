@@ -412,7 +412,7 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
     const statuses = [null, 'completed', 'pending', 'cancelled'];
 
     return DropdownButtonFormField<String?>(
-      value: selected,
+      initialValue: selected,
       items: statuses
           .map(
             (s) => DropdownMenuItem(

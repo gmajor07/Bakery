@@ -481,7 +481,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
             const SizedBox(height: 12),
             categoriesAsync.when(
               data: (categories) => DropdownButtonFormField<int?>(
-                value: selectedCategoryId,
+                initialValue: selectedCategoryId,
                 decoration: const InputDecoration(
                   labelText: 'Category',
                   border: OutlineInputBorder(),

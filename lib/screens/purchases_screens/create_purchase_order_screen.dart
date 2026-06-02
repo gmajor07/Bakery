@@ -420,7 +420,7 @@ class _CreatePurchaseOrderScreenState
         final supplierList = suppliers.cast<Supplier>();
 
         return DropdownButtonFormField<int>(
-          value: selectedSupplierId,
+          initialValue: selectedSupplierId,
           items: supplierList
               .map<DropdownMenuItem<int>>(
                 (s) => DropdownMenuItem<int>(value: s.id, child: Text(s.name)),
@@ -498,7 +498,7 @@ class _CreatePurchaseOrderScreenState
                 Expanded(
                   child: itemsAsync.when(
                     data: (_) => DropdownButtonFormField<int>(
-                      value: item['inventoryItemId'],
+                      initialValue: item['inventoryItemId'],
                       items: filteredInventoryItems
                           .map<DropdownMenuItem<int>>(
                             (i) => DropdownMenuItem<int>(
@@ -590,7 +590,7 @@ class _CreatePurchaseOrderScreenState
                   flex: 4,
                   child: DropdownButtonFormField<String?>(
                     // Ensure the initial value is null or exists in the list
-                    value: item['unit'] as String?,
+                    initialValue: item['unit'] as String?,
                     decoration: const InputDecoration(
                       labelText: "Unit",
                       border: OutlineInputBorder(),

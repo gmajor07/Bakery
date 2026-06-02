@@ -3,8 +3,9 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../widgets/action_card.dart';
 import 'reports/purchase_report_screen.dart';
 import 'reports/sales_report_screen.dart';
-import 'production_screen.dart';
-import 'expense_screen.dart';
+import 'reports/inventory_report_screen.dart';
+import 'reports/production_report_screen.dart';
+import 'reports/accounting_report_screen.dart';
 
 class ReportsScreen extends StatefulWidget {
   final int selectedIndex;
@@ -157,7 +158,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                   label: 'Inventory',
                                   subtitle: 'Track inventory information',
                                   icon: LucideIcons.box,
-                                  onTap: () {},
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            const InventoryReportScreen(),
+                                      ),
+                                    );
+                                  },
                                   contentAlignment: CrossAxisAlignment.center,
                                   textAlignment: TextAlign.center,
                                 ),
@@ -173,7 +182,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                       context,
                                       MaterialPageRoute(
                                         builder: (_) =>
-                                            const ProductionScreen(),
+                                            const ProductionReportScreen(),
                                       ),
                                     );
                                   },
@@ -192,10 +201,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (_) => ExpensesScreen(
-                                          selectedIndex: 4,
-                                          onNavItemTapped: (_) {},
-                                        ),
+                                        builder: (_) =>
+                                            const AccountingReportScreen(),
                                       ),
                                     );
                                   },

@@ -58,7 +58,7 @@ class _NewProductAdjustmentScreenState
                   DropdownButtonFormField<int>(
                     decoration:
                     const InputDecoration(labelText: 'Select product'),
-                    value: selectedProductId,
+                    initialValue: selectedProductId,
                     items: products
                         .map((product) => DropdownMenuItem<int>(
                       value: product.id,
@@ -107,7 +107,7 @@ class _NewProductAdjustmentScreenState
                   const Text('Reason',
                       style: TextStyle(fontWeight: FontWeight.bold)),
                   DropdownButtonFormField<String>(
-                    value: selectedReason,
+                    initialValue: selectedReason,
                     hint: const Text('Select reason'),
                     items: reasons
                         .map((r) => DropdownMenuItem(value: r, child: Text(r)))

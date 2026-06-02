@@ -228,7 +228,7 @@ class _CustomerCreationScreenState extends ConsumerState<CustomerCreationScreen>
                   border: OutlineInputBorder(),
                   contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                 ),
-                value: _status,
+                initialValue: _status,
                 items: const [
                   DropdownMenuItem(value: 'Active', child: Text('Active')),
                   DropdownMenuItem(value: 'Inactive', child: Text('Inactive')),

@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../auth/auth_provider.dart';
 import '../models/expense.dart';
 import '../services/expense_api_service.dart';
-import 'pagination_provider.dart'; // Assuming this provider is available
+// Assuming this provider is available
 
 // --- Expense Filter State Providers ---
 

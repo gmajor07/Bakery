@@ -389,7 +389,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
   Widget _buildStatusFilter(String? selected) {
     const statuses = [null, "pending", "approved", "cancelled", "completed"];
     return DropdownButtonFormField<String?>(
-      value: selected,
+      initialValue: selected,
       decoration: const InputDecoration(
         labelText: "Status",
         border: OutlineInputBorder(),

@@ -127,7 +127,7 @@ class _DateRangePickerWidgetState extends State<DateRangePickerWidget> {
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
-          value: quickOptions.contains(selectedQuickOption)
+          initialValue: quickOptions.contains(selectedQuickOption)
               ? selectedQuickOption
               : null,
           decoration: InputDecoration(

@@ -5,7 +5,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../auth/auth_provider.dart';
 import '../provider/user_provider.dart';
 import '../widgets/action_card.dart';
-import 'app_restart.dart';
 import 'customer/customer_list_screen.dart';
 import 'expense_screen.dart';
 import 'product_screen.dart';
@@ -16,8 +15,6 @@ import 'purchases_screens/purchases_actions_screen.dart';
 import 'inventory/inventory_actions_screen.dart';
 import 'sales_screens/sales_history_screen.dart';
 import 'reports_screen.dart';
-
-const String customHomeIconPath = 'assets/icons/bakery_icon.png';
 
 class BakeryHomeScreen extends ConsumerStatefulWidget {
   const BakeryHomeScreen({super.key});
@@ -31,14 +28,11 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
   int _selectedIndex = 0;
 
   @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
-    final colorScheme = Theme.of(context).colorScheme;
+    final userState = ref.watch(userProvider);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     ref.listen(authProvider, (previous, next) {
       if (!next.isAuthenticated) {
@@ -58,27 +52,94 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
         backgroundColor: Colors.transparent,
         title: Text(
           'APOTEk Bakery',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            color: colorScheme.onSurface,
+          style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(LucideIcons.barChart3),
-            tooltip: 'Reports',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const ReportsScreen(),
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: PopupMenuButton<_HomeAction>(
+              tooltip: 'Account actions',
+              offset: const Offset(0, 52),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+              onSelected: (action) {
+                switch (action) {
+                  case _HomeAction.profile:
+                    _showProfileDialog(context, userState);
+                    break;
+                  case _HomeAction.reports:
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ReportsScreen(
+                          selectedIndex: _selectedIndex,
+                          onNavItemTapped: (newIndex) {
+                            Navigator.pop(context);
+                            setState(() => _selectedIndex = newIndex);
+                          },
+                        ),
+                      ),
+                    );
+                    break;
+                  case _HomeAction.refresh:
+                    ref.invalidate(userProvider);
+                    break;
+                  case _HomeAction.logout:
+                    _showLogoutDialog(context);
+                    break;
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: _HomeAction.profile,
+                  child: _AccountMenuItem(
+                    icon: LucideIcons.userCircle,
+                    label: 'View Profile',
+                  ),
                 ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(LucideIcons.logOut),
-            onPressed: () => _showLogoutDialog(context),
+                const PopupMenuItem(
+                  value: _HomeAction.reports,
+                  child: _AccountMenuItem(
+                    icon: LucideIcons.barChart3,
+                    label: 'Reports',
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: _HomeAction.refresh,
+                  child: _AccountMenuItem(
+                    icon: LucideIcons.refreshCw,
+                    label: 'Refresh',
+                  ),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: _HomeAction.logout,
+                  child: _AccountMenuItem(
+                    icon: LucideIcons.logOut,
+                    label: 'Logout',
+                  ),
+                ),
+              ],
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: colorScheme.primary.withValues(alpha: 0.14),
+                  ),
+                ),
+                child: Icon(
+                  LucideIcons.userCircle,
+                  color: colorScheme.primary,
+                  size: 24,
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -128,7 +189,6 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
   }
 
   void _showLogoutDialog(BuildContext context) {
-    final authRef = ref; // Capture ref in closure
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -145,10 +205,7 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
               foregroundColor: Theme.of(dialogContext).colorScheme.onError,
             ),
             onPressed: () {
-              // Manual logout - clear credentials
-              authRef
-                  .read(authProvider.notifier)
-                  .logout(clearCredentials: true);
+              ref.read(authProvider.notifier).logout(clearCredentials: true);
               Navigator.pop(dialogContext);
             },
             child: const Text('Logout'),
@@ -157,75 +214,133 @@ class _BakeryHomeScreenState extends ConsumerState<BakeryHomeScreen> {
       ),
     );
   }
+
+  void _showProfileDialog(BuildContext context, UserState userState) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final user = userState.user;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: colorScheme.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(LucideIcons.userCircle, color: colorScheme.primary),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                user?.name.isNotEmpty == true ? user!.name : 'User Profile',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _ProfileDetailRow(
+              icon: LucideIcons.mail,
+              label: 'Email',
+              value: user?.email.isNotEmpty == true
+                  ? user!.email
+                  : 'Not available',
+            ),
+            const SizedBox(height: 12),
+            _ProfileDetailRow(
+              icon: LucideIcons.shieldCheck,
+              label: 'Role',
+              value: user?.role.isNotEmpty == true
+                  ? user!.role
+                  : 'Not available',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-/// Wrapper for Inventory screen to handle potential issues
-class _InventoryPage extends StatelessWidget {
-  final int selectedIndex;
-  final Function(int) onNavItemTapped;
+enum _HomeAction { profile, reports, refresh, logout }
 
-  const _InventoryPage({
-    required this.selectedIndex,
-    required this.onNavItemTapped,
+class _AccountMenuItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _AccountMenuItem({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [Icon(icon, size: 18), const SizedBox(width: 12), Text(label)],
+    );
+  }
+}
+
+class _ProfileDetailRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _ProfileDetailRow({
+    required this.icon,
+    required this.label,
+    required this.value,
   });
 
   @override
   Widget build(BuildContext context) {
-    try {
-      return InventoryActionsScreen(
-        selectedIndex: selectedIndex,
-        onNavItemTapped: onNavItemTapped,
-      );
-    } catch (e) {
-      // Fallback if InventoryActionsScreen has issues
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Inventory'),
-          backgroundColor: Theme.of(context).colorScheme.primary,
-        ),
-        body: Center(
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: colorScheme.primary),
+        const SizedBox(width: 10),
+        Expanded(
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                LucideIcons.box,
-                size: 64,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(height: 16),
               Text(
-                'Inventory Management',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
+                label,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurface.withValues(alpha: 0.55),
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 2),
               Text(
-                'Inventory features will be available soon',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () {
-                  // Navigate to Products screen as alternative
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ProductsScreen()),
-                  );
-                },
-                child: const Text('Go to Products'),
+                value,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),
         ),
-      );
-    }
+      ],
+    );
   }
 }
 
-/// Dashboard body with enhanced UI and layout
 class _DashboardBody extends ConsumerWidget {
   final int selectedIndex;
   final Function(int) onNavItemTapped;
@@ -242,21 +357,16 @@ class _DashboardBody extends ConsumerWidget {
     final colorScheme = theme.colorScheme;
     final primaryColor = colorScheme.primary;
     final textOnPrimary = colorScheme.onPrimary;
-
     final userState = ref.watch(userProvider);
 
     String greeting = 'Hi, Baker!';
     if (userState.user != null) {
       greeting = 'Hi, ${userState.user!.name.split(' ').first}!';
-    } else if (userState.isLoading) {
-      greeting = 'Loading...';
-    } else if (userState.error != null) {
-      greeting = 'Hi, Baker!';
     }
 
     return Stack(
       children: [
-        // 1. GREETING & DATE (Outside the card)
+        // 1. GREETING (Outside the card)
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
           child: Column(
@@ -266,7 +376,6 @@ class _DashboardBody extends ConsumerWidget {
               Text(
                 greeting,
                 style: textTheme.headlineMedium?.copyWith(
-                  color: colorScheme.onSurface,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -274,14 +383,14 @@ class _DashboardBody extends ConsumerWidget {
               Text(
                 _formattedDate(),
                 style: textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurface.withOpacity(0.6),
+                  color: colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
               ),
             ],
           ),
         ),
 
-        // 2. BIG COLORED CARD (with top radius) - extends to bottom
+        // 2. BIG COLORED CARD (with top rounded corners)
         Padding(
           padding: const EdgeInsets.only(top: 110),
           child: Container(
@@ -295,7 +404,6 @@ class _DashboardBody extends ConsumerWidget {
             ),
             child: Column(
               children: [
-                // --- Quick Access Title + Grid ---
                 Expanded(
                   child: SingleChildScrollView(
                     child: Padding(
@@ -325,103 +433,73 @@ class _DashboardBody extends ConsumerWidget {
                                 label: 'New Sale',
                                 subtitle: 'Start a transaction',
                                 icon: LucideIcons.creditCard,
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const PosScreen(),
-                                    ),
-                                  );
-                                },
-                                contentAlignment: CrossAxisAlignment.center,
-                                textAlignment: TextAlign.center,
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const PosScreen(),
+                                  ),
+                                ),
                               ),
-
                               ActionCard(
                                 color: primaryColor,
                                 label: 'Sales History',
                                 subtitle: 'Review transactions',
                                 icon: LucideIcons.barChart3,
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          const SalesHistoryScreen(),
-                                    ),
-                                  );
-                                },
-                                contentAlignment: CrossAxisAlignment.center,
-                                textAlignment: TextAlign.center,
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const SalesHistoryScreen(),
+                                  ),
+                                ),
                               ),
-
                               ActionCard(
                                 color: primaryColor,
                                 label: 'Purchase Orders',
                                 subtitle: 'Manage PO',
                                 icon: LucideIcons.shoppingCart,
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          const PurchaseOrdersScreen(),
-                                    ),
-                                  );
-                                },
-                                contentAlignment: CrossAxisAlignment.center,
-                                textAlignment: TextAlign.center,
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const PurchaseOrdersScreen(),
+                                  ),
+                                ),
                               ),
-
                               ActionCard(
                                 color: primaryColor,
                                 label: 'Products',
                                 subtitle: 'Manage products',
                                 icon: LucideIcons.box,
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const ProductsScreen(),
-                                    ),
-                                  );
-                                },
-                                contentAlignment: CrossAxisAlignment.center,
-                                textAlignment: TextAlign.center,
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const ProductsScreen(),
+                                  ),
+                                ),
                               ),
-
                               ActionCard(
                                 color: primaryColor,
                                 label: 'Production',
                                 subtitle: 'View production',
                                 icon: LucideIcons.factory,
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => ProductionScreen(),
-                                    ),
-                                  );
-                                },
-                                contentAlignment: CrossAxisAlignment.center,
-                                textAlignment: TextAlign.center,
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ProductionScreen(),
+                                  ),
+                                ),
                               ),
-
                               ActionCard(
                                 color: primaryColor,
                                 label: 'Customers',
                                 subtitle: 'Manage customers',
                                 icon: LucideIcons.userCircle,
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => CustomerScreen(),
-                                    ),
-                                  );
-                                },
-                                contentAlignment: CrossAxisAlignment.center,
-                                textAlignment: TextAlign.center,
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => CustomerScreen(),
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -431,130 +509,12 @@ class _DashboardBody extends ConsumerWidget {
                   ),
                 ),
 
-                // --- Navigation Bar Menu (Inside the card at bottom) ---
-                Container(
-                  margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  decoration: BoxDecoration(
-                    color: textOnPrimary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(30),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        spreadRadius: 1,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(30),
-                    child: SizedBox(
-                      height: 65,
-                      child: Row(
-                        children: [
-                          // Home
-                          Expanded(
-                            child: _buildNavItemWidget(
-                              icon: LucideIcons.home,
-                              label: 'Home',
-                              index: 0,
-                              unselectedIconColor: textOnPrimary.withOpacity(
-                                0.5,
-                              ),
-                              unselectedTextColor: textOnPrimary.withOpacity(
-                                0.5,
-                              ),
-                              isSelected: selectedIndex == 0,
-                              context: context,
-                              textOnPrimary: textOnPrimary,
-                              primaryColor: primaryColor,
-                              onTap: onNavItemTapped,
-                            ),
-                          ),
-
-                          // Payments
-                          Expanded(
-                            child: _buildNavItemWidget(
-                              icon: LucideIcons.badgeInfo,
-                              label: 'Payments',
-                              index: 1,
-                              unselectedIconColor: textOnPrimary.withOpacity(
-                                0.5,
-                              ),
-                              unselectedTextColor: textOnPrimary.withOpacity(
-                                0.5,
-                              ),
-                              isSelected: selectedIndex == 1,
-                              context: context,
-                              textOnPrimary: textOnPrimary,
-                              primaryColor: primaryColor,
-                              onTap: onNavItemTapped,
-                            ),
-                          ),
-
-                          // Purchases
-                          Expanded(
-                            child: _buildNavItemWidget(
-                              icon: LucideIcons.shoppingCart,
-                              label: 'Purchases',
-                              index: 2,
-                              unselectedIconColor: textOnPrimary.withOpacity(
-                                0.5,
-                              ),
-                              unselectedTextColor: textOnPrimary.withOpacity(
-                                0.5,
-                              ),
-                              isSelected: selectedIndex == 2,
-                              context: context,
-                              textOnPrimary: textOnPrimary,
-                              primaryColor: primaryColor,
-                              onTap: onNavItemTapped,
-                            ),
-                          ),
-
-                          // Inventory
-                          Expanded(
-                            child: _buildNavItemWidget(
-                              icon: LucideIcons.box,
-                              label: 'Inventory',
-                              index: 3,
-                              unselectedIconColor: textOnPrimary.withOpacity(
-                                0.5,
-                              ),
-                              unselectedTextColor: textOnPrimary.withOpacity(
-                                0.5,
-                              ),
-                              isSelected: selectedIndex == 3,
-                              context: context,
-                              textOnPrimary: textOnPrimary,
-                              primaryColor: primaryColor,
-                              onTap: onNavItemTapped,
-                            ),
-                          ),
-
-                          // Production
-                          Expanded(
-                            child: _buildNavItemWidget(
-                              icon: LucideIcons.printer,
-                              label: 'Expenses',
-                              index: 4,
-                              unselectedIconColor: textOnPrimary.withOpacity(
-                                0.5,
-                              ),
-                              unselectedTextColor: textOnPrimary.withOpacity(
-                                0.5,
-                              ),
-                              isSelected: selectedIndex == 4,
-                              context: context,
-                              textOnPrimary: textOnPrimary,
-                              primaryColor: primaryColor,
-                              onTap: onNavItemTapped,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                // 3. Navigation Bar Menu
+                _FloatingNavBar(
+                  selectedIndex: selectedIndex,
+                  onTap: onNavItemTapped,
+                  primaryColor: primaryColor,
+                  textOnPrimary: textOnPrimary,
                 ),
               ],
             ),
@@ -564,54 +524,8 @@ class _DashboardBody extends ConsumerWidget {
     );
   }
 
-  // Static method to build nav items
-  static Widget _buildNavItemWidget({
-    required IconData icon,
-    required String label,
-    required int index,
-    required Color? unselectedIconColor,
-    required Color? unselectedTextColor,
-    required bool isSelected,
-    required BuildContext context,
-    required Color textOnPrimary,
-    required Color primaryColor,
-    Function(int)? onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap != null ? () => onTap(index) : null,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? textOnPrimary : unselectedIconColor,
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? textOnPrimary : unselectedTextColor,
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   static String _formattedDate() {
     final now = DateTime.now();
-    final dayOfWeek = _dayShort(now.weekday);
-    final month = _monthShort(now.month);
-    return '$dayOfWeek, ${now.day} $month ${now.year}';
-  }
-
-  static String _monthShort(int m) {
     const months = [
       'Jan',
       'Feb',
@@ -626,11 +540,161 @@ class _DashboardBody extends ConsumerWidget {
       'Nov',
       'Dec',
     ];
-    return months[m - 1];
-  }
-
-  static String _dayShort(int d) {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return days[d - 1];
+    return '${days[now.weekday - 1]}, ${now.day} ${months[now.month - 1]} ${now.year}';
+  }
+}
+
+class _FloatingNavBar extends StatelessWidget {
+  final int selectedIndex;
+  final Function(int) onTap;
+  final Color primaryColor;
+  final Color textOnPrimary;
+
+  const _FloatingNavBar({
+    required this.selectedIndex,
+    required this.onTap,
+    required this.primaryColor,
+    required this.textOnPrimary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      decoration: BoxDecoration(
+        color: textOnPrimary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            spreadRadius: 1,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: SizedBox(
+          height: 65,
+          child: Row(
+            children: [
+              _NavItem(
+                icon: LucideIcons.home,
+                label: 'Home',
+                index: 0,
+                isSelected: selectedIndex == 0,
+                onTap: onTap,
+                textOnPrimary: textOnPrimary,
+              ),
+              _NavItem(
+                icon: LucideIcons.badgeInfo,
+                label: 'Payments',
+                index: 1,
+                isSelected: selectedIndex == 1,
+                onTap: onTap,
+                textOnPrimary: textOnPrimary,
+              ),
+              _NavItem(
+                icon: LucideIcons.shoppingCart,
+                label: 'Purchases',
+                index: 2,
+                isSelected: selectedIndex == 2,
+                onTap: onTap,
+                textOnPrimary: textOnPrimary,
+              ),
+              _NavItem(
+                icon: LucideIcons.box,
+                label: 'Inventory',
+                index: 3,
+                isSelected: selectedIndex == 3,
+                onTap: onTap,
+                textOnPrimary: textOnPrimary,
+              ),
+              _NavItem(
+                icon: LucideIcons.printer,
+                label: 'Expenses',
+                index: 4,
+                isSelected: selectedIndex == 4,
+                onTap: onTap,
+                textOnPrimary: textOnPrimary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int index;
+  final bool isSelected;
+  final Function(int) onTap;
+  final Color textOnPrimary;
+
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.index,
+    required this.isSelected,
+    required this.onTap,
+    required this.textOnPrimary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isSelected
+        ? textOnPrimary
+        : textOnPrimary.withValues(alpha: 0.5);
+
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => onTap(index),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: color, size: 24),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InventoryPage extends StatelessWidget {
+  final int selectedIndex;
+  final Function(int) onNavItemTapped;
+
+  const _InventoryPage({
+    required this.selectedIndex,
+    required this.onNavItemTapped,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    try {
+      return InventoryActionsScreen(
+        selectedIndex: selectedIndex,
+        onNavItemTapped: onNavItemTapped,
+      );
+    } catch (e) {
+      return const Center(child: Text('Inventory Error'));
+    }
   }
 }

@@ -7,42 +7,37 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
-import '../../auth/auth_provider.dart';
-import '../../models/customer.dart';
-import '../../models/payment_record.dart';
-import '../../models/sale_item.dart';
-import '../../provider/customers_provider.dart';
+import '../../models/expense.dart';
+import '../../models/outstanding_payment.dart';
+import '../../models/production_items.dart';
+import '../../provider/expense_provider.dart';
 import '../../provider/payment_provider.dart';
-import '../../provider/products_provider.dart';
+import '../../provider/production_provider.dart';
 import '../../provider/sales_provider.dart';
 import '../../provider/settings_provider.dart';
 import '../../widgets/report_pdf.dart';
 
-class SalesReportScreen extends ConsumerStatefulWidget {
-  const SalesReportScreen({super.key});
+class AccountingReportScreen extends ConsumerStatefulWidget {
+  const AccountingReportScreen({super.key});
 
   @override
-  ConsumerState<SalesReportScreen> createState() => _SalesReportScreenState();
+  ConsumerState<AccountingReportScreen> createState() =>
+      _AccountingReportScreenState();
 }
 
-class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
+class _AccountingReportScreenState
+    extends ConsumerState<AccountingReportScreen> {
   static const List<String> _reportTypes = [
-    'Sales Details Report',
-    'Sales Summary Report',
-    'Cash Sales Details Report',
-    'Cash Sales Summary Report',
-    'Credit Sales Details Report',
-    'Credit Sales Summary Report',
-    'Credit Payments Report',
-    'Price List Report',
-    'Sales Returns Report',
+    'Daily Profit Report',
+    'Gross Profit Report',
+    'Net Profit Report',
+    'Expenses Report',
+    'Outstanding Payments Report',
   ];
 
   final DateFormat _dayMonthFormat = DateFormat('MMM dd');
   final DateFormat _fullDateFormat = DateFormat('MMM dd, yyyy');
-  String _selectedReportType = 'Cash Sales Details Report';
-  int? _selectedCustomerId;
-
+  String? _selectedReportType;
   DateTimeRange _selectedRange = DateTimeRange(
     start: DateTime.now().subtract(const Duration(days: 30)),
     end: DateTime.now(),
@@ -112,32 +107,19 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
   }
 
   Future<void> _generatePdf() async {
+    final reportType = _selectedReportType ?? 'accounting report';
     final messenger = ScaffoldMessenger.of(context);
 
     messenger.showSnackBar(
       SnackBar(
-        content: Text('Generating $_selectedReportType PDF...'),
+        content: Text('Generating $reportType PDF...'),
         behavior: SnackBarBehavior.floating,
       ),
     );
 
     try {
-      if (_selectedReportType == 'Price List Report') {
-        final products = await ref.read(productsProvider.future);
-        final bakeryInfo = await ref.read(bakeryInfoProvider.future);
-        final bytes = await generatePriceListReportPdf(
-          products: products,
-          bakeryInfo: bakeryInfo,
-          reportTitle: pdfReportTitle(_selectedReportType),
-        );
-
-        if (!mounted) return;
-        await Printing.layoutPdf(onLayout: (_) => bytes);
-        return;
-      }
-
       final bakeryInfo = await ref.read(bakeryInfoProvider.future);
-      final bytes = await _buildSalesReportPdf(bakeryInfo);
+      final bytes = await _buildAccountingReportPdf(bakeryInfo);
 
       if (!mounted) return;
       await Printing.layoutPdf(onLayout: (_) => bytes);
@@ -152,22 +134,57 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     }
   }
 
-  bool get _shouldShowDateFields => _selectedReportType != 'Price List Report';
-
-  bool get _shouldShowCustomerField =>
-      _selectedReportType == 'Credit Payments Report';
-
-  Future<Uint8List> _buildSalesReportPdf(
+  Future<Uint8List> _buildAccountingReportPdf(
     Map<String, dynamic> bakeryInfo,
   ) async {
-    if (_selectedReportType == 'Credit Payments Report') {
-      final payments = await ref.read(paymentHistoryProvider.future);
-      final filtered = payments.where(_paymentInRange).toList();
+    final reportType = _selectedReportType!;
 
-      return generateTableReportPdf<PaymentRecord>(
-        reportTitle: pdfReportTitle(_selectedReportType),
+    if (reportType == 'Expenses Report') {
+      final expenses = (await ref.read(
+        expensesProvider.future,
+      )).where((item) => _dateInRange(_expenseDate(item))).toList();
+      return generateTableReportPdf<Expense>(
+        reportTitle: pdfReportTitle(reportType),
         bakeryInfo: bakeryInfo,
-        rows: filtered,
+        rows: expenses,
+        columns: [
+          ReportColumn(title: '#', value: (_, index) => '${index + 1}'),
+          ReportColumn(
+            title: 'Date',
+            flex: 2,
+            value: (item, _) => _date(_expenseDate(item)),
+          ),
+          ReportColumn(
+            title: 'Category',
+            flex: 3,
+            value: (item, _) => item.category.name,
+          ),
+          ReportColumn(
+            title: 'Method',
+            flex: 2,
+            value: (item, _) => item.paymentMethod,
+          ),
+          ReportColumn(
+            title: 'Status',
+            flex: 2,
+            value: (item, _) => item.status,
+          ),
+          ReportColumn(
+            title: 'Amount',
+            flex: 2,
+            alignment: pw.Alignment.centerRight,
+            value: (item, _) => _money(item.amount),
+          ),
+        ],
+      );
+    }
+
+    if (reportType == 'Outstanding Payments Report') {
+      final rows = await ref.read(outstandingPaymentsProvider.future);
+      return generateTableReportPdf<OutstandingPayment>(
+        reportTitle: pdfReportTitle(reportType),
+        bakeryInfo: bakeryInfo,
+        rows: rows,
         columns: [
           ReportColumn(title: '#', value: (_, index) => '${index + 1}'),
           ReportColumn(
@@ -177,101 +194,138 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
           ReportColumn(
             title: 'Customer',
             flex: 3,
-            value: (item, _) => item.customerName,
+            value: (item, _) => item.customer,
           ),
           ReportColumn(
-            title: 'Date',
+            title: 'Due Date',
             flex: 2,
-            value: (item, _) => _date(item.paymentDate),
+            value: (item, _) => _date(item.dueDate),
           ),
           ReportColumn(
-            title: 'Amount',
+            title: 'Paid',
             flex: 2,
             alignment: pw.Alignment.centerRight,
-            value: (item, _) => _money(item.amount),
+            value: (item, _) => _money(item.paidAmount),
+          ),
+          ReportColumn(
+            title: 'Balance',
+            flex: 2,
+            alignment: pw.Alignment.centerRight,
+            value: (item, _) => _money(item.balance),
           ),
         ],
-        dateRangeLabel: _pdfRangeLabel,
       );
     }
 
-    final sales = await ref.read(salesHistoryProvider.future);
-    final filtered = sales.where(_saleMatchesReport).toList();
-    final isSummary = _selectedReportType.contains('Summary');
+    final sales = (await ref.read(salesHistoryProvider.future))
+        .where(
+          (sale) =>
+              _dateInRange(DateTime.tryParse(sale.date) ?? DateTime.now()),
+        )
+        .toList();
+    final productions = (await ref.read(
+      productionProvider.future,
+    )).where((item) => _dateInRange(item.date)).toList();
+    final expenses = (await ref.read(
+      expensesProvider.future,
+    )).where((item) => _dateInRange(_expenseDate(item))).toList();
 
-    if (isSummary) {
-      final summary = _summarizeSales(filtered);
-      return generateTableReportPdf<_SalesSummaryRow>(
-        reportTitle: pdfReportTitle(_selectedReportType),
+    if (reportType == 'Daily Profit Report') {
+      return generateTableReportPdf<_ProfitRow>(
+        reportTitle: pdfReportTitle(reportType),
         bakeryInfo: bakeryInfo,
-        rows: summary,
-        columns: [
-          ReportColumn(title: '#', value: (_, index) => '${index + 1}'),
-          ReportColumn(title: 'Date', flex: 2, value: (item, _) => item.date),
-          ReportColumn(title: 'Sales', value: (item, _) => '${item.count}'),
-          ReportColumn(
-            title: 'Total',
-            flex: 2,
-            alignment: pw.Alignment.centerRight,
-            value: (item, _) => _money(item.total),
-          ),
-          ReportColumn(
-            title: 'Outstanding',
-            flex: 2,
-            alignment: pw.Alignment.centerRight,
-            value: (item, _) => _money(item.outstanding),
-          ),
-        ],
-        dateRangeLabel: _pdfRangeLabel,
+        rows: _dailyProfitRows(sales, productions, expenses),
+        columns: _profitColumns,
       );
     }
 
-    return generateTableReportPdf<SaleItem>(
-      reportTitle: pdfReportTitle(_selectedReportType),
+    final revenue = sales.fold<double>(0, (sum, sale) => sum + sale.amount);
+    final cost = productions.fold<double>(0, (sum, item) => sum + item.cost);
+    final expenseTotal = reportType == 'Net Profit Report'
+        ? expenses.fold<double>(0, (sum, item) => sum + item.amount)
+        : 0.0;
+
+    return generateTableReportPdf<_ProfitRow>(
+      reportTitle: pdfReportTitle(reportType),
       bakeryInfo: bakeryInfo,
-      rows: filtered,
-      columns: [
-        ReportColumn(title: '#', value: (_, index) => '${index + 1}'),
-        ReportColumn(
-          title: 'Receipt',
-          value: (item, _) => '${item.receiptNumber}',
-        ),
-        ReportColumn(
-          title: 'Customer',
-          flex: 3,
-          value: (item, _) => item.customer,
-        ),
-        ReportColumn(
-          title: 'Date',
-          flex: 2,
-          value: (item, _) => _date(_saleDate(item)),
-        ),
-        ReportColumn(
-          title: 'Payment',
-          flex: 2,
-          value: (item, _) => item.paymentMethod,
-        ),
-        ReportColumn(
-          title: 'Total',
-          flex: 2,
-          alignment: pw.Alignment.centerRight,
-          value: (item, _) => _money(item.amount),
+      rows: [
+        _ProfitRow(
+          _rangeLabel,
+          revenue,
+          cost,
+          expenseTotal,
+          revenue - cost - expenseTotal,
         ),
       ],
-      dateRangeLabel: _pdfRangeLabel,
+      columns: _profitColumns,
     );
   }
 
-  bool _saleMatchesReport(SaleItem sale) {
-    final saleDate = _saleDate(sale);
-    if (!_dateInRange(saleDate)) return false;
-    if (_selectedReportType.startsWith('Cash')) return !sale.isCredit;
-    if (_selectedReportType.startsWith('Credit')) return sale.isCredit;
-    return true;
-  }
+  List<ReportColumn<_ProfitRow>> get _profitColumns => [
+    ReportColumn(title: '#', value: (_, index) => '${index + 1}'),
+    ReportColumn(title: 'Period', flex: 3, value: (item, _) => item.period),
+    ReportColumn(
+      title: 'Revenue',
+      flex: 2,
+      alignment: pw.Alignment.centerRight,
+      value: (item, _) => _money(item.revenue),
+    ),
+    ReportColumn(
+      title: 'Cost',
+      flex: 2,
+      alignment: pw.Alignment.centerRight,
+      value: (item, _) => _money(item.cost),
+    ),
+    ReportColumn(
+      title: 'Expenses',
+      flex: 2,
+      alignment: pw.Alignment.centerRight,
+      value: (item, _) => _money(item.expenses),
+    ),
+    ReportColumn(
+      title: 'Profit',
+      flex: 2,
+      alignment: pw.Alignment.centerRight,
+      value: (item, _) => _money(item.profit),
+    ),
+  ];
 
-  bool _paymentInRange(PaymentRecord payment) =>
-      _dateInRange(payment.paymentDate);
+  List<_ProfitRow> _dailyProfitRows(
+    List<dynamic> sales,
+    List<ProductionItem> productions,
+    List<Expense> expenses,
+  ) {
+    final grouped = <String, _ProfitRow>{};
+    void add(
+      String key, {
+      double revenue = 0,
+      double cost = 0,
+      double expense = 0,
+    }) {
+      final current = grouped[key] ?? _ProfitRow(key, 0, 0, 0, 0);
+      grouped[key] = _ProfitRow(
+        key,
+        current.revenue + revenue,
+        current.cost + cost,
+        current.expenses + expense,
+        current.profit + revenue - cost - expense,
+      );
+    }
+
+    for (final sale in sales) {
+      add(
+        _date(DateTime.tryParse(sale.date) ?? DateTime.now()),
+        revenue: sale.amount,
+      );
+    }
+    for (final item in productions) {
+      add(_date(item.date), cost: item.cost);
+    }
+    for (final expense in expenses) {
+      add(_date(_expenseDate(expense)), expense: expense.amount.toDouble());
+    }
+    return grouped.values.toList();
+  }
 
   bool _dateInRange(DateTime date) {
     final start = DateTime(
@@ -290,30 +344,10 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     return !date.isBefore(start) && !date.isAfter(end);
   }
 
-  DateTime _saleDate(SaleItem sale) =>
-      DateTime.tryParse(sale.date) ?? DateTime.now();
-
-  List<_SalesSummaryRow> _summarizeSales(List<SaleItem> sales) {
-    final grouped = <String, _SalesSummaryRow>{};
-    for (final sale in sales) {
-      final key = _date(_saleDate(sale));
-      final current = grouped[key] ?? _SalesSummaryRow(key, 0, 0, 0);
-      grouped[key] = _SalesSummaryRow(
-        key,
-        current.count + 1,
-        current.total + sale.amount,
-        current.outstanding + sale.outstandingBalance,
-      );
-    }
-    return grouped.values.toList();
-  }
+  DateTime _expenseDate(Expense expense) =>
+      DateTime.tryParse(expense.date) ?? DateTime.now();
 
   String _date(DateTime date) => DateFormat('dd-MM-yyyy').format(date);
-
-  String get _pdfRangeLabel {
-    final formatter = DateFormat('dd-MM-yyyy');
-    return 'From: ${formatter.format(_selectedRange.start)} To: ${formatter.format(_selectedRange.end)}';
-  }
 
   String _money(num value) => NumberFormat('#,##0').format(value);
 
@@ -321,11 +355,6 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final authState = ref.watch(authProvider);
-    final token = authState.accessToken;
-    final customersAsync = token == null
-        ? null
-        : ref.watch(customersProvider(token));
     final isDark = theme.brightness == Brightness.dark;
     final panelColor = isDark ? colorScheme.surface : Colors.white;
     final borderColor = colorScheme.outlineVariant.withValues(alpha: 0.8);
@@ -336,7 +365,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
         elevation: 0,
         backgroundColor: Colors.transparent,
         title: Text(
-          'Sales Reports',
+          'Accounting Reports',
           style: theme.textTheme.titleLarge?.copyWith(
             color: colorScheme.onSurface,
             fontWeight: FontWeight.bold,
@@ -372,6 +401,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                 child: DropdownButtonFormField<String>(
                   initialValue: _selectedReportType,
                   isExpanded: true,
+                  hint: const Text('Select accounting report type'),
                   icon: const Icon(LucideIcons.chevronDown),
                   decoration: _fieldDecoration(context),
                   items: _reportTypes
@@ -383,13 +413,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                       )
                       .toList(),
                   onChanged: (value) {
-                    if (value == null) return;
-                    setState(() {
-                      _selectedReportType = value;
-                      if (!_shouldShowCustomerField) {
-                        _selectedCustomerId = null;
-                      }
-                    });
+                    setState(() => _selectedReportType = value);
                   },
                 ),
               );
@@ -448,20 +472,6 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                   ),
                 ),
               );
-              final customerField = _ReportField(
-                label: 'Customer',
-                child: _buildCustomerDropdown(
-                  context,
-                  authState.isLoading,
-                  customersAsync,
-                ),
-              );
-
-              final filterFields = <Widget>[
-                reportTypeField,
-                if (_shouldShowCustomerField) customerField,
-                if (_shouldShowDateFields) dateRangeField,
-              ];
 
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -470,29 +480,17 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        for (
-                          var index = 0;
-                          index < filterFields.length;
-                          index++
-                        ) ...[
-                          Expanded(child: filterFields[index]),
-                          if (index != filterFields.length - 1)
-                            const SizedBox(width: 16),
-                        ],
+                        Expanded(flex: 6, child: reportTypeField),
+                        const SizedBox(width: 16),
+                        Expanded(flex: 4, child: dateRangeField),
                       ],
                     )
                   else ...[
                     reportTypeField,
-                    if (_shouldShowCustomerField) ...[
-                      const SizedBox(height: 16),
-                      customerField,
-                    ],
-                    if (_shouldShowDateFields) ...[
-                      const SizedBox(height: 16),
-                      quickFilters,
-                      const SizedBox(height: 16),
-                      dateRangeField,
-                    ],
+                    const SizedBox(height: 16),
+                    quickFilters,
+                    const SizedBox(height: 16),
+                    dateRangeField,
                   ],
                   const SizedBox(height: 28),
                   Align(
@@ -502,7 +500,9 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                     child: SizedBox(
                       height: 40,
                       child: ElevatedButton.icon(
-                        onPressed: _generatePdf,
+                        onPressed: _selectedReportType == null
+                            ? null
+                            : _generatePdf,
                         icon: const Icon(LucideIcons.download, size: 18),
                         label: const Text('Generate PDF'),
                         style: ElevatedButton.styleFrom(
@@ -520,64 +520,6 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildCustomerDropdown(
-    BuildContext context,
-    bool authIsLoading,
-    AsyncValue<List<Customer>>? customersAsync,
-  ) {
-    if (authIsLoading || customersAsync == null) {
-      return InputDecorator(
-        decoration: _fieldDecoration(context),
-        child: const Text('Loading customers...'),
-      );
-    }
-
-    return customersAsync.when(
-      loading: () => InputDecorator(
-        decoration: _fieldDecoration(context),
-        child: const Text('Loading customers...'),
-      ),
-      error: (error, _) => InputDecorator(
-        decoration: _fieldDecoration(context),
-        child: Text(
-          'Could not load customers',
-          style: TextStyle(color: Theme.of(context).colorScheme.error),
-        ),
-      ),
-      data: (customers) {
-        final customerIds = customers.map((customer) => customer.id).toSet();
-        if (_selectedCustomerId != null &&
-            !customerIds.contains(_selectedCustomerId)) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() => _selectedCustomerId = null);
-          });
-        }
-
-        return DropdownButtonFormField<int?>(
-          initialValue: _selectedCustomerId,
-          isExpanded: true,
-          icon: const Icon(LucideIcons.chevronDown),
-          decoration: _fieldDecoration(context),
-          items: [
-            const DropdownMenuItem<int?>(
-              value: null,
-              child: Text('All Customers'),
-            ),
-            ...customers.map(
-              (customer) => DropdownMenuItem<int?>(
-                value: customer.id,
-                child: Text(customer.name),
-              ),
-            ),
-          ],
-          onChanged: (value) {
-            setState(() => _selectedCustomerId = value);
-          },
-        );
-      },
     );
   }
 
@@ -633,11 +575,18 @@ class _ReportField extends StatelessWidget {
   }
 }
 
-class _SalesSummaryRow {
-  final String date;
-  final int count;
-  final double total;
-  final double outstanding;
+class _ProfitRow {
+  final String period;
+  final double revenue;
+  final double cost;
+  final double expenses;
+  final double profit;
 
-  const _SalesSummaryRow(this.date, this.count, this.total, this.outstanding);
+  const _ProfitRow(
+    this.period,
+    this.revenue,
+    this.cost,
+    this.expenses,
+    this.profit,
+  );
 }

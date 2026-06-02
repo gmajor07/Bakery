@@ -1,4 +1,3 @@
-// lib/widgets/action_card.dart
 import 'package:flutter/material.dart';
 
 class ActionCard extends StatelessWidget {
@@ -9,7 +8,6 @@ class ActionCard extends StatelessWidget {
   final VoidCallback onTap;
   final Color? iconColor;
   final Color? textColor;
-  final bool? useDefaultColors;
   final double? elevation;
   final EdgeInsetsGeometry? padding;
   final BorderRadiusGeometry? borderRadius;
@@ -25,110 +23,83 @@ class ActionCard extends StatelessWidget {
     required this.onTap,
     this.iconColor,
     this.textColor,
-    this.useDefaultColors = true,
-    this.elevation = 2,
+    this.elevation,
     this.padding,
     this.borderRadius,
-    this.contentAlignment = CrossAxisAlignment.start,
-    this.textAlignment = TextAlign.left,
+    this.contentAlignment = CrossAxisAlignment.center,
+    this.textAlignment = TextAlign.center,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
+    final isDark = theme.brightness == Brightness.dark;
 
-    // Determine colors based on useDefaultColors flag
-    final surfaceColor = useDefaultColors!
-        ? colorScheme.background
-        : colorScheme.onSurface.withOpacity(0.05);
-    final cardTextColor =
-        textColor ??
-        (useDefaultColors!
-            ? textTheme.bodyMedium?.color
-            : colorScheme.onSurface);
-    final subtitleColor = cardTextColor?.withOpacity(0.6);
-    final iconBgColor = useDefaultColors! ? color.withOpacity(0.9) : color;
-    final iconContentColor =
-        iconColor ??
-        (useDefaultColors! ? colorScheme.onPrimary : colorScheme.onSurface);
+    // Original Look: Dark cards on the colored background
+    final cardBgColor = isDark
+        ? const Color(0xFF2D2722)
+        : const Color(0xFF1A1613);
+    final mainTextColor = Colors.white;
+    final subTextColor = Colors.white70;
 
-    return Material(
-      color: surfaceColor,
-      borderRadius: borderRadius ?? BorderRadius.circular(20),
-      elevation: elevation ?? 2,
-      shadowColor: Colors.black.withOpacity(0.05),
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: padding ?? const EdgeInsets.all(16),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              // Calculate responsive sizes based on available space
-              final availableHeight = constraints.maxHeight;
-              final iconSize = availableHeight > 120 ? 24.0 : 20.0;
-              final iconPadding = availableHeight > 120 ? 10.0 : 8.0;
-              final mainSpacing = availableHeight > 120 ? 10.0 : 6.0;
-              final labelSize = availableHeight > 120 ? 14.0 : 12.0;
-              final subtitleSize = availableHeight > 120 ? 11.0 : 10.0;
-
-              return Column(
-                crossAxisAlignment: contentAlignment,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(iconPadding),
-                    decoration: BoxDecoration(
-                      color: iconBgColor,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(icon, color: iconContentColor, size: iconSize),
+    return Container(
+      decoration: BoxDecoration(
+        color: cardBgColor,
+        borderRadius: borderRadius ?? BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius:
+              borderRadius as BorderRadius? ?? BorderRadius.circular(28),
+          child: Padding(
+            padding: padding ?? const EdgeInsets.all(16),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: contentAlignment,
+              children: [
+                // Icon in a rounded square
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: color, // The "Gold/Brown" accent color
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  SizedBox(height: mainSpacing),
-                  Flexible(
-                    fit: FlexFit.loose,
-                    child: Column(
-                      crossAxisAlignment: contentAlignment,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            label,
-                            textAlign: textAlignment,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w900,
-                              fontSize: labelSize,
-                              color: cardTextColor,
-                              height: 1.1,
-                            ),
-                          ),
-                        ),
-                        if (subtitle.isNotEmpty) ...[
-                          SizedBox(height: mainSpacing / 3),
-                          Flexible(
-                            child: Text(
-                              subtitle,
-                              textAlign: textAlignment,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: subtitleSize,
-                                color: subtitleColor,
-                                height: 1.1,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
+                  child: Icon(
+                    icon,
+                    color: iconColor ?? Colors.black87,
+                    size: 24,
                   ),
-                ],
-              );
-            },
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  label,
+                  textAlign: textAlignment,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    color: mainTextColor,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  textAlign: textAlignment,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: subTextColor,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

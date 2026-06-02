@@ -33,7 +33,6 @@ class InventoryActionsScreen extends StatelessWidget {
       ),
       body: Stack(
         children: [
-          // 1. TITLE (Outside the card)
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
             child: Column(
@@ -44,16 +43,21 @@ class InventoryActionsScreen extends StatelessWidget {
                   'Inventory',
                   style: textTheme.headlineMedium?.copyWith(
                     color: colorScheme.onSurface,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Manage materials, supplies, products, and stock levels',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
               ],
             ),
           ),
-
-          // 2. BIG COLORED CARD (with top radius) - extends to bottom
           Padding(
-            padding: const EdgeInsets.only(top: 90),
+            padding: const EdgeInsets.only(top: 110),
             child: Container(
               width: double.infinity,
               decoration: BoxDecoration(
@@ -65,7 +69,6 @@ class InventoryActionsScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  // --- Quick Access Title + Grid ---
                   Expanded(
                     child: SingleChildScrollView(
                       child: Padding(
@@ -81,7 +84,6 @@ class InventoryActionsScreen extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 16),
-
                             GridView.count(
                               physics: const NeverScrollableScrollPhysics(),
                               shrinkWrap: true,
@@ -90,11 +92,10 @@ class InventoryActionsScreen extends StatelessWidget {
                               mainAxisSpacing: 16,
                               childAspectRatio: 1.2,
                               children: [
-                                // 1. Materials (Raw Ingredients)
                                 ActionCard(
                                   color: primaryColor,
                                   label: 'Materials',
-                                  subtitle: 'Material ingredients',
+                                  subtitle: 'Raw ingredients',
                                   icon: LucideIcons.cakeSlice,
                                   onTap: () {
                                     Navigator.push(
@@ -104,16 +105,12 @@ class InventoryActionsScreen extends StatelessWidget {
                                       ),
                                     );
                                   },
-                                  contentAlignment: CrossAxisAlignment.center,
-                                  textAlignment: TextAlign.center,
                                 ),
-
-                                // 2. Supplies (Non-raw items)
                                 ActionCard(
                                   color: primaryColor,
                                   label: 'Supplies',
-                                  subtitle: 'Manage supplies',
-                                  icon: LucideIcons.cake,
+                                  subtitle: 'Packaging & items',
+                                  icon: LucideIcons.box,
                                   onTap: () {
                                     Navigator.push(
                                       context,
@@ -122,16 +119,12 @@ class InventoryActionsScreen extends StatelessWidget {
                                       ),
                                     );
                                   },
-                                  contentAlignment: CrossAxisAlignment.center,
-                                  textAlignment: TextAlign.center,
                                 ),
-
-                                // 3. Products (Finished Goods)
                                 ActionCard(
                                   color: primaryColor,
                                   label: 'Products',
-                                  subtitle: 'Manage stock levels',
-                                  icon: LucideIcons.box,
+                                  subtitle: 'Finished goods',
+                                  icon: LucideIcons.shoppingBag,
                                   onTap: () {
                                     Navigator.push(
                                       context,
@@ -140,16 +133,12 @@ class InventoryActionsScreen extends StatelessWidget {
                                       ),
                                     );
                                   },
-                                  contentAlignment: CrossAxisAlignment.center,
-                                  textAlignment: TextAlign.center,
                                 ),
-
-                                // 4. Stock Adjustments Card
                                 ActionCard(
                                   color: primaryColor,
                                   label: 'Adjustments',
-                                  subtitle: 'Manage adjustments',
-                                  icon: LucideIcons.history,
+                                  subtitle: 'Fix stock levels',
+                                  icon: LucideIcons.sliders,
                                   onTap: () {
                                     Navigator.push(
                                       context,
@@ -159,8 +148,6 @@ class InventoryActionsScreen extends StatelessWidget {
                                       ),
                                     );
                                   },
-                                  contentAlignment: CrossAxisAlignment.center,
-                                  textAlignment: TextAlign.center,
                                 ),
                               ],
                             ),
@@ -169,82 +156,10 @@ class InventoryActionsScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-
-                  // --- Navigation Bar Menu (Inside the card at bottom) ---
-                  Container(
-                    margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    decoration: BoxDecoration(
-                      color: textOnPrimary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(30),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                          spreadRadius: 1,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(30),
-                      child: SizedBox(
-                        height: 65,
-                        child: Row(
-                          children: [
-                            // Home
-                            Expanded(
-                              child: _buildNavItem(
-                                icon: LucideIcons.home,
-                                label: 'Home',
-                                index: 0,
-                                isSelected: selectedIndex == 0,
-                                textOnPrimary: textOnPrimary,
-                              ),
-                            ),
-                            // Payments
-                            Expanded(
-                              child: _buildNavItem(
-                                icon: LucideIcons.badgeInfo,
-                                label: 'Payments',
-                                index: 1,
-                                isSelected: selectedIndex == 1,
-                                textOnPrimary: textOnPrimary,
-                              ),
-                            ),
-                            // Purchases
-                            Expanded(
-                              child: _buildNavItem(
-                                icon: LucideIcons.shoppingCart,
-                                label: 'Purchases',
-                                index: 2,
-                                isSelected: selectedIndex == 2,
-                                textOnPrimary: textOnPrimary,
-                              ),
-                            ),
-                            // Inventory
-                            Expanded(
-                              child: _buildNavItem(
-                                icon: LucideIcons.box,
-                                label: 'Inventory',
-                                index: 3,
-                                isSelected: selectedIndex == 3,
-                                textOnPrimary: textOnPrimary,
-                              ),
-                            ),
-                            // Expenses
-                            Expanded(
-                              child: _buildNavItem(
-                                icon: LucideIcons.printer,
-                                label: 'Expenses',
-                                index: 4,
-                                isSelected: selectedIndex == 4,
-                                textOnPrimary: textOnPrimary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                  _InventoryNavBar(
+                    selectedIndex: selectedIndex,
+                    onTap: onNavItemTapped,
+                    textOnPrimary: textOnPrimary,
                   ),
                 ],
               ),
@@ -254,40 +169,132 @@ class InventoryActionsScreen extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildNavItem({
-    required IconData icon,
-    required String label,
-    required int index,
-    required bool isSelected,
-    required Color textOnPrimary,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => onNavItemTapped(index),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color: isSelected
-                  ? textOnPrimary
-                  : textOnPrimary.withOpacity(0.5),
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected
-                    ? textOnPrimary
-                    : textOnPrimary.withOpacity(0.5),
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+class _InventoryNavBar extends StatelessWidget {
+  final int selectedIndex;
+  final Function(int) onTap;
+  final Color textOnPrimary;
+
+  const _InventoryNavBar({
+    required this.selectedIndex,
+    required this.onTap,
+    required this.textOnPrimary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      decoration: BoxDecoration(
+        color: textOnPrimary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            spreadRadius: 1,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: SizedBox(
+          height: 65,
+          child: Row(
+            children: [
+              _InventoryNavItem(
+                icon: LucideIcons.home,
+                label: 'Home',
+                index: 0,
+                isSelected: selectedIndex == 0,
+                textOnPrimary: textOnPrimary,
+                onTap: onTap,
               ),
-            ),
-          ],
+              _InventoryNavItem(
+                icon: LucideIcons.badgeInfo,
+                label: 'Payments',
+                index: 1,
+                isSelected: selectedIndex == 1,
+                textOnPrimary: textOnPrimary,
+                onTap: onTap,
+              ),
+              _InventoryNavItem(
+                icon: LucideIcons.shoppingCart,
+                label: 'Purchases',
+                index: 2,
+                isSelected: selectedIndex == 2,
+                textOnPrimary: textOnPrimary,
+                onTap: onTap,
+              ),
+              _InventoryNavItem(
+                icon: LucideIcons.box,
+                label: 'Inventory',
+                index: 3,
+                isSelected: selectedIndex == 3,
+                textOnPrimary: textOnPrimary,
+                onTap: onTap,
+              ),
+              _InventoryNavItem(
+                icon: LucideIcons.printer,
+                label: 'Expenses',
+                index: 4,
+                isSelected: selectedIndex == 4,
+                textOnPrimary: textOnPrimary,
+                onTap: onTap,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InventoryNavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int index;
+  final bool isSelected;
+  final Color textOnPrimary;
+  final Function(int) onTap;
+
+  const _InventoryNavItem({
+    required this.icon,
+    required this.label,
+    required this.index,
+    required this.isSelected,
+    required this.textOnPrimary,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isSelected
+        ? textOnPrimary
+        : textOnPrimary.withValues(alpha: 0.5);
+
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => onTap(index),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: color, size: 24),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

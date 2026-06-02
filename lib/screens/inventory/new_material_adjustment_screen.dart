@@ -75,7 +75,7 @@ class _NewMaterialAdjustmentScreenState
                   ),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<int>(
-                    value: selectedItemId,
+                    initialValue: selectedItemId,
                     decoration: const InputDecoration(labelText: 'Select item'),
                     items: itemList
                         .map(
@@ -109,7 +109,7 @@ class _NewMaterialAdjustmentScreenState
                   ),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String>(
-                    value: selectedAction,
+                    initialValue: selectedAction,
                     items: const [
                       DropdownMenuItem(value: 'Add', child: Text('Add')),
                       DropdownMenuItem(
@@ -130,7 +130,7 @@ class _NewMaterialAdjustmentScreenState
                   ),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String>(
-                    value: selectedUnit,
+                    initialValue: selectedUnit,
                     items: const [
                       DropdownMenuItem(value: 'kg', child: Text('kg')),
                       DropdownMenuItem(value: 'l', child: Text('l')),
@@ -174,7 +174,7 @@ class _NewMaterialAdjustmentScreenState
                   ),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String>(
-                    value: selectedReason,
+                    initialValue: selectedReason,
                     hint: const Text('Select reason'),
                     items: reasons
                         .map((r) => DropdownMenuItem(value: r, child: Text(r)))

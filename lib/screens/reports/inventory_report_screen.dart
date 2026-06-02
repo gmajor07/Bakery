@@ -8,33 +8,43 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../auth/auth_provider.dart';
-import '../../models/material_received.dart';
-import '../../models/purchase_order.dart' as purchase_model;
+import '../../models/adjustment.dart' as adjustment_model;
+import '../../models/inventory_item.dart' as inventory_model;
+import '../../models/product.dart';
+import '../../models/product_adjustment.dart' as product_adjustment;
 import '../../models/supplier_model.dart';
-import '../../provider/material_received_provider.dart' as material_provider;
+import '../../provider/adjustment_provider.dart';
+import '../../provider/inventory_provider.dart';
+import '../../provider/products_provider.dart';
 import '../../provider/settings_provider.dart';
 import '../../provider/suppliers_provider.dart';
-import '../../services/purchases_api_service.dart';
 import '../../widgets/report_pdf.dart';
 
-class PurchaseReportScreen extends ConsumerStatefulWidget {
-  const PurchaseReportScreen({super.key});
+class InventoryReportScreen extends ConsumerStatefulWidget {
+  const InventoryReportScreen({super.key});
 
   @override
-  ConsumerState<PurchaseReportScreen> createState() =>
-      _PurchaseReportScreenState();
+  ConsumerState<InventoryReportScreen> createState() =>
+      _InventoryReportScreenState();
 }
 
-class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
+class _InventoryReportScreenState extends ConsumerState<InventoryReportScreen> {
   static const List<String> _reportTypes = [
-    'Material Received Report',
-    'List of Supplier',
-    'Purchase Orders Detailed Report',
-    'Purchase Orders Summary Report',
+    'Materials Current Stock',
+    'Supplies Current Stock',
+    'Product Current Stock',
+    'Materials Below Min Level',
+    'Supplies Below Min Level',
+    'Materials Adjustments',
+    'Supplies Adjustments',
+    'Materials Out of Stock',
+    'Supplies Out of Stock',
+    'Product Details',
+    'Product Adjustments',
+    'Suppliers List',
   ];
 
   String? _selectedReportType;
-  int? _selectedSupplierId;
   final DateFormat _dayMonthFormat = DateFormat('MMM dd');
   final DateFormat _fullDateFormat = DateFormat('MMM dd, yyyy');
   DateTimeRange _selectedRange = DateTimeRange(
@@ -42,8 +52,16 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
     end: DateTime.now(),
   );
 
-  bool get _shouldShowSupplierAndDate =>
-      _selectedReportType != null && _selectedReportType != 'List of Supplier';
+  static const Set<String> _reportsWithDate = {
+    'Materials Adjustments',
+    'Supplies Adjustments',
+    'Product Adjustments',
+    'Suppliers List',
+  };
+
+  bool get _shouldShowDate =>
+      _selectedReportType != null &&
+      _reportsWithDate.contains(_selectedReportType);
 
   Future<void> _selectDateRange() async {
     final now = DateTime.now();
@@ -60,7 +78,7 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
   }
 
   Future<void> _generatePdf() async {
-    final reportType = _selectedReportType ?? 'purchase report';
+    final reportType = _selectedReportType ?? 'inventory report';
     final messenger = ScaffoldMessenger.of(context);
 
     messenger.showSnackBar(
@@ -72,7 +90,7 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
 
     try {
       final bakeryInfo = await ref.read(bakeryInfoProvider.future);
-      final bytes = await _buildPurchaseReportPdf(bakeryInfo);
+      final bytes = await _buildInventoryReportPdf(bakeryInfo);
 
       if (!mounted) return;
       await Printing.layoutPdf(onLayout: (_) => bytes);
@@ -87,16 +105,21 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
     }
   }
 
-  Future<Uint8List> _buildPurchaseReportPdf(
+  Future<Uint8List> _buildInventoryReportPdf(
     Map<String, dynamic> bakeryInfo,
   ) async {
     final reportType = _selectedReportType!;
 
-    if (reportType == 'List of Supplier') {
+    if (reportType == 'Product Current Stock' ||
+        reportType == 'Product Details') {
+      final products = await ref.read(productsProvider.future);
+      return _productsPdf(reportType, bakeryInfo, products);
+    }
+
+    if (reportType == 'Suppliers List') {
       final token = await ref.read(authProvider.notifier).getAccessToken();
       if (token == null) throw Exception('Token is null');
       final suppliers = await ref.read(suppliersProvider(token).future);
-
       return generateTableReportPdf<Supplier>(
         reportTitle: reportType,
         bakeryInfo: bakeryInfo,
@@ -123,72 +146,66 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
       );
     }
 
-    if (reportType == 'Material Received Report') {
-      final selectedSupplierName = await _selectedSupplierName();
-      final response = await ref
-          .read(material_provider.materialApiServiceProvider)
-          .fetchReceipts(
+    if (reportType == 'Product Adjustments') {
+      final rows = await ref
+          .read(adjustmentsApiServiceProvider)
+          .fetchProductAdjustments(
             startDate: _selectedRange.start.toIso8601String(),
             endDate: _selectedRange.end.toIso8601String(),
           );
-
-      return generateTableReportPdf<MaterialReceipt>(
-        reportTitle: pdfReportTitle(reportType),
+      return generateTableReportPdf<product_adjustment.ProductAdjustment>(
+        reportTitle: reportType,
         bakeryInfo: bakeryInfo,
-        rows: response.receipts
-            .where((receipt) => _matchesSupplier(receipt, selectedSupplierName))
-            .toList(),
+        rows: rows,
         columns: [
           ReportColumn(title: '#', value: (_, index) => '${index + 1}'),
-          ReportColumn(title: 'Receipt', value: (item, _) => '${item.id}'),
           ReportColumn(
-            title: 'Supplier',
+            title: 'Product',
             flex: 3,
-            value: (item, _) => item.supplierName,
+            value: (item, _) => item.product?.name ?? 'Unknown',
           ),
           ReportColumn(
             title: 'Date',
             flex: 2,
-            value: (item, _) => _date(item.receivedDate),
+            value: (item, _) => _date(item.createdAt),
           ),
           ReportColumn(
-            title: 'Total',
-            flex: 2,
+            title: 'Amount',
             alignment: pw.Alignment.centerRight,
-            value: (item, _) => _money(item.total),
+            value: (item, _) => '${item.amount}',
           ),
           ReportColumn(
-            title: 'Status',
-            flex: 2,
-            value: (item, _) => item.status,
+            title: 'Reason',
+            flex: 3,
+            value: (item, _) => item.reason,
           ),
         ],
       );
     }
 
-    final orders = await ref
-        .read(purchaseOrdersApiServiceProvider)
-        .fetchPurchaseOrders(
-          startDate: _selectedRange.start,
-          endDate: _selectedRange.end,
-        );
-    final filtered = orders.where((order) {
-      return _selectedSupplierId == null ||
-          order.supplierId == _selectedSupplierId;
-    }).toList();
-
-    if (reportType == 'Purchase Orders Summary Report') {
-      return generateTableReportPdf<purchase_model.PurchaseOrder>(
-        reportTitle: pdfReportTitle(reportType),
+    if (reportType == 'Materials Adjustments' ||
+        reportType == 'Supplies Adjustments') {
+      final type = reportType.startsWith('Supplies')
+          ? 'supplies'
+          : 'raw_material';
+      final rows = await ref
+          .read(adjustmentsApiServiceProvider)
+          .fetchAdjustments(
+            startDate: _selectedRange.start.toIso8601String(),
+            endDate: _selectedRange.end.toIso8601String(),
+            type: type,
+            limit: 10000,
+          );
+      return generateTableReportPdf<adjustment_model.Adjustment>(
+        reportTitle: reportType,
         bakeryInfo: bakeryInfo,
-        rows: filtered,
+        rows: rows,
         columns: [
           ReportColumn(title: '#', value: (_, index) => '${index + 1}'),
-          ReportColumn(title: 'Order', value: (item, _) => '${item.id}'),
           ReportColumn(
-            title: 'Supplier',
+            title: 'Item',
             flex: 3,
-            value: (item, _) => item.supplier.name,
+            value: (item, _) => item.inventoryItem.name,
           ),
           ReportColumn(
             title: 'Date',
@@ -197,87 +214,107 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
                 _date(DateTime.tryParse(item.createdAt) ?? DateTime.now()),
           ),
           ReportColumn(
-            title: 'Status',
-            flex: 2,
-            value: (item, _) => item.status,
+            title: 'Amount',
+            alignment: pw.Alignment.centerRight,
+            value: (item, _) => _number(item.amount),
           ),
           ReportColumn(
-            title: 'Total',
-            flex: 2,
-            alignment: pw.Alignment.centerRight,
-            value: (item, _) => _money(item.totalCost),
+            title: 'Reason',
+            flex: 3,
+            value: (item, _) => item.reason,
           ),
         ],
       );
     }
 
-    final detailedRows = filtered
-        .expand(
-          (order) => order.items.map((item) => _PurchaseDetailRow(order, item)),
-        )
-        .toList();
+    final type = reportType.startsWith('Supplies')
+        ? 'supplies'
+        : 'raw_material';
+    var rows = await ref.read(inventoryProvider(type).future);
+    if (reportType.contains('Below Min Level')) {
+      rows = rows
+          .where((item) => item.currentQuantity <= item.minLevel)
+          .toList();
+    } else if (reportType.contains('Out of Stock')) {
+      rows = rows.where((item) => item.currentQuantity <= 0).toList();
+    }
 
-    return generateTableReportPdf<_PurchaseDetailRow>(
-      reportTitle: pdfReportTitle(reportType),
+    return generateTableReportPdf<inventory_model.InventoryItem>(
+      reportTitle: reportType,
       bakeryInfo: bakeryInfo,
-      rows: detailedRows,
+      rows: rows,
       columns: [
         ReportColumn(title: '#', value: (_, index) => '${index + 1}'),
-        ReportColumn(title: 'Order', value: (item, _) => '${item.order.id}'),
         ReportColumn(
-          title: 'Supplier',
+          title: 'Item Name',
           flex: 3,
-          value: (item, _) => item.order.supplier.name,
+          value: (item, _) => item.name,
         ),
+        ReportColumn(title: 'Unit', value: (item, _) => item.unit),
         ReportColumn(
-          title: 'Item',
-          flex: 3,
-          value: (item, _) => item.item.itemName,
-        ),
-        ReportColumn(
-          title: 'Qty',
-          alignment: pw.Alignment.centerRight,
-          value: (item, _) => _money(item.item.quantity),
-        ),
-        ReportColumn(
-          title: 'Price',
+          title: 'Current',
           flex: 2,
           alignment: pw.Alignment.centerRight,
-          value: (item, _) => _money(item.item.price),
+          value: (item, _) => _number(item.currentQuantity),
+        ),
+        ReportColumn(
+          title: 'Min Level',
+          flex: 2,
+          alignment: pw.Alignment.centerRight,
+          value: (item, _) => _number(item.minLevel),
+        ),
+        ReportColumn(
+          title: 'Cost',
+          flex: 2,
+          alignment: pw.Alignment.centerRight,
+          value: (item, _) => _money(item.cost),
         ),
       ],
     );
   }
 
-  Future<String?> _selectedSupplierName() async {
-    if (_selectedSupplierId == null) return null;
-    final token = await ref.read(authProvider.notifier).getAccessToken();
-    if (token == null) return null;
-    final suppliers = await ref.read(suppliersProvider(token).future);
-    for (final supplier in suppliers) {
-      if (supplier.id == _selectedSupplierId) return supplier.name;
-    }
-    return null;
-  }
-
-  bool _matchesSupplier(MaterialReceipt receipt, String? supplierName) {
-    if (supplierName == null) return true;
-    return receipt.supplierName.toLowerCase() == supplierName.toLowerCase();
+  Future<Uint8List> _productsPdf(
+    String reportType,
+    Map<String, dynamic> bakeryInfo,
+    List<Product> products,
+  ) {
+    return generateTableReportPdf<Product>(
+      reportTitle: reportType,
+      bakeryInfo: bakeryInfo,
+      rows: products,
+      columns: [
+        ReportColumn(title: '#', value: (_, index) => '${index + 1}'),
+        ReportColumn(
+          title: 'Product Name',
+          flex: 3,
+          value: (item, _) => item.name,
+        ),
+        ReportColumn(
+          title: 'Qty',
+          alignment: pw.Alignment.centerRight,
+          value: (item, _) => '${item.quantity}',
+        ),
+        ReportColumn(
+          title: 'Sell Price',
+          flex: 2,
+          alignment: pw.Alignment.centerRight,
+          value: (item, _) => _money(item.price),
+        ),
+        ReportColumn(title: 'Status', flex: 2, value: (item, _) => item.status),
+      ],
+    );
   }
 
   String _date(DateTime date) => DateFormat('dd-MM-yyyy').format(date);
 
   String _money(num value) => NumberFormat('#,##0').format(value);
 
+  String _number(num value) => NumberFormat('#,##0.##').format(value);
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final authState = ref.watch(authProvider);
-    final token = authState.accessToken;
-    final suppliersAsync = token == null
-        ? null
-        : ref.watch(suppliersProvider(token));
     final isDark = theme.brightness == Brightness.dark;
     final panelColor = isDark ? colorScheme.surface : Colors.white;
     final borderColor = colorScheme.outlineVariant.withValues(alpha: 0.8);
@@ -288,7 +325,7 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
         elevation: 0,
         backgroundColor: Colors.transparent,
         title: Text(
-          'Purchase Reports',
+          'Inventory Reports',
           style: theme.textTheme.titleLarge?.copyWith(
             color: colorScheme.onSurface,
             fontWeight: FontWeight.bold,
@@ -300,10 +337,10 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(8, 16, 8, 24),
+        padding: const EdgeInsets.fromLTRB(14, 16, 14, 24),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(24, 34, 10, 24),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: panelColor,
             border: Border.all(color: borderColor),
@@ -324,7 +361,7 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
                 child: DropdownButtonFormField<String>(
                   initialValue: _selectedReportType,
                   isExpanded: true,
-                  hint: const Text('Select purchases report type'),
+                  hint: const Text('Select inventory report type'),
                   icon: const Icon(LucideIcons.chevronDown),
                   decoration: _fieldDecoration(context),
                   items: _reportTypes
@@ -336,21 +373,8 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
                       )
                       .toList(),
                   onChanged: (value) {
-                    setState(() {
-                      _selectedReportType = value;
-                      if (!_shouldShowSupplierAndDate) {
-                        _selectedSupplierId = null;
-                      }
-                    });
+                    setState(() => _selectedReportType = value);
                   },
-                ),
-              );
-              final supplierField = _ReportField(
-                label: 'Supplier',
-                child: _buildSupplierDropdown(
-                  context,
-                  authState.isLoading,
-                  suppliersAsync,
                 ),
               );
               final dateRangeField = _ReportField(
@@ -385,23 +409,18 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(flex: 5, child: reportTypeField),
-                        if (_shouldShowSupplierAndDate) ...[
+                        Expanded(child: reportTypeField),
+                        if (_shouldShowDate) ...[
                           const SizedBox(width: 16),
-                          Expanded(flex: 5, child: dateRangeField),
-                          const SizedBox(width: 16),
-                          Expanded(flex: 5, child: supplierField),
+                          Expanded(child: dateRangeField),
                         ],
-                        const Spacer(flex: 3),
                       ],
                     )
                   else ...[
                     reportTypeField,
-                    if (_shouldShowSupplierAndDate) ...[
+                    if (_shouldShowDate) ...[
                       const SizedBox(height: 16),
                       dateRangeField,
-                      const SizedBox(height: 16),
-                      supplierField,
                     ],
                   ],
                   const SizedBox(height: 28),
@@ -439,64 +458,6 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
     final start = _dayMonthFormat.format(_selectedRange.start);
     final end = _fullDateFormat.format(_selectedRange.end);
     return '$start - $end';
-  }
-
-  Widget _buildSupplierDropdown(
-    BuildContext context,
-    bool authIsLoading,
-    AsyncValue<List<Supplier>>? suppliersAsync,
-  ) {
-    if (authIsLoading || suppliersAsync == null) {
-      return InputDecorator(
-        decoration: _fieldDecoration(context),
-        child: const Text('Loading suppliers...'),
-      );
-    }
-
-    return suppliersAsync.when(
-      loading: () => InputDecorator(
-        decoration: _fieldDecoration(context),
-        child: const Text('Loading suppliers...'),
-      ),
-      error: (error, _) => InputDecorator(
-        decoration: _fieldDecoration(context),
-        child: Text(
-          'Could not load suppliers',
-          style: TextStyle(color: Theme.of(context).colorScheme.error),
-        ),
-      ),
-      data: (suppliers) {
-        final supplierIds = suppliers.map((supplier) => supplier.id).toSet();
-        if (_selectedSupplierId != null &&
-            !supplierIds.contains(_selectedSupplierId)) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() => _selectedSupplierId = null);
-          });
-        }
-
-        return DropdownButtonFormField<int?>(
-          initialValue: _selectedSupplierId,
-          isExpanded: true,
-          icon: const Icon(LucideIcons.chevronDown),
-          decoration: _fieldDecoration(context),
-          items: [
-            const DropdownMenuItem<int?>(
-              value: null,
-              child: Text('All Suppliers'),
-            ),
-            ...suppliers.map(
-              (supplier) => DropdownMenuItem<int?>(
-                value: supplier.id,
-                child: Text(supplier.name),
-              ),
-            ),
-          ],
-          onChanged: (value) {
-            setState(() => _selectedSupplierId = value);
-          },
-        );
-      },
-    );
   }
 
   InputDecoration _fieldDecoration(BuildContext context) {
@@ -543,11 +504,4 @@ class _ReportField extends StatelessWidget {
       ],
     );
   }
-}
-
-class _PurchaseDetailRow {
-  final purchase_model.PurchaseOrder order;
-  final purchase_model.PurchaseOrderItem item;
-
-  const _PurchaseDetailRow(this.order, this.item);
 }

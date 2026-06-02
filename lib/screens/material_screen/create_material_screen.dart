@@ -105,7 +105,7 @@ class _CreateMaterialScreenState extends ConsumerState<CreateMaterialScreen> {
 
               // 2. Unit Dropdown
               DropdownButtonFormField<String>(
-                value: _selectedUnit,
+                initialValue: _selectedUnit,
                 decoration: const InputDecoration(
                   labelText: 'Unit *',
                   border: OutlineInputBorder(),

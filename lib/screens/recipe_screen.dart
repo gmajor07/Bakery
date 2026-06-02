@@ -284,7 +284,7 @@ class _RecipeScreenState extends ConsumerState<RecipeScreen> {
 
             // Item Name Dropdown
             DropdownButtonFormField<int>(
-              value: ingredient.selectedItemId,
+              initialValue: ingredient.selectedItemId,
               decoration: const InputDecoration(
                 labelText: 'Item Name',
                 border: OutlineInputBorder(),

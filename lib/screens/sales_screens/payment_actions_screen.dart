@@ -1,4 +1,3 @@
-// lib/screens/sales_screens/sales_actions_screen.dart
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../widgets/action_card.dart';
@@ -32,7 +31,6 @@ class SalesActionsScreen extends StatelessWidget {
       ),
       body: Stack(
         children: [
-          // 1. TITLE (Outside the card)
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
             child: Column(
@@ -41,18 +39,23 @@ class SalesActionsScreen extends StatelessWidget {
               children: [
                 Text(
                   'Credit Payments',
-                  style: textTheme.titleLarge?.copyWith(
+                  style: textTheme.headlineMedium?.copyWith(
                     color: colorScheme.onSurface,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Manage outstanding balances and payment history',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
               ],
             ),
           ),
-
-          // 2. BIG COLORED CARD (with top radius) - extends to bottom
           Padding(
-            padding: const EdgeInsets.only(top: 90),
+            padding: const EdgeInsets.only(top: 110),
             child: Container(
               width: double.infinity,
               decoration: BoxDecoration(
@@ -64,7 +67,6 @@ class SalesActionsScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  // --- Quick Access Title + Grid ---
                   Expanded(
                     child: SingleChildScrollView(
                       child: Padding(
@@ -80,7 +82,6 @@ class SalesActionsScreen extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 16),
-
                             GridView.count(
                               physics: const NeverScrollableScrollPhysics(),
                               shrinkWrap: true,
@@ -89,11 +90,10 @@ class SalesActionsScreen extends StatelessWidget {
                               mainAxisSpacing: 16,
                               childAspectRatio: 1.2,
                               children: [
-                                // 1. Outstanding Payments
                                 ActionCard(
                                   color: primaryColor,
-                                  label: 'Outstanding Payments',
-                                  subtitle: 'Manage payments credits',
+                                  label: 'Outstanding',
+                                  subtitle: 'Manage credits',
                                   icon: LucideIcons.badgeInfo,
                                   onTap: () {
                                     Navigator.push(
@@ -104,16 +104,12 @@ class SalesActionsScreen extends StatelessWidget {
                                       ),
                                     );
                                   },
-                                  contentAlignment: CrossAxisAlignment.center,
-                                  textAlignment: TextAlign.center,
                                 ),
-
-                                // 2. Payment History
                                 ActionCard(
                                   color: primaryColor,
-                                  label: 'Payments History',
-                                  subtitle: 'Track incoming payments',
-                                  icon: LucideIcons.clock,
+                                  label: 'History',
+                                  subtitle: 'Track payments',
+                                  icon: LucideIcons.history,
                                   onTap: () {
                                     Navigator.push(
                                       context,
@@ -123,8 +119,6 @@ class SalesActionsScreen extends StatelessWidget {
                                       ),
                                     );
                                   },
-                                  contentAlignment: CrossAxisAlignment.center,
-                                  textAlignment: TextAlign.center,
                                 ),
                               ],
                             ),
@@ -133,82 +127,10 @@ class SalesActionsScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-
-                  // --- Navigation Bar Menu (Inside the card at bottom) ---
-                  Container(
-                    margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    decoration: BoxDecoration(
-                      color: textOnPrimary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(30),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                          spreadRadius: 1,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(30),
-                      child: SizedBox(
-                        height: 65,
-                        child: Row(
-                          children: [
-                            // Home
-                            Expanded(
-                              child: _buildNavItem(
-                                icon: LucideIcons.home,
-                                label: 'Home',
-                                index: 0,
-                                isSelected: selectedIndex == 0,
-                                textOnPrimary: textOnPrimary,
-                              ),
-                            ),
-                            // Payments
-                            Expanded(
-                              child: _buildNavItem(
-                                icon: LucideIcons.badgeInfo,
-                                label: 'Payments',
-                                index: 1,
-                                isSelected: selectedIndex == 1,
-                                textOnPrimary: textOnPrimary,
-                              ),
-                            ),
-                            // Purchases
-                            Expanded(
-                              child: _buildNavItem(
-                                icon: LucideIcons.shoppingCart,
-                                label: 'Purchases',
-                                index: 2,
-                                isSelected: selectedIndex == 2,
-                                textOnPrimary: textOnPrimary,
-                              ),
-                            ),
-                            // Inventory
-                            Expanded(
-                              child: _buildNavItem(
-                                icon: LucideIcons.box,
-                                label: 'Inventory',
-                                index: 3,
-                                isSelected: selectedIndex == 3,
-                                textOnPrimary: textOnPrimary,
-                              ),
-                            ),
-                            // Expenses
-                            Expanded(
-                              child: _buildNavItem(
-                                icon: LucideIcons.printer,
-                                label: 'Expenses',
-                                index: 4,
-                                isSelected: selectedIndex == 4,
-                                textOnPrimary: textOnPrimary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                  _PaymentNavBar(
+                    selectedIndex: selectedIndex,
+                    onTap: onNavItemTapped,
+                    textOnPrimary: textOnPrimary,
                   ),
                 ],
               ),
@@ -218,40 +140,132 @@ class SalesActionsScreen extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildNavItem({
-    required IconData icon,
-    required String label,
-    required int index,
-    required bool isSelected,
-    required Color textOnPrimary,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => onNavItemTapped(index),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color: isSelected
-                  ? textOnPrimary
-                  : textOnPrimary.withOpacity(0.5),
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected
-                    ? textOnPrimary
-                    : textOnPrimary.withOpacity(0.5),
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+class _PaymentNavBar extends StatelessWidget {
+  final int selectedIndex;
+  final Function(int) onTap;
+  final Color textOnPrimary;
+
+  const _PaymentNavBar({
+    required this.selectedIndex,
+    required this.onTap,
+    required this.textOnPrimary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      decoration: BoxDecoration(
+        color: textOnPrimary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            spreadRadius: 1,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: SizedBox(
+          height: 65,
+          child: Row(
+            children: [
+              _PaymentNavItem(
+                icon: LucideIcons.home,
+                label: 'Home',
+                index: 0,
+                isSelected: selectedIndex == 0,
+                textOnPrimary: textOnPrimary,
+                onTap: onTap,
               ),
-            ),
-          ],
+              _PaymentNavItem(
+                icon: LucideIcons.badgeInfo,
+                label: 'Payments',
+                index: 1,
+                isSelected: selectedIndex == 1,
+                textOnPrimary: textOnPrimary,
+                onTap: onTap,
+              ),
+              _PaymentNavItem(
+                icon: LucideIcons.shoppingCart,
+                label: 'Purchases',
+                index: 2,
+                isSelected: selectedIndex == 2,
+                textOnPrimary: textOnPrimary,
+                onTap: onTap,
+              ),
+              _PaymentNavItem(
+                icon: LucideIcons.box,
+                label: 'Inventory',
+                index: 3,
+                isSelected: selectedIndex == 3,
+                textOnPrimary: textOnPrimary,
+                onTap: onTap,
+              ),
+              _PaymentNavItem(
+                icon: LucideIcons.printer,
+                label: 'Expenses',
+                index: 4,
+                isSelected: selectedIndex == 4,
+                textOnPrimary: textOnPrimary,
+                onTap: onTap,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PaymentNavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int index;
+  final bool isSelected;
+  final Color textOnPrimary;
+  final Function(int) onTap;
+
+  const _PaymentNavItem({
+    required this.icon,
+    required this.label,
+    required this.index,
+    required this.isSelected,
+    required this.textOnPrimary,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isSelected
+        ? textOnPrimary
+        : textOnPrimary.withValues(alpha: 0.5);
+
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => onTap(index),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: color, size: 24),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
